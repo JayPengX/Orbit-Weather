@@ -176,12 +176,11 @@ export function routeForecast(pins, forecastFor, now) {
   // you are by day; laundry, the window at night, sleep, the car at home).
   const { span: aSpan, tips } = planTips(pins, forecastFor, now);
   const dayKey = placeKey(placeAt(pins, aSpan.from + Math.floor((aSpan.to - aSpan.from) / 2 / HOUR) * HOUR));
-  const nightKey = placeKey(placeAt(pins, aSpan.to + HOUR));
   const take = (k, kinds) => (forecastFor(k)?.advice || []).filter(a => kinds.includes(a.kind));
   const advice = [
     ...tips.map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}` })),
-    ...take(dayKey, ['outdoor', 'mask', 'heat']),
-    ...take(nightKey, ['laundry', 'window', 'sleep', 'carwash'])
+    // (On the move: what changes the day out there; home things stay on home's page.)
+    ...take(dayKey, ['run', 'thunder', 'wind', 'fog', 'temp', 'mask', 'heat'])
   ];
   // The week's table, from the route's days.
   const week = days.filter(d => d.date >= dateOf(aSpan.from, tz)).slice(0, 7);
@@ -201,7 +200,7 @@ export function routeForecast(pins, forecastFor, now) {
   if (week.length >= 3) {
     const score = d => (d.pop ?? 0) + (d.uvMax ?? 0) * 3 + Math.abs((d.hi ?? 25) - 25) * 2;
     const sorted = [...week].sort((a, b) => score(a) - score(b));
-    advice.push({ kind: 'week', level: 'info', text: `本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: forecastFor(nightKey)?.advice?.find(a => a.kind === 'laundry')?.why?.date || null } });
+    advice.push({ kind: 'week', level: 'info', text: `本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: null } });
   }
   // One sentence: where you are, and the next move.
   const segs = segments(stitch(pins, forecastFor, now, 36));

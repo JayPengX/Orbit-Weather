@@ -6,8 +6,8 @@
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
-import { pageHtml, daySheet, hoursFrom, airCols, rainCols, dayText } from './lib/cards.mjs';
-import { readout, uvCols, scrubHtml, colAt, colSpot, COL } from './lib/graph.mjs';
+import { pageHtml, daySheet, colsFor, rangeOf } from './lib/cards.mjs';
+import { readout, scrubHtml, colAt, colSpot } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf } from './lib/format.mjs';
 import { routeForecast } from './lib/plan.mjs';
 
@@ -22,7 +22,15 @@ const state = {
   index: 0,
   permission: 'unknown',
   // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
-  cols: {}
+  cols: {},
+  // The graphs' ranges (the cards' tabs), this device's choice.
+  ranges: (() => {
+    try {
+      return JSON.parse(localStorage.getItem('orbit-weather.ranges') || '{}') || {};
+    } catch {
+      return {};
+    }
+  })()
 };
 
 // ---- Pages: here, then each pin --------------------------------------------------------
@@ -62,42 +70,14 @@ function renderPage(page) {
     page.place = cur ? { county: cur.county, town: cur.town, village: cur.village } : pageOf('here')?.place || null;
   }
   const f = forecastOf(page);
-  // Keep where each graph was swiped to, and the page's own scroll.
-  const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
   const top = el.scrollTop;
-  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
-  if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: rainCols(f, now), air: airCols(f, now), tz: f.tz };
-  // The air graph opens at now (the hours measured are to its left).
-  const airBox = el.querySelector('[data-scroll="air"]');
-  if (airBox && kept.air === undefined && f) {
-    const cols = state.cols[page.key].air;
-    const first = cols.findIndex(c => c.fc);
-    const spot = colSpot(airBox.querySelector('.ch'), first > 0 ? first - 1 : cols.length - 1);
-    if (spot) airBox.scrollLeft = Math.max(0, spot.x - 4 * COL);
-  }
-  for (const s of el.querySelectorAll('[data-scroll]')) {
-    if (kept[s.dataset.scroll]) s.scrollLeft = kept[s.dataset.scroll];
-    whenChip(s);
-  }
+  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
+  if (f) state.cols[page.key] = { uv: colsFor('uv', f, now, rangeOf('uv', state.ranges)), rain: colsFor('rain', f, now, rangeOf('rain', state.ranges)), air: colsFor('air', f, now), tz: f.tz };
   el.scrollTop = top;
 }
 
 const planPage = () => state.pages.find(p => p.plan);
 
-// The chip over a graph: the day (and on 我的行程 the place) of the
-// leftmost column in view.
-function whenChip(box) {
-  const chip = box.parentElement.querySelector(`[data-when="${box.dataset.scroll}"]`);
-  const ch = box.querySelector('.ch');
-  if (!chip || !ch) return;
-  const i = colAt(ch, box.getBoundingClientRect().left + 30);
-  const key = box.closest('.wx-page')?.dataset.key;
-  const col = state.cols[key]?.[ch.dataset.graph]?.[i];
-  if (!col) return;
-  const date = col.date || dateOf(col.t, state.cols[key].tz);
-  const text = `${dayText(date, Date.now(), state.cols[key].tz)}${col.place ? ` · ${col.place}` : ''}`;
-  if (chip.textContent !== text) chip.textContent = text;
-}
 
 function renderAll() {
   const pager = $('pager');
@@ -443,12 +423,21 @@ const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字，按住再滑可以一路看下去。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖：按住圖左右滑，看每小時的數字；‹ › 換一天。', '釘選地點設定星期和時間（例如學校 週一至週五 07–17），再把一個地點設成「家」：第一頁「我的行程」就會每小時取你在的地方的天氣，告訴你一路要帶什麼。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
+    points: ['左右滑動整頁，切換我的行程、目前位置和各地點。', '圖上點一下或手指拖曳，看每小時（或每天）的數字；上方的分頁切換 24 小時、48 小時、10 天。', '點「10 天預報」的任一天，看當天的圖；‹ › 換一天。', '把地點設成「家」並設定學校等地點的星期和時間：「我的行程」每小時取你在的城市。', '⚙︎ 設定：調整卡片順序、關掉不需要的卡片。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
+  const tab = ev.target.closest('[data-range]');
+  if (tab) {
+    const [kind, k] = tab.dataset.range.split(':');
+    state.ranges[kind] = k;
+    try {
+      localStorage.setItem('orbit-weather.ranges', JSON.stringify(state.ranges));
+    } catch {}
+    return state.pages.forEach(renderPage);
+  }
   const ch = ev.target.closest('.ch');
   if (ch) return pick(ch, colAt(ch, ev.clientX));
   const go = ev.target.closest('[data-go]');
@@ -463,87 +452,44 @@ document.addEventListener('click', ev => {
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
 
-// A column picked (a tap, a held finger sliding, the mouse): the crosshair
-// and the dot on it, its numbers above the graph.
-function pick(chartEl, i) {
-  if (chartEl.dataset.sel === String(i)) return;
-  chartEl.dataset.sel = String(i);
-  const page = chartEl.closest('.wx-page');
+// A column picked (a tap, a finger dragging, the mouse): the crosshair and
+// the dot on it, its numbers above the graph.
+function pick(svg, i) {
+  if (svg.dataset.sel === String(i)) return;
+  svg.dataset.sel = String(i);
+  const page = svg.closest('.wx-page');
   const key = page?.dataset.key;
-  const kind = chartEl.dataset.graph;
+  const kind = svg.dataset.graph;
   const col = state.cols[key]?.[kind]?.[i];
   const out = page?.querySelector(`[data-read="${kind}"]`);
   if (out) {
     out.textContent = readout(kind, col, state.cols[key]?.tz);
     out.classList.add('is-on');
   }
-  const spot = colSpot(chartEl, i);
-  const cross = chartEl.querySelector('.ch-cross');
-  const dot = chartEl.querySelector('.ch-dot');
-  if (!spot) return;
-  cross.hidden = false;
-  cross.style.transform = `translateX(${spot.x}px)`;
-  dot.hidden = spot.y == null;
-  if (spot.y != null) dot.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
+  const spot = colSpot(svg, i);
+  const x = svg.querySelector('.ch-x');
+  const d = svg.querySelector('.ch-d');
+  x.setAttribute('x1', spot.x);
+  x.setAttribute('x2', spot.x);
+  d.setAttribute('cx', spot.y == null ? -9 : spot.x);
+  d.setAttribute('cy', spot.y == null ? -9 : spot.y);
 }
 
-// Hold a graph a moment, then slide: the crosshair follows the finger like
-// a stock chart's (a quick swipe still scrolls).
-let hold = null;
-document.addEventListener(
-  'touchstart',
-  ev => {
-    const ch = ev.target.closest?.('.ch');
-    if (!ch || ev.touches.length > 1) return;
-    const t = ev.touches[0];
-    hold = { x: t.clientX, y: t.clientY, on: false, ch, box: ch.closest('.wx-scroll') };
-    hold.timer = setTimeout(() => {
-      if (!hold) return;
-      hold.on = true;
-      hold.box?.classList.add('is-scrub');
-      pick(ch, colAt(ch, hold.x));
-    }, 220);
-  },
-  { passive: true }
-);
-document.addEventListener(
-  'touchmove',
-  ev => {
-    if (!hold) return;
-    const t = ev.touches[0];
-    if (!hold.on) {
-      if (Math.abs(t.clientX - hold.x) > 8 || Math.abs(t.clientY - hold.y) > 8) endHold();
-      return;
-    }
-    ev.preventDefault();
-    pick(hold.ch, colAt(hold.ch, t.clientX));
-  },
-  { passive: false }
-);
-const endHold = () => {
-  if (!hold) return;
-  clearTimeout(hold.timer);
-  hold.box?.classList.remove('is-scrub');
-  hold = null;
-};
-document.addEventListener('touchend', endHold);
-document.addEventListener('touchcancel', endHold);
-// A mouse: the crosshair follows it.
-document.addEventListener('pointermove', ev => {
-  if (ev.pointerType !== 'mouse') return;
-  const ch = ev.target.closest?.('.ch');
-  if (ch) pick(ch, colAt(ch, ev.clientX));
+// Dragging on a graph reads it (the graph only pans up and down, so a
+// sideways drag there isn't a page swipe); the mouse just hovers.
+let dragging = null;
+document.addEventListener('pointerdown', ev => {
+  const svg = ev.target.closest?.('svg.ch');
+  if (!svg) return;
+  dragging = svg;
+  svg.setPointerCapture?.(ev.pointerId);
+  pick(svg, colAt(svg, ev.clientX));
 });
-
-// A graph swiped: its date chip follows.
-document.addEventListener(
-  'scroll',
-  ev => {
-    const box = ev.target;
-    if (box instanceof Element && box.matches('.wx-scroll')) whenChip(box);
-  },
-  { capture: true, passive: true }
-);
+document.addEventListener('pointermove', ev => {
+  const svg = dragging || (ev.pointerType === 'mouse' ? ev.target.closest?.('svg.ch') : null);
+  if (svg) pick(svg, colAt(svg, ev.clientX));
+});
+for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => (dragging = null));
 
 // The page in view, once a swipe settles.
 let settle = 0;
