@@ -301,9 +301,9 @@ body {
 }
 .tl-col {
   position: relative;
-  flex: 0 0 30px;
-  width: 30px;
-  height: 154px;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 214px;
   margin: 0;
   padding: 0;
   border: 0;
@@ -370,7 +370,7 @@ body {
   left: -4px;
   right: -4px;
   margin-bottom: 3px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
@@ -381,7 +381,7 @@ body {
   right: -8px;
   bottom: 26px;
   color: var(--q-muted);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 500;
   text-align: center;
   white-space: nowrap;
@@ -396,13 +396,13 @@ body {
   bottom: 6px;
   z-index: 1;
   font-style: normal;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
 }
 .tl-wide {
-  flex-basis: 52px;
-  width: 52px;
+  flex-basis: 60px;
+  width: 60px;
 }
 .tl-now .tl-plot {
   background: color-mix(in srgb, var(--q-accent) 9%, transparent);
@@ -589,7 +589,7 @@ body {
 }
 .wx-day {
   display: grid;
-  grid-template-columns: 46px 40px 34px minmax(40px, 1fr) 34px 24px;
+  grid-template-columns: 44px 30px 46px 30px minmax(30px, 1fr) 32px 22px;
   gap: 8px;
   align-items: center;
   width: 100%;
@@ -622,10 +622,20 @@ body {
   font-size: 22px;
   line-height: 1.1;
 }
-.wx-dicon small {
+.wx-dpop {
+  display: grid;
+  gap: 3px;
+}
+.wx-dpop b {
   color: #93c5fd;
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+.wx-dpop i {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #42a5f5 var(--p), var(--q-sunken) var(--p));
 }
 .wx-dlo {
   text-align: right;
@@ -996,4 +1006,140 @@ body {
   -webkit-touch-callout: none;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Advice: the day's tiles, then the week's table. */
+.wx-lifegrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.wx-life {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 10px 10px 8px;
+  border: 1px solid var(--q-border);
+  border-radius: 16px;
+  background: var(--q-surface);
+}
+.wx-life-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--q-sunken);
+  font-size: 18px;
+}
+.wx-life b {
+  font-size: 13px;
+  color: var(--q-muted);
+}
+.wx-life p {
+  margin: 1px 0 0;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.wx-life.lv-yes,
+.wx-life.lv-hot,
+.wx-life.lv-bad,
+.wx-life.k-mask:not(.lv-none),
+.wx-life.k-heat:not(.lv-none) {
+  border-color: color-mix(in srgb, var(--q-warn) 60%, transparent);
+  background: color-mix(in srgb, var(--q-warn) 9%, var(--q-surface));
+}
+.wx-life.lv-good {
+  border-color: color-mix(in srgb, var(--q-good) 45%, transparent);
+}
+.wx-life.lv-none p {
+  color: var(--q-text-2, var(--q-text));
+  font-weight: 550;
+}
+.wx-weekgrid {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+}
+.wx-wg-row {
+  display: grid;
+  grid-template-columns: 52px repeat(var(--n), minmax(0, 1fr));
+  gap: 3px;
+  align-items: center;
+}
+.wx-wg-head span {
+  display: grid;
+  justify-items: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+.wx-wg-head small {
+  color: var(--q-muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+.wx-wg-head .is-best {
+  color: #3dd598;
+}
+.wx-wg-head .is-worst {
+  color: var(--q-bad);
+}
+.wx-wg-name {
+  color: var(--q-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.wx-wg-cell {
+  display: grid;
+  place-items: center;
+  min-height: 28px;
+  border-radius: 8px;
+  background: var(--q-sunken);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wx-wg-cell.m-yes,
+.k-umbrella .wx-wg-cell.m-yes {
+  background: #1e5fae;
+  color: #fff;
+}
+.k-umbrella .wx-wg-cell.m-maybe {
+  background: #24456e;
+}
+.wx-wg-cell.m-bad {
+  background: color-mix(in srgb, var(--q-bad) 55%, var(--q-sunken));
+  color: #fff;
+}
+.wx-wg-cell.m-good {
+  background: color-mix(in srgb, var(--q-good) 40%, var(--q-sunken));
+}
+.k-sun .wx-wg-cell.m-maybe {
+  background: color-mix(in srgb, #f5c518 35%, var(--q-sunken));
+}
+.k-sun .wx-wg-cell.m-yes {
+  background: color-mix(in srgb, #ff8c1a 55%, var(--q-sunken));
+}
+.k-mask .wx-wg-cell.m-maybe {
+  background: color-mix(in srgb, #f5c518 35%, var(--q-sunken));
+}
+.k-laundry .wx-wg-cell.m-maybe {
+  background: color-mix(in srgb, #f5c518 25%, var(--q-sunken));
+}
+.k-wear .m-coat {
+  background: color-mix(in srgb, #60a5fa 40%, var(--q-sunken));
+}
+.k-wear .m-jacket {
+  background: color-mix(in srgb, #5eead4 30%, var(--q-sunken));
+}
+.k-wear .m-light {
+  background: color-mix(in srgb, #fb923c 35%, var(--q-sunken));
+}
+.wx-wg-foot {
+  margin: 4px 2px 0;
+  color: var(--q-muted);
+  font-size: 12px;
 }

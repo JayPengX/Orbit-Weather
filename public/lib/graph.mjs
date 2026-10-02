@@ -10,7 +10,7 @@
 
 import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e } from './format.mjs';
 
-export const COL = 30;
+export const COL = 34;
 const HOUR = 3_600_000;
 const r1 = v => Math.round(v * 10) / 10;
 
@@ -128,11 +128,11 @@ export function dayGraph(hours, { tz, aqi = [], colW = 15 } = {}) {
   const n = hours.length;
   if (!n) return '';
   const width = n * colW;
-  const tTop = 26;
-  const tBottom = 112;
-  const uvY = 124;
-  const rTop = 140;
-  const rBottom = 190;
+  const tTop = 30;
+  const tBottom = 170;
+  const uvY = 184;
+  const rTop = 204;
+  const rBottom = 284;
   const height = rBottom + 22;
   const vals = hours.flatMap(h => [h.temp, h.feels]).filter(v => v != null);
   let lo = Math.min(...vals);

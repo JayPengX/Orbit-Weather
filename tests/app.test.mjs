@@ -166,10 +166,14 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.match(html, /最高<\/span><b>30°<\/b><small>體感 33°/);
   assert.match(html, /大雨特報/);
   // Advice: today, and the week with a mark a day.
-  assert.match(html, /明天<\/span>13:00 降雨機率 41%/, 'in the evening, the advice is for tomorrow');
-  assert.match(html, /本週<\/span>週日要帶傘/);
-  assert.equal((html.match(/class="wx-sd /g) || []).length, 7);
-  assert.match(html, /wx-sd m-yes"><small>日<\/small>/);
+  // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
+  assert.match(html, /明天的建議/, 'in the evening, the advice is for tomorrow');
+  assert.match(html, /k-umbrella"><span class="wx-life-icon">☂️<\/span><div><b>雨傘<\/b><p>13:00 降雨機率 41%<\/p>/);
+  assert.match(html, /這一週/);
+  assert.equal((html.match(/class="wx-wg-cell /g) || []).length, 7, 'one row (rain), 7 days');
+  assert.match(html, /wx-wg-cell m-yes">10%/);
+  // The 10 days: each day's rain chance.
+  assert.equal((html.match(/class="wx-dpop"/g) || []).length, 10);
   assert.match(html, /現在陰，22 點前後/);
   assert.ok(!html.includes('西村里<b>'), 'the name escaped everywhere');
   for (const w of ['Google', 'CWA', '氣象署', 'MOENV', '環境部', 'radar', '雷達']) assert.ok(!html.includes(w), w);
@@ -180,7 +184,7 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   // No forecast yet: the top and a spinner, or the error with a retry.
   assert.match(pageHtml(null, page, { now: NOW }), /正在取得天氣/);
   assert.match(pageHtml(null, { ...page, error: '暫時無法取得天氣' }, { now: NOW }), /data-act="retry"/);
-  assert.match(rainSummary(hours, 'Asia/Taipei', NOW), /^明天 00:00 起可能下雨（70%）$/);
+  assert.equal(rainSummary(hours, 'Asia/Taipei', NOW), '明天 0時起 70%');
 });
 
 test('a day\'s sheet: its numbers, and its graph with everything on it', () => {
