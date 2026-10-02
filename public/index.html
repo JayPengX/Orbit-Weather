@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-Hant-TW" data-sky="clear">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Orbit Weather</title>
+  <meta name="description" content="一個答案的天氣：降雨、溫度、紫外線與空氣品質">
+  <meta name="theme-color" content="#2a6fd6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="天氣">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+  <main id="main"></main>
+  <div id="sheet" class="sheet" hidden></div>
+  <script type="module" src="app.mjs"></script>
+</body>
+</html>
