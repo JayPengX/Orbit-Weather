@@ -1,8 +1,8 @@
 // The app's files kept on the device, so it opens offline (the last
 // forecast lives in localStorage). Bump VERSION with every change to these
 // files.
-const VERSION = 'orbit-weather-1';
-const SHELL = ['./', 'index.html', 'app.css', 'app.mjs', 'lib/api.mjs', 'lib/chart.mjs', 'lib/format.mjs', 'lib/sun.mjs', 'lib/view.mjs', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const VERSION = 'orbit-weather-2';
+const SHELL = ['./', 'index.html', 'app.css', 'app.mjs', 'lib/api.mjs', 'lib/chart.mjs', 'lib/format.mjs', 'lib/sun.mjs', 'lib/view.mjs', 'lib/notify.mjs', 'manifest.webmanifest', 'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', ev => {
   ev.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -30,6 +30,27 @@ self.addEventListener('fetch', ev => {
         })
         .catch(() => hit);
       return hit || net;
+    })
+  );
+});
+
+// Notices from the proxy (Shared-Proxy push.js): { title, body, tag, url }.
+self.addEventListener('push', ev => {
+  let m = {};
+  try {
+    m = ev.data ? ev.data.json() : {};
+  } catch {
+    m = { body: ev.data?.text() };
+  }
+  ev.waitUntil(self.registration.showNotification(m.title || 'Orbit Weather', { body: m.body || '', tag: m.tag || undefined, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', data: { url: m.url || './' } }));
+});
+self.addEventListener('notificationclick', ev => {
+  ev.notification.close();
+  const url = ev.notification.data?.url || './';
+  ev.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const open = list.find(c => c.url.startsWith(self.registration.scope));
+      return open ? open.focus() : self.clients.openWindow(url);
     })
   );
 });

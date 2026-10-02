@@ -164,3 +164,63 @@ test('night: the forecast flag, else the sun', () => {
   assert.equal(isNight({ t: Date.parse('2026-10-03T04:00:00Z') }), false, 'noon in Taipei');
   assert.equal(isNight({ t: Date.parse('2026-10-03T15:00:00Z') }), true, '23:00 in Taipei');
 });
+
+import { buildNotices, deviceId, needsResend, needsHomeScreen, sendNotices, DAYS } from '../public/lib/notify.mjs';
+import { radarCard, settingsSheet } from '../public/lib/view.mjs';
+
+test('notices: a brief each morning and a rain watch each day, for where the app was opened', () => {
+  const now = new Date(2026, 9, 2, 19, 46).getTime(); // device time
+  const items = buildNotices({ lat: 25.034123, lon: 121.565432, prefs: { brief: '06:30', rain: true }, now });
+  const briefs = items.filter(x => x.kind === 'brief');
+  const rains = items.filter(x => x.kind === 'rain');
+  assert.equal(briefs.length, DAYS);
+  assert.equal(rains.length, DAYS);
+  assert.equal(new Date(briefs[0].at).getDate(), 3, 'tomorrow morning first (today is past)');
+  assert.equal(new Date(briefs[0].at).getHours(), 6);
+  assert.equal(new Date(briefs[0].at).getMinutes(), 30);
+  assert.deepEqual(briefs[0].check, { weather: { lat: 25.0341, lon: 121.5654, kind: 'brief' } });
+  assert.equal(rains[0].at, now + 60_000, 'today until 21:00 still open: from now');
+  assert.equal(new Date(rains[1].at).getHours(), 7);
+  assert.equal(new Date(rains[1].until).getHours(), 21);
+  assert.ok(items.every((x, i) => i === 0 || items[i - 1].at <= x.at), 'in time order');
+  // Morning: today's rain watch starts now, not at 07:00.
+  const nine = new Date(2026, 9, 2, 9, 0).getTime();
+  const r2 = buildNotices({ lat: 25, lon: 121, prefs: { rain: true }, now: nine });
+  assert.equal(r2[0].at, nine + 60_000);
+  assert.deepEqual(buildNotices({ lat: null, lon: 121, prefs: { rain: true }, now }), []);
+  assert.deepEqual(buildNotices({ lat: 25, lon: 121, prefs: {}, now }), []);
+});
+
+test('a device id, made once', () => {
+  const st = {};
+  const id = deviceId(st, n => new Uint8Array(n).fill(255));
+  assert.match(id, /^[A-Za-z0-9_-]{22}$/);
+  assert.equal(deviceId(st), id);
+});
+
+test('the list is sent again for a new place or after half a day', async () => {
+  const now = Date.now();
+  assert.equal(needsResend({ notify: { rain: true }, sentCell: 'a', sentAt: now }, 'a', now), false);
+  assert.equal(needsResend({ notify: { rain: true }, sentCell: 'a', sentAt: now }, 'b', now), true);
+  assert.equal(needsResend({ notify: { rain: true }, sentCell: 'a', sentAt: now - 13 * 3_600_000 }, 'a', now), true);
+  assert.equal(needsResend({ notify: {} }, 'b', now), false);
+  const calls = [];
+  await sendNotices({ dev: 'A'.repeat(22) }, [{ at: 1 }], { base: 'https://p', fetchFn: async (u, o) => (calls.push([u, JSON.parse(o.body)]), { ok: true, json: async () => ({ ok: true }) }) });
+  assert.deepEqual(calls, [[`https://p/push/schedule?dev=${'A'.repeat(22)}`, { items: [{ at: 1 }] }]]);
+  assert.equal(needsHomeScreen({ navigator: { userAgent: 'iPhone', standalone: false }, matchMedia: () => ({ matches: false }) }), true);
+  assert.equal(needsHomeScreen({ navigator: { userAgent: 'iPhone', standalone: true } }), false);
+});
+
+test('radar only in Taiwan, loaded only when opened; settings say what they do', () => {
+  assert.equal(radarCard({ place: null }, { now: NOW }), '');
+  assert.ok(!radarCard({ place: { town: 'x' } }, { now: NOW }).includes('<img'));
+  assert.match(radarCard({ place: { town: 'x' } }, { now: NOW, open: true }), /CV1_TW_1000\.png\?t=\d+/);
+  const s = settingsSheet({ notify: { brief: '06:30' } }, { supported: true, homeScreen: false });
+  assert.match(s, /data-set="brief" checked/);
+  assert.match(s, /value="06:30"/);
+  assert.match(settingsSheet({}, { supported: true, homeScreen: true }), /加入主畫面/);
+});
+
+test('the headline shows when the forecast has one', () => {
+  assert.match(todayCard({ ...forecast, headline: '現在陰，明天最高 28°。' }, { place: 'x', now: NOW }), /class="headline">現在陰，明天最高 28°。/);
+});

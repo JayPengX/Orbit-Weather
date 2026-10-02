@@ -10,6 +10,16 @@ Behind the one answer, the proxy (`Shared-Proxy`'s `weather.js`, route
 MOENV 環境部) and real station measurements. The app never shows sources
 or second opinions; the plan is `Shared-Proxy/docs/WEATHER-PLAN.md`.
 
+Always dark: the sky follows the weather and the sun in deep tones.
+
+## Notices (🔔)
+
+A morning brief at the chosen time (one line: rain, high / low, UV window,
+air, what to wear) and a rain alert (once a day, 07:00–21:00, when the next
+2 hours reach 60%), for where the app was last opened. No sign-in: the
+device has a random id the proxy keeps its list under. On an iPhone, only
+from the home-screen app (iOS 16.4+).
+
 ## Location, without depending on permission
 
 1. The last forecast on the device shows at once.
@@ -29,7 +39,8 @@ or second opinions; the plan is `Shared-Proxy/docs/WEATHER-PLAN.md`.
 | `public/lib/chart.mjs` | The 48-hour curve (SVG) |
 | `public/lib/format.mjs` | Labels, colours, icons (zh-TW) |
 | `public/lib/sun.mjs` | Sunrise / sunset worked out on the page (when the forecast has none) |
-| `public/sw.js` | Offline: the app's files cached (bump `VERSION` on every change) |
+| `public/lib/notify.mjs` | The morning brief and rain alert: device id, subscription, the next 7 days' notices |
+| `public/sw.js` | Offline (the app's files cached; bump `VERSION` on every change), and showing notices |
 
 ## Develop
 

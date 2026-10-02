@@ -35,9 +35,12 @@ export function todayCard(f, { place, now, note }) {
   const alerts = (f.alerts || []).map(a => `<div class="alert">⚠️ ${e(a.title)}${a.to ? `<span>至 ${e(clock(a.to, f.tz))}</span>` : ''}</div>`).join('');
   return `
   <section class="card today">
-    <button class="place" data-act="pick" aria-label="選擇地區">
-      <span class="pin">📍</span><span>${e(place)}</span><span class="chev">⌄</span>
-    </button>
+    <div class="top">
+      <button class="place" data-act="pick" aria-label="選擇地區">
+        <span class="pin">📍</span><span>${e(place)}</span><span class="chev">⌄</span>
+      </button>
+      <button class="gear" data-act="settings" aria-label="通知設定">🔔</button>
+    </div>
     ${note ? `<div class="note">${note}</div>` : ''}
     <div class="now">
       <div class="big">${deg(n.temp)}</div>
@@ -48,6 +51,7 @@ export function todayCard(f, { place, now, note }) {
       </div>
     </div>
     <div class="range">${d0 ? `最高 ${deg(d0.hi)} · 最低 ${deg(d0.lo)}` : ''}${n.uv != null ? ` · UV ${Math.round(n.uv)}` : ''}${n.rain1h ? ` · 過去 1 小時 ${n.rain1h} mm` : ''}</div>
+    ${f.headline ? `<div class="headline">${e(f.headline)}</div>` : ''}
     ${alerts}
     <div class="chips">${chips.map(a => `<div class="chip ${e(a.kind)} lv-${e(a.level)}"><span>${ADVICE_ICON[a.kind] || '•'}</span>${e(a.text.replace(/^[^：]+：/, ''))}</div>`).join('')}</div>
     <div class="age">${f.partial ? '部分資料稍舊 · ' : ''}更新於 ${e(ago(f.at, now))}</div>
@@ -202,4 +206,35 @@ export function extrasCard(f) {
       <div class="grid">${items.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('')}</div>
     </details>
   </section>`;
+}
+
+// The radar (Taiwan only): CWA's composite, loaded only when opened.
+export const RADAR_URL = 'https://www.cwa.gov.tw/Data/radar/CV1_TW_1000.png';
+export function radarCard(f, { now, open = false }) {
+  if (!f.place) return '';
+  const src = `${RADAR_URL}?t=${Math.floor(now / 600_000)}`;
+  return `
+  <section class="card radar">
+    <details data-act="radar"${open ? ' open' : ''}>
+      <summary><h2>雷達回波</h2></summary>
+      ${open ? `<img src="${src}" alt="臺灣雷達回波圖" loading="lazy">` : ''}
+      <div class="dim">每 10 分鐘更新，顏色越暖雨越大。</div>
+    </details>
+  </section>`;
+}
+
+// The notices' settings sheet.
+export function settingsSheet(state, { supported, homeScreen, error = '' }) {
+  const p = state.notify || {};
+  const on = !!(p.brief || p.rain);
+  return `<div class="sheet-body card">
+    <div class="sheet-head"><h2>通知</h2><button class="link" data-act="close">完成</button></div>
+    ${!supported ? '<p class="hint">這個瀏覽器不支援通知。</p>' : homeScreen ? '<p class="hint">iPhone 需要先從 Safari 的「分享 → 加入主畫面」安裝，再從主畫面打開本 App，才能開啟通知。</p>' : ''}
+    <label class="setting"><span>每日早報<small>每天早上一句話：降雨、溫度、紫外線、空氣</small></span>
+      <span class="switch"><input type="checkbox" data-set="brief"${p.brief ? ' checked' : ''}${supported && !homeScreen ? '' : ' disabled'}><span></span></span></label>
+    <label class="setting"><span>早報時間</span><input type="time" data-set="time" value="${e(p.brief || state.briefTime || '06:30')}"></label>
+    <label class="setting"><span>降雨提醒<small>白天 2 小時內可能下雨時提醒一次</small></span>
+      <span class="switch"><input type="checkbox" data-set="rain"${p.rain ? ' checked' : ''}${supported && !homeScreen ? '' : ' disabled'}><span></span></span></label>
+    <p class="hint">${on ? '以最後打開本 App 的位置為準。' : '通知以最後打開本 App 的位置為準。'}${error ? `<br>${e(error)}` : ''}</p>
+  </div>`;
 }

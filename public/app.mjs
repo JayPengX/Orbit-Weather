@@ -2,12 +2,13 @@
 
 import { loadState, saveState, permissionState, chooseSource, getPosition, isFresh, cellOf, fetchForecast, fetchPlaces, placeName } from './lib/api.mjs';
 import { theme, escapeHtml as e } from './lib/format.mjs';
-import { todayCard, curveCard, airCard, daysCard, sunCard, extrasCard } from './lib/view.mjs';
+import { todayCard, curveCard, airCard, daysCard, sunCard, extrasCard, radarCard, settingsSheet } from './lib/view.mjs';
+import { buildNotices, needsResend, pushSupported, needsHomeScreen, subscribe, sendNotices } from './lib/notify.mjs';
 
 const main = document.getElementById('main');
 const sheet = document.getElementById('sheet');
 let state = loadState(localStorage);
-let ui = { selected: -1, openDay: null, note: '', busy: false, error: '' };
+let ui = { selected: -1, openDay: null, note: '', busy: false, error: '', radar: false };
 let permission = 'unknown';
 
 const save = () => saveState(localStorage, state);
@@ -33,6 +34,7 @@ function render() {
     curveCard(f, { now, lat, lon, selected: ui.selected }),
     daysCard(f, { now, open: ui.openDay }),
     airCard(f),
+    radarCard(f, { now, open: ui.radar }),
     sunCard(f, { now, lat, lon }),
     extrasCard(f)
   ].join('');
@@ -58,6 +60,7 @@ async function load(where, how, cell) {
     state = { ...state, forecast: f, fetchedAt: Date.now(), cell: cell || cellOf(f.lat, f.lon), how };
     save();
     ui.error = '';
+    resendNotices().catch(() => {});
   } catch (err) {
     ui.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
     if (state.forecast) ui.note = (ui.note ? ui.note + '<br>' : '') + e(ui.error);
@@ -137,6 +140,48 @@ const closePicker = () => {
   sheet.innerHTML = '';
 };
 
+// ---- Notices (the morning brief, the rain alert) ----------------------------------
+
+// The list for where the forecast is, sent again when the place changes or
+// it's half a day old.
+async function resendNotices(force = false) {
+  const f = state.forecast;
+  if (!f || (!force && !needsResend(state, state.cell, Date.now()))) return;
+  const { lat, lon } = coords();
+  const items = buildNotices({ lat, lon, prefs: state.notify || {} });
+  await sendNotices(state, items);
+  state.sentCell = state.cell;
+  state.sentAt = Date.now();
+  save();
+}
+
+function openSettings(error = '') {
+  sheet.hidden = false;
+  sheet.innerHTML = settingsSheet(state, { supported: pushSupported(window), homeScreen: needsHomeScreen(window), error });
+}
+
+sheet.addEventListener('change', async ev => {
+  const el = ev.target.closest('[data-set]');
+  if (!el) return;
+  const p = { brief: null, rain: false, ...(state.notify || {}) };
+  const time = sheet.querySelector('[data-set="time"]')?.value || '06:30';
+  state.briefTime = time;
+  if (el.dataset.set === 'brief') p.brief = el.checked ? time : null;
+  if (el.dataset.set === 'time' && p.brief) p.brief = time;
+  if (el.dataset.set === 'rain') p.rain = el.checked;
+  const wasOn = !!(state.notify?.brief || state.notify?.rain);
+  const nowOn = !!(p.brief || p.rain);
+  try {
+    if (nowOn && !wasOn) await subscribe(state);
+    state.notify = p;
+    save();
+    await resendNotices(true);
+    openSettings();
+  } catch (err) {
+    openSettings(err.code === 'denied' ? '通知權限被拒絕，請到系統設定開啟。' : '暫時無法設定通知，請稍後再試。');
+  }
+});
+
 // ---- Taps --------------------------------------------------------------------------
 
 document.addEventListener('click', async ev => {
@@ -149,6 +194,7 @@ document.addEventListener('click', async ev => {
   if (!el) return;
   const act = el.dataset.act;
   if (act === 'pick') return openPicker();
+  if (act === 'settings') return openSettings();
   if (act === 'close') return closePicker();
   if (act === 'refresh') return run({ force: true });
   if (act === 'day') {
@@ -178,6 +224,17 @@ sheet.addEventListener('click', ev => {
 });
 
 // Back in front after a while: fresh again if it's old.
+main.addEventListener(
+  'toggle',
+  ev => {
+    if (ev.target.matches?.('details[data-act="radar"]') && ev.target.open !== ui.radar) {
+      ui.radar = ev.target.open;
+      render();
+    }
+  },
+  true
+);
+
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') run();
 });
