@@ -5,10 +5,11 @@
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, hoursFrom, airCols, rainCols, dayText } from './lib/cards.mjs';
 import { readout, uvCols, scrubHtml, COL } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf } from './lib/format.mjs';
+import { planHtml, planCols } from './lib/plan.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -30,16 +31,22 @@ function buildPages() {
   const here = state.local.here;
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
   state.pages = [
+    // 我的行程 first, once there's a pin: the weather where you'll be.
+    ...(state.data.pins.length ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
     { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
     ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town, village: pin.village } }))
   ];
 }
 const pageOf = key => state.pages.find(p => p.key === key);
 const forecastOf = page => (page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
+const forecastFor = key => {
+  const page = pageOf(key);
+  return page && !page.plan ? forecastOf(page) : null;
+};
 
 function renderDots() {
   $('dots').innerHTML = state.pages
-    .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="${i === state.index}">${p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}</button>`)
+    .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="${i === state.index}">${p.plan ? '🗓️ 行程' : `${p.pin?.home ? '🏠' : p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}`}</button>`)
     .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">＋ 釘選</button>`;
 }
 
@@ -47,6 +54,7 @@ function renderPage(page) {
   const el = document.querySelector(`.wx-page[data-key="${page.key}"]`);
   if (!el) return;
   const now = Date.now();
+  if (page.plan) return renderPlan(el, now);
   const f = forecastOf(page);
   // Keep where each graph was swiped to, and the page's own scroll.
   const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
@@ -65,6 +73,21 @@ function renderPage(page) {
   }
   el.scrollTop = top;
 }
+
+// 我的行程: built from every place's forecast.
+function renderPlan(el, now) {
+  const kept = el.querySelector('[data-scroll="plan"]')?.scrollLeft || 0;
+  const top = el.scrollTop;
+  el.innerHTML = planHtml(state.data.pins, forecastFor, now);
+  state.cols.plan = { plan: planCols(state.data.pins, forecastFor, now), tz: 'Asia/Taipei' };
+  const box = el.querySelector('[data-scroll="plan"]');
+  if (box) {
+    box.scrollLeft = kept;
+    whenChip(box);
+  }
+  el.scrollTop = top;
+}
+const planPage = () => state.pages.find(p => p.plan);
 
 // The date chip over a graph: the day of the leftmost column in view.
 function whenChip(box) {
@@ -104,6 +127,12 @@ function goTo(i, smooth = true) {
 
 async function loadPage(page, { force = false } = {}) {
   if (!page || page.loading) return;
+  // The plan needs every place: each loaded in turn, the plan redrawn as they come.
+  if (page.plan) {
+    renderPage(page);
+    for (const p of state.pages.filter(x => !x.plan)) await loadPage(p, { force });
+    return renderPage(page);
+  }
   const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
   if (!force && cell && isFresh(cachedForecast(state.local, cell))) return renderPage(page);
   page.loading = true;
@@ -124,6 +153,7 @@ async function loadPage(page, { force = false } = {}) {
   } finally {
     page.loading = false;
     renderPage(page);
+    if (planPage()) renderPage(planPage());
   }
 }
 
@@ -214,7 +244,8 @@ async function pinSheet(pin = null) {
     </div>
     <label class="wx-field"><span>或搜尋鄉鎮市區</span><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off"></label>
     <div id="pin-list" class="wx-list"></div>
-    <div class="wx-field"><span>這些時間打開 App 時，直接顯示這裡</span>
+    <div class="wx-row wx-home-row"><span>🏠 這是我的家<small>沒有其他行程的時間，就當作在這裡</small></span><button class="wx-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="這是我的家"><i></i></button></div>
+    <div class="wx-field"><span>我在這裡的時間（行程用；這時打開 App 也直接顯示這裡）</span>
       <div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div>
       <div class="wx-row"><input id="pin-from" type="time" value="${draft.from}"> 到 <input id="pin-to" type="time" value="${draft.to}"></div>
     </div>
@@ -250,6 +281,11 @@ async function pinSheet(pin = null) {
       return;
     }
     const act = ev.target.closest('[data-pin-act]')?.dataset.pinAct;
+    if (act === 'home') {
+      draft.home = !draft.home;
+      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.home));
+      return;
+    }
     if (act === 'here' && here) {
       Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '', village: here.place?.village || '' });
       d.querySelector('#pin-where').textContent = where();
@@ -268,6 +304,8 @@ async function pinSheet(pin = null) {
       draft.to = d.querySelector('#pin-to').value || '17:00';
       const clean = cleanPin({ ...draft, t: Date.now() });
       if (!clean) return tell({ title: '請選擇臺灣的地點', body: '用目前位置，或搜尋鄉鎮市區。' });
+      // One home at most.
+      if (clean.home) state.data.pins = state.data.pins.map(p => (p.id !== clean.id && p.home ? { ...p, home: false, t: Date.now() } : p));
       const at = state.data.pins.findIndex(p => p.id === clean.id);
       if (at >= 0) state.data.pins[at] = clean;
       else state.data.pins.push(clean);
@@ -410,7 +448,7 @@ const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字，按住再滑可以一路看下去。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖：按住圖左右滑，看每小時的數字；‹ › 換一天。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
+    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字，按住再滑可以一路看下去。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖：按住圖左右滑，看每小時的數字；‹ › 換一天。', '釘選地點設定星期和時間（例如學校 週一至週五 07–17），再把一個地點設成「家」：第一頁「我的行程」就會每小時取你在的地方的天氣，告訴你一路要帶什麼。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------
@@ -420,6 +458,8 @@ document.addEventListener('click', ev => {
   if (hit) return pickCol(hit);
   const go = ev.target.closest('[data-go]');
   if (go) return goTo(Number(go.dataset.go));
+  const stay = ev.target.closest('[data-go-key]');
+  if (stay) return goTo(state.pages.findIndex(p => p.key === stay.dataset.goKey));
   const day = ev.target.closest('[data-day][data-page]');
   if (day) return openDay(day.dataset.page, day.dataset.day);
   const act = ev.target.closest('[data-act]')?.dataset.act;
@@ -559,7 +599,8 @@ async function boot() {
   saveLocal(state.local);
   buildPages();
   renderAll();
-  const start = openFromHash() ?? Math.max(0, state.pages.findIndex(p => p.pin && p.key === activePin(state.data.pins)?.id));
+  // 我的行程 when there are pins (it shows where you are now), else here.
+  const start = openFromHash() ?? 0;
   $('loading').hidden = true;
   state.started = true;
   goTo(start, false);

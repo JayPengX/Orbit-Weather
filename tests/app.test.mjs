@@ -280,3 +280,58 @@ test('the day sheet: a read-out the finger moves, the days either side', () => {
   const first = daySheet(forecast, '2026-10-02', { now: NOW });
   assert.match(first, /data-dayn="" aria-label="前一天" disabled/);
 });
+
+// ---- 我的行程 ----
+import { stitch, segments, planTips, planHtml, planCols, adviceSpan } from '../public/lib/plan.mjs';
+import { placeAt } from '../public/lib/pins.mjs';
+
+test('my route: each hour from where I am — school on weekdays 07–17, home otherwise', () => {
+  const home = cleanPin({ id: 'phome', name: '家', lat: 25.03, lon: 121.56, county: '臺北市', town: '信義區', days: [], home: true });
+  const sch = cleanPin({ id: 'pschool2', name: '學校', lat: 24.8, lon: 120.97, county: '新竹市', town: '東區', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' });
+  const pins = [home, sch];
+  assert.equal(home.home, true);
+  // Monday 10/5 09:00 at school; Saturday at home; Monday 18:00 home.
+  assert.equal(placeAt(pins, tpe('2026-10-05T09:00:00')).id, 'pschool2');
+  assert.equal(placeAt(pins, tpe('2026-10-03T09:00:00')).id, 'phome');
+  assert.equal(placeAt(pins, tpe('2026-10-05T18:00:00')).id, 'phome');
+  assert.equal(placeAt([sch], tpe('2026-10-05T18:00:00')), null, 'no home pin: the device\'s place');
+  // Two forecasts: the school's hotter and wetter in the afternoon.
+  const mk = (base, popAt) => ({ tz: 'Asia/Taipei', now: { temp: base, feels: base }, hours: Array.from({ length: 240 }, (_, i) => { const t = tpe('2026-10-02T19:00:00') + i * H; const hr = (19 + i) % 24; return { t, temp: base + (hr > 9 && hr < 16 ? 6 : 0), feels: base + (hr > 9 && hr < 16 ? 7 : 0), pop: popAt(hr), uv: hr > 9 && hr < 15 ? 6 : 0, condition: { code: 'CLOUDY', text: '陰' } }; }) });
+  const fc = { phome: mk(22, () => 10), pschool2: mk(25, hr => (hr === 15 ? 70 : 20)) };
+  const forecastFor = key => fc[key] || null;
+  const monday7 = tpe('2026-10-05T06:00:00');
+  const list = stitch(pins, forecastFor, monday7, 16);
+  assert.deepEqual(segments(list).map(s => [s.key, s.hours.length]), [['phome', 1], ['pschool2', 10], ['phome', 5]]);
+  assert.equal(list[9].h.pop, 70, '15時 at school');
+  const { tips, span } = planTips(pins, forecastFor, monday7);
+  assert.equal(span.word, '今天');
+  const k = Object.fromEntries(tips.map(t => [t.kind, t]));
+  assert.equal(k.umbrella.text, '要帶：學校 15時 70%');
+  assert.match(k.wear.text, /帶件外套（家 \d+時 22°，學校 \d+時 3[12]°）/);
+  assert.equal(k.sun.text, '學校 10時 UV 6');
+  assert.equal(tips.filter(t => t.kind === 'move').map(t => t.title).join(), '07:00 移動,17:00 移動');
+  assert.match(k.diff.text, /學校比家熱 \d°/);
+  // After 21時: tomorrow's.
+  assert.equal(adviceSpan(tpe('2026-10-05T21:30:00')).word, '明天');
+  // The page: now at school, the next move, the stays, the graph with place names.
+  const html = planHtml(pins, forecastFor, tpe('2026-10-05T10:00:00'));
+  assert.match(html, /現在在 📌 學校/);
+  assert.match(html, /接下來 17:00 到🏠家/);
+  assert.match(html, /data-go-key="pschool2"/);
+  assert.match(html, /🏠家<\/em>/);
+  const cols = planCols(pins, forecastFor, tpe('2026-10-05T10:00:00'));
+  assert.equal(cols.length, 48);
+  assert.equal(readout('plan', cols[5], 'Asia/Taipei'), '10/5 週一 15:00 · 學校 · 31° · 雨 70%');
+});
+
+test('notices follow the route: home outside the pins\' hours', () => {
+  const home = cleanPin({ id: 'phome', name: '家', lat: 25.03, lon: 121.56, days: [], home: true });
+  const sch = cleanPin({ id: 'pschool2', name: '學校', lat: 24.8, lon: 120.97, days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' });
+  const items = planNotices({ pins: [home, sch], here: { lat: 22.6, lon: 120.3 }, now: tpe('2026-10-04T12:00:00'), days: 2 });
+  const brief = items.find(x => x.kind === 'brief');
+  assert.equal(brief.title, '家 今天天氣', 'the brief at 06:30 Monday: home');
+  assert.equal(brief.check.weather.lat, 25.03);
+  const monday = items.filter(x => x.kind === 'rain' && x.tag.startsWith('rain:2026-10-05'));
+  assert.deepEqual(monday.map(x => x.tag.split(':')[2]), ['pschool2', 'phome'], 'school 07–17, then home');
+  assert.ok(!items.some(x => x.check.weather.lat === 22.6), 'never the device\'s place when there\'s a home');
+});

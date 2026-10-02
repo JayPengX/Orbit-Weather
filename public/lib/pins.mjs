@@ -37,6 +37,8 @@ export function cleanPin(p) {
     days,
     from: clockOk(p.from) ? p.from : '07:00',
     to: clockOk(p.to) ? p.to : '17:00',
+    // Home: where you are when no other pin's hours hold (one at most).
+    home: p.home === true,
     t: Number(p.t) || 0
   };
 }
@@ -53,11 +55,15 @@ export function pinActiveAt(pin, t) {
 }
 
 // The pin to open on now, or null (the current location).
-export const activePin = (pins, t = Date.now()) => (pins || []).find(p => pinActiveAt(p, t)) || null;
+export const activePin = (pins, t = Date.now()) => (pins || []).find(p => !p.home && pinActiveAt(p, t)) || (pins || []).find(p => p.home && pinActiveAt(p, t)) || null;
+// Where you are at t by the schedule: a pin inside its hours, else home,
+// else null (wherever the device is).
+export const placeAt = (pins, t) => activePin(pins, t) || (pins || []).find(p => p.home) || null;
 
 // A pin's hours in words: 「週一至週五 07:00–17:00」.
 const WEEK = '日一二三四五六';
 export function scheduleText(pin) {
+  if (pin?.home && !pin.days?.length) return '其他時間';
   if (!pin?.days?.length) return '不自動開啟';
   const d = pin.days;
   const key = d.join('');
@@ -127,14 +133,18 @@ export function mergeData(a, b, now = Date.now()) {
 // watch from 07:00 to 21:00, split by the pins' hours: each pin's at the
 // pin, the rest where the app last was.
 const at = (date, clock) => Date.parse(`${date}T${clock}:00+08:00`);
-export function planNotices({ pins = [], brief = '06:30', here = null, now = Date.now(), days = 7, briefOn = true, rainOn = true }) {
+export function planNotices({ pins = [], brief = '06:30', here: device = null, now = Date.now(), days = 7, briefOn = true, rainOn = true }) {
   const items = [];
+  // Outside every pin's hours: home if one is set, else where the app was.
+  const homePin = pins.find(p => p.home) || null;
+  const here = homePin || device;
+  pins = pins.filter(p => !p.home);
   const where = p => ({ lat: Math.round(p.lat * 1e4) / 1e4, lon: Math.round(p.lon * 1e4) / 1e4 });
   for (let i = 0; i <= days; i++) {
     const date = taipeiClock(now + i * DAY_MS).date;
     if (briefOn && clockOk(brief)) {
       const t = at(date, brief);
-      const pin = activePin(pins, t);
+      const pin = activePin(pins, t) || homePin;
       const p = pin || here;
       if (p && t > now && items.filter(x => x.kind === 'brief').length < days) {
         items.push({ at: t, kind: 'brief', title: pin ? `${pin.name} 今天天氣` : '今天天氣', tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
@@ -154,11 +164,11 @@ export function planNotices({ pins = [], brief = '06:30', here = null, now = Dat
       let cursor = dayStart;
       for (const s of segs) {
         if (s.from < cursor) continue;
-        if (s.from > cursor && here) all.push({ from: cursor, to: s.from, p: here, pin: null });
+        if (s.from > cursor && here) all.push({ from: cursor, to: s.from, p: here, pin: homePin });
         all.push({ from: s.from, to: s.to, p: s.pin, pin: s.pin });
         cursor = s.to;
       }
-      if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: null });
+      if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: homePin });
       for (const s of all) {
         if (s.to <= now) continue;
         items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? `${s.pin.name}快下雨了` : '快下雨了', tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });

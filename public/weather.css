@@ -1143,3 +1143,99 @@ body {
   color: var(--q-muted);
   font-size: 12px;
 }
+
+/* 我的行程 */
+.wx-stays {
+  padding: 2px 12px;
+}
+.wx-stays-day {
+  margin-bottom: 8px;
+}
+.wx-stays-h {
+  margin: 8px 2px 0;
+  font-weight: 750;
+}
+.wx-stays-h small {
+  margin-left: 4px;
+  color: var(--q-muted);
+  font-weight: 500;
+}
+.wx-stay {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 28px 72px 40px 24px;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0;
+  border: 0;
+  border-top: 1px solid var(--q-divider);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wx-stays > .wx-stay:first-child,
+.wx-stays-h + .wx-stay {
+  border-top: 0;
+}
+.wx-stay-time {
+  display: grid;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.wx-stay-time small {
+  color: var(--q-muted);
+  font-weight: 500;
+  font-size: 11px;
+}
+.wx-stay-place {
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wx-stay-icon {
+  font-size: 20px;
+  text-align: center;
+}
+.wx-stay-temp {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.wx-stay-rain {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 750;
+}
+.wx-stay-uv {
+  border-radius: 6px;
+  background: var(--c);
+  color: #111;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 20px;
+  text-align: center;
+}
+.wx-stay-uv:empty {
+  background: none;
+}
+.tl-place {
+  color: var(--q-accent);
+  color: color-mix(in srgb, var(--q-accent) 55%, #fff);
+}
+.wx-home-row {
+  justify-content: space-between;
+  margin-top: 14px;
+}
+.wx-home-row > span {
+  display: grid;
+  font-weight: 650;
+}
+.wx-home-row small {
+  color: var(--q-muted);
+  font-size: 12px;
+  font-weight: 500;
+}

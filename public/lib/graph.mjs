@@ -28,8 +28,10 @@ export function timeline(id, cols, { max, tz, label, nowIndex = -1 }) {
     const h = v == null ? 0 : Math.max(v > 0 ? 3 : 0, Math.min(100, (v / max) * 100));
     const bar = v == null ? '<i class="tl-none">–</i>' : v <= 0 ? '<i class="tl-zero"></i>' : `<i class="tl-bar${c.fc ? ' tl-fc' : ''}" style="height:${r1(h)}%;background:${c.color}">${c.inner ? `<i class="tl-inner" style="height:${r1(Math.min(1, c.inner) * 100)}%"></i>` : ''}</i>`;
     const text = c.text ? `<span class="tl-val" style="bottom:${r1(h)}%">${e(c.text)}</span>` : '';
-    const dayTag = start ? `<em class="tl-date">${e(c.dayText || `${shortDate(date)} ${weekday(date)}`)}</em>` : '';
-    const cls = ['tl-col', c.daily ? 'tl-wide' : '', dayN % 2 ? 'tl-odd' : '', start && i ? 'tl-start' : '', i === nowIndex ? 'tl-now' : ''].filter(Boolean).join(' ');
+    // The date at a day's first column; a place's name where it changes (`tag`).
+    const words = [start ? c.dayText || `${shortDate(date)} ${weekday(date)}` : '', c.tag || ''].filter(Boolean).join(' · ');
+    const dayTag = words ? `<em class="tl-date${c.tag ? ' tl-place' : ''}">${e(words)}</em>` : '';
+    const cls = ['tl-col', c.daily ? 'tl-wide' : '', dayN % 2 ? 'tl-odd' : '', (start || c.tag) && i ? 'tl-start' : '', i === nowIndex ? 'tl-now' : ''].filter(Boolean).join(' ');
     return `<button type="button" class="${cls}" data-g="${id}" data-i="${i}" data-d="${date}"><span class="tl-plot">${text}${bar}</span><b class="tl-t${c.strong ? ' tl-strong' : ''}">${e(c.under || '')}</b>${dayTag}</button>`;
   });
   return `<div class="tl" data-graph="${id}" role="img" aria-label="${e(label)}">${html.join('')}</div>`;
@@ -198,5 +200,6 @@ export function readout(kind, col, tz) {
   if (kind === 'uv') return `${when} · 紫外線 ${col.uv ?? '–'}`;
   if (kind === 'rain') return `${when} · 降雨機率 ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · 雨量 ${col.mm} mm` : ''}`;
   if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}`;
+  if (kind === 'plan') return `${when} · ${col.place} · ${col.temp == null ? '–' : `${Math.round(col.temp)}°`} · 雨 ${col.pop ?? '–'}%${col.uv >= 3 ? ` · UV ${col.uv}` : ''}`;
   return when;
 }
