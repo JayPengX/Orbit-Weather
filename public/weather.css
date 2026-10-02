@@ -66,30 +66,25 @@ body {
   overscroll-behavior-y: contain;
   box-sizing: border-box;
   padding: 6px max(16px, calc((100% - var(--wx-max)) / 2)) calc(env(safe-area-inset-bottom) + 40px);
+}
+/* A plain column: each card its own height (Safari shrinks grid or flex
+   items that clip, inside a scrolling page). */
+.wx-page > * {
+  display: block;
+  margin: 0 0 14px;
+}
+.wx-page > .wx-section {
   display: grid;
-  align-content: start;
-  gap: 14px;
 }
 
 /* Top: where and now, on a sky that follows the weather. */
 .wx-hero {
   position: relative;
-  overflow: hidden;
   padding: 18px 18px 16px;
   border-radius: 24px;
   color: #fff;
   background: var(--sky);
   box-shadow: var(--q-shadow);
-}
-.wx-hero::after {
-  content: '';
-  position: absolute;
-  inset: auto -30% -60% auto;
-  width: 70%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 65%);
-  pointer-events: none;
 }
 .sky-clear.sky-day {
   --sky: linear-gradient(160deg, #2f6fe0 0%, #4f9cf0 55%, #f0b35a 130%);
@@ -161,8 +156,6 @@ body {
   line-height: 1.05;
 }
 .wx-hilo {
-  position: relative;
-  z-index: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
@@ -173,8 +166,6 @@ body {
   padding: 9px 11px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 .wx-hilo span,
 .wx-hilo small {
@@ -185,8 +176,6 @@ body {
   font: 700 21px/1.25 var(--q-font);
 }
 .wx-headline {
-  position: relative;
-  z-index: 1;
   margin: 12px 0 0;
   font-size: 14.5px;
   line-height: 1.55;
@@ -725,7 +714,8 @@ body {
   transform: rotate(calc(var(--d) + 90deg));
 }
 .wx-edit {
-  justify-self: center;
+  width: fit-content;
+  margin: 4px auto 14px !important;
 }
 .wx-empty {
   padding: 36px 16px;
@@ -864,4 +854,62 @@ body {
 }
 .wx-dayg .wx-legend {
   margin: 6px 0 4px;
+}
+.wx-order {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.wx-order-row {
+  display: grid;
+  grid-template-columns: 1fr 40px 40px 52px;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 6px 6px 12px;
+  border-radius: 14px;
+  background: var(--q-sunken);
+}
+.wx-order-row.is-off .wx-order-name {
+  color: var(--q-muted);
+  text-decoration: line-through;
+}
+.wx-order-name {
+  font-weight: 650;
+}
+.wx-mini {
+  width: 40px;
+  height: 40px;
+  font-size: 17px;
+}
+.wx-mini:disabled {
+  opacity: 0.3;
+}
+.wx-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--q-text) 20%, transparent);
+  cursor: pointer;
+}
+.wx-switch i {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.wx-switch[aria-checked='true'] {
+  background: var(--q-accent);
+}
+.wx-switch[aria-checked='true'] i {
+  transform: translateX(20px);
+}
+.wx-reset {
+  margin-top: 10px;
 }

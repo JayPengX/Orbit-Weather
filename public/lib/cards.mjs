@@ -1,6 +1,6 @@
-// One place's page, top to bottom: where and now; UV, rain and air, each a
-// card with its graph; what to do about it, today and this week; the days;
-// everything else. One truth: one value for each thing, no sources named.
+// One place's page, top to bottom: where and now; then the cards in the
+// owner's order (default: UV, rain and air, each with its graph; what to do,
+// today and this week; the days; everything else). One truth: one value for each thing, no sources named.
 
 import { clock, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, conditionIcon, moonPhase, escapeHtml as e, ago } from './format.mjs';
 import { uvGraph, rainGraph, airGraph, dayGraph, uvCols } from './graph.mjs';
@@ -279,9 +279,10 @@ export function infoCard(f, { now, lat, lon, page }) {
 }
 
 // A whole page.
-export function pageHtml(f, page, { now }) {
+const SECTIONS = { uv: uvCard, rain: rainCard, air: airCard, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
+export function pageHtml(f, page, { now, cards = Object.keys(SECTIONS), hidden = [] }) {
   const top = topArea(f, { page, now });
   if (!f) return `${top}<section class="q-card wx-empty">${page.error ? `<p>${e(page.error)}</p><button class="q-btn" type="button" data-act="retry" data-page="${e(page.key)}">再試一次</button>` : '<div class="wx-spin"></div><p>正在取得天氣…</p>'}</section>`;
   const opts = { now, key: page.key, lat: page.lat, lon: page.lon, page };
-  return [top, uvCard(f, opts), rainCard(f, opts), airCard(f, opts), adviceCards(f, opts), daysList(f, opts), infoCard(f, opts)].join('');
+  return [top, ...cards.filter(k => SECTIONS[k] && !hidden.includes(k)).map(k => SECTIONS[k](f, opts))].join('');
 }

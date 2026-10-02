@@ -5,7 +5,7 @@
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, hoursFrom, airCols, dayText } from './lib/cards.mjs';
 import { readout, uvCols, COL } from './lib/graph.mjs';
 import { escapeHtml as e } from './lib/format.mjs';
@@ -51,7 +51,7 @@ function renderPage(page) {
   // Keep where each graph was swiped to, and the page's own scroll.
   const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
   const top = el.scrollTop;
-  el.innerHTML = pageHtml(f, page, { now }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
+  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
   if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: hoursFrom(f, now), air: airCols(f, now), tz: f.tz };
   // The air graph opens at now (the hours measured are to its left).
   const airBox = el.querySelector('[data-scroll="air"]');
@@ -278,11 +278,57 @@ async function pinSheet(pin = null) {
   });
 }
 
+// The settings: the cards' order and which show, the morning brief's time.
+const CARD_ICONS = { uv: '☀️', rain: '☔', air: '🌫️', advice: '💡', days: '📆', info: '📋' };
 function settingsSheet() {
+  const rows = () =>
+    state.data.cards
+      .map((k, i, all) => {
+        const on = !state.data.hidden.includes(k);
+        return `<div class="wx-order-row${on ? '' : ' is-off'}">
+          <span class="wx-order-name">${CARD_ICONS[k]} ${e(CARDS[k])}</span>
+          <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="上移${e(CARDS[k])}" ${i ? '' : 'disabled'}>↑</button>
+          <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="1" aria-label="下移${e(CARDS[k])}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
+          <button class="wx-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="顯示${e(CARDS[k])}"><i></i></button>
+        </div>`;
+      })
+      .join('');
   const d = sheet(`
     <div class="q-sheet-head"><h2>設定</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
+    <h3 class="q-sheet-h">卡片順序</h3>
+    <p class="wx-foot">最上面的地點和現在天氣固定在頂端；其他卡片可以上下移動，或關掉不顯示。每個地點的頁面都一樣，跟著 Quadra Pass 同步。</p>
+    <div class="wx-order" id="card-order">${rows()}</div>
+    <button class="q-btn wx-reset" type="button" data-reset="1">恢復預設順序</button>
+    <h3 class="q-sheet-h">通知</h3>
     <label class="wx-field"><span>早晨天氣的時間</span><input id="brief-time" type="time" value="${state.data.brief}"></label>
     <p class="wx-foot">早晨天氣和降雨提醒的開關，在右上角的帳戶裡（Quadra Pass 的通知設定）。早晨天氣以那時的釘選地點為準，沒有的話以最後打開本 App 的位置為準。</p>`);
+  const redraw = () => (d.querySelector('#card-order').innerHTML = rows());
+  d.addEventListener('click', ev => {
+    const move = ev.target.closest('[data-move]');
+    const show = ev.target.closest('[data-show]');
+    const reset = ev.target.closest('[data-reset]');
+    if (!move && !show && !reset) return;
+    const cards = [...state.data.cards];
+    if (move) {
+      const i = cards.indexOf(move.dataset.move);
+      const j = i + Number(move.dataset.by);
+      if (i < 0 || j < 0 || j >= cards.length) return;
+      [cards[i], cards[j]] = [cards[j], cards[i]];
+      state.data.cards = cards;
+    }
+    if (show) {
+      const k = show.dataset.show;
+      state.data.hidden = state.data.hidden.includes(k) ? state.data.hidden.filter(x => x !== k) : [...state.data.hidden, k];
+    }
+    if (reset) {
+      state.data.cards = [...DEFAULT_LAYOUT];
+      state.data.hidden = [];
+    }
+    redraw();
+    // Keep the button just pressed under the finger.
+    if (move) d.querySelector(`[data-move="${move.dataset.move}"][data-by="${move.dataset.by}"]`)?.focus();
+    saveData();
+  });
   d.querySelector('#brief-time').addEventListener('change', ev => {
     if (/^\d{2}:\d{2}$/.test(ev.target.value)) {
       state.data.brief = ev.target.value;
@@ -301,7 +347,7 @@ const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。']
+    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------

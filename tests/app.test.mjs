@@ -235,3 +235,20 @@ test('labels in Taipei time and Taiwan levels; the sun worked out', () => {
   const s = sunTimes('2026-10-03', 25.034, 121.565);
   assert.ok(Math.abs(s.sunrise - 1790977588378) < 3 * 60_000);
 });
+
+test('the cards: the owner\'s order and the hidden ones, kept on the pass, the newer copy wins', () => {
+  const d = { ...emptyData(), t: 5, cards: ['days', 'uv', 'nonsense'], hidden: ['air', 'bogus'] };
+  const back = decodeData(encodeData(d));
+  assert.deepEqual(back.cards, ['days', 'uv', 'rain', 'air', 'advice', 'info'], 'unknown dropped, missing ones added at the end');
+  assert.deepEqual(back.hidden, ['air']);
+  // An old payload without cards: the default.
+  assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {} })).cards, ['uv', 'rain', 'air', 'advice', 'days', 'info']);
+  const older = { ...emptyData(), t: 1 };
+  assert.deepEqual(mergeData(older, back).cards, back.cards);
+  assert.deepEqual(mergeData(back, older).hidden, ['air']);
+  // The page follows them.
+  const html = pageHtml(forecast, { key: 'here', pin: null, place: { county: '臺北市', town: '信義區' } }, { now: NOW, cards: back.cards, hidden: back.hidden });
+  assert.ok(html.indexOf('10 天預報') < html.indexOf('wx-card wx-uv'), 'days before UV');
+  assert.ok(html.indexOf('wx-hero') < html.indexOf('10 天預報'), 'the top stays on top');
+  assert.ok(!html.includes('wx-card wx-air'), 'air hidden');
+});

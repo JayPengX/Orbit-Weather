@@ -67,14 +67,24 @@ export function scheduleText(pin) {
 
 // ---- The payload on the pass ------------------------------------------------------
 //
-// 'w1:' + JSON { pins, brief, t, gone: { id: t } } (a deleted pin is kept
-// as gone, so an older copy elsewhere doesn't bring it back).
+// 'w1:' + JSON { pins, brief, t, gone: { id: t }, cards, hidden } (a
+// deleted pin is kept as gone, so an older copy elsewhere doesn't bring it
+// back; the cards' order and the hidden ones from the newer copy).
+
+// The cards under the top, in the owner's order; `hidden` ones left out.
+export const CARDS = { uv: '紫外線', rain: '降雨機率', air: '空氣品質', advice: '建議', days: '10 天預報', info: '更多資訊' };
+export const DEFAULT_LAYOUT = Object.keys(CARDS);
+export function cleanLayout(cards, hidden) {
+  const known = (Array.isArray(cards) ? cards : []).filter(k => CARDS[k]);
+  const order = [...new Set([...known, ...DEFAULT_LAYOUT])];
+  return { cards: order, hidden: [...new Set((Array.isArray(hidden) ? hidden : []).filter(k => CARDS[k]))] };
+}
 
 export function emptyData() {
-  return { pins: [], brief: '06:30', t: 0, gone: {} };
+  return { pins: [], brief: '06:30', t: 0, gone: {}, cards: [...DEFAULT_LAYOUT], hidden: [] };
 }
 export function encodeData(data) {
-  return 'w1:' + JSON.stringify({ pins: data.pins, brief: data.brief, t: data.t, gone: data.gone });
+  return 'w1:' + JSON.stringify({ pins: data.pins, brief: data.brief, t: data.t, gone: data.gone, cards: data.cards, hidden: data.hidden });
 }
 export function decodeData(text) {
   if (typeof text !== 'string' || !text.startsWith('w1:')) return null;
@@ -84,14 +94,15 @@ export function decodeData(text) {
       pins: (Array.isArray(j.pins) ? j.pins : []).map(cleanPin).filter(Boolean).slice(0, MAX_PINS),
       brief: clockOk(j.brief) ? j.brief : '06:30',
       t: Number(j.t) || 0,
-      gone: j.gone && typeof j.gone === 'object' ? Object.fromEntries(Object.entries(j.gone).filter(([, v]) => Number.isFinite(v))) : {}
+      gone: j.gone && typeof j.gone === 'object' ? Object.fromEntries(Object.entries(j.gone).filter(([, v]) => Number.isFinite(v))) : {},
+      ...cleanLayout(j.cards, j.hidden)
     };
   } catch {
     return null;
   }
 }
 // Two copies made one: each pin the newer of the two, a deletion newer than
-// the pin wins; the brief time from the newer copy. Order: `a`'s, then new ones.
+// the pin wins; the brief time and the cards from the newer copy. Order: `a`'s, then new ones.
 export function mergeData(a, b, now = Date.now()) {
   if (!a) return b || emptyData();
   if (!b) return a;
@@ -106,7 +117,7 @@ export function mergeData(a, b, now = Date.now()) {
   const order = [...a.pins.map(p => p.id), ...b.pins.map(p => p.id)];
   const pins = [...new Set(order)].map(id => byId.get(id)).filter(p => p && !(gone[p.id] >= p.t)).slice(0, MAX_PINS);
   const newer = (b.t || 0) > (a.t || 0) ? b : a;
-  return { pins, brief: newer.brief, t: Math.max(a.t || 0, b.t || 0), gone };
+  return { pins, brief: newer.brief, t: Math.max(a.t || 0, b.t || 0), gone, ...cleanLayout(newer.cards, newer.hidden) };
 }
 
 // ---- Notices: where each one is for ----------------------------------------------
