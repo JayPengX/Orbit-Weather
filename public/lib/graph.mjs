@@ -1,156 +1,135 @@
-// The cards' graphs: one column per step (an hour, or a forecast day), as
-// far ahead as the data goes, swiped sideways; under them the time, and the
-// date at the first column and each midnight. Every column is a tap target
-// (`data-g` the graph, `data-i` the column) for the card's read-out.
+// The cards' graphs: one column per hour (or forecast day), as far ahead as
+// the data goes, swiped sideways. Plain elements, not one long picture: a
+// phone's browser draws a 6,000-pixel-wide SVG in tiles and drops some while
+// scrolling (the "empty hours"); a row of small boxes it always draws.
+//
+// Under the bars the hour, and at each day's first column its date; each day
+// on its own shade. Every column is a tap target (`data-g` the graph,
+// `data-i` the column) for the card's read-out, and carries its date
+// (`data-d`) for the date chip that follows the swipe.
 
 import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e } from './format.mjs';
 
-export const COL = 26;
-const AXIS = 34;
+export const COL = 30;
+const HOUR = 3_600_000;
 const r1 = v => Math.round(v * 10) / 10;
 
-// The time row and the date row under the columns. `every`: an hour label
-// every this many columns (dates always at midnight).
-export function axis(cols, { tz, colW = COL, y, every = 3, daily = false }) {
-  const out = [];
-  cols.forEach((c, i) => {
-    const x = i * colW + colW / 2;
-    if (daily) {
-      out.push(`<text class="g-time" x="${x}" y="${y + 12}">${e(c.label || shortDate(c.date))}</text>`);
-      return;
-    }
-    const h = hourOf(c.t, tz);
-    if (i % every === 0 || h === 0) out.push(`<text class="g-time${h === 0 ? ' g-mid' : ''}" x="${x}" y="${y + 12}">${h === 0 ? '0時' : `${h}時`}</text>`);
-    if (i === 0 || h === 0) {
-      const d = dateOf(c.t, tz);
-      out.push(`<text class="g-date" x="${i * colW + 2}" y="${y + 28}">${shortDate(d)} ${weekday(d)}</text>`);
-      if (i > 0) out.push(`<line class="g-day" x1="${i * colW}" x2="${i * colW}" y1="0" y2="${y + 30}"/>`);
-    } else if (h === 12 && i >= 4) {
-      // Noon too, so a graph swiped to the middle of a day still says which.
-      const d = dateOf(c.t, tz);
-      out.push(`<text class="g-date g-noon" x="${i * colW + colW / 2}" y="${y + 28}">${shortDate(d)} ${weekday(d)}</text>`);
-    }
+// cols: [{ t | date, v, color, text (above the bar), under (the time row),
+// strong, fc (a forecast: lighter), inner (a darker part, 0–1 of the bar) }].
+export function timeline(id, cols, { max, tz, label, nowIndex = -1 }) {
+  let dayN = -1;
+  let last = null;
+  const html = cols.map((c, i) => {
+    const date = c.date || dateOf(c.t, tz);
+    const start = date !== last;
+    if (start) dayN++;
+    last = date;
+    const v = c.v;
+    const h = v == null ? 0 : Math.max(v > 0 ? 3 : 0, Math.min(100, (v / max) * 100));
+    const bar = v == null ? '<i class="tl-none">–</i>' : v <= 0 ? '<i class="tl-zero"></i>' : `<i class="tl-bar${c.fc ? ' tl-fc' : ''}" style="height:${r1(h)}%;background:${c.color}">${c.inner ? `<i class="tl-inner" style="height:${r1(Math.min(1, c.inner) * 100)}%"></i>` : ''}</i>`;
+    const text = c.text ? `<span class="tl-val" style="bottom:${r1(h)}%">${e(c.text)}</span>` : '';
+    const dayTag = start ? `<em class="tl-date">${e(c.dayText || `${shortDate(date)} ${weekday(date)}`)}</em>` : '';
+    const cls = ['tl-col', c.daily ? 'tl-wide' : '', dayN % 2 ? 'tl-odd' : '', start && i ? 'tl-start' : '', i === nowIndex ? 'tl-now' : ''].filter(Boolean).join(' ');
+    return `<button type="button" class="${cls}" data-g="${id}" data-i="${i}" data-d="${date}"><span class="tl-plot">${text}${bar}</span><b class="tl-t${c.strong ? ' tl-strong' : ''}">${e(c.under || '')}</b>${dayTag}</button>`;
   });
-  return out.join('');
+  return `<div class="tl" data-graph="${id}" role="img" aria-label="${e(label)}">${html.join('')}</div>`;
 }
 
-const frame = (id, width, height, body, label) =>
-  `<svg class="graph" data-graph="${id}" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${e(label)}">${body}<rect class="g-sel" x="-100" y="0" width="0" height="${height}" rx="6"/></svg>`;
-const hits = (id, n, colW, height) => Array.from({ length: n }, (_, i) => `<rect class="g-hit" data-g="${id}" data-i="${i}" x="${i * colW}" y="0" width="${colW}" height="${height}"/>`).join('');
-const nowLine = (cols, now, colW, top, bottom) => {
-  if (!cols.length || cols[0].t == null) return '';
-  const x = ((now - cols[0].t) / 3_600_000) * colW;
-  return x >= 0 && x <= cols.length * colW ? `<line class="g-now" x1="${r1(x)}" x2="${r1(x)}" y1="${top}" y2="${bottom}"/>` : '';
+// An hour's label: every 3 hours by the clock ("6時"); midnight is the
+// date's place, so none.
+const hourText = (t, tz) => {
+  const h = hourOf(t, tz);
+  return h % 3 === 0 && h !== 0 ? `${h}時` : '';
 };
 
-// Bars from the bottom: value / max of the plot's height, coloured and
-// labelled by the caller.
-function bars(cols, { colW, top, bottom, max, value, color, label, pad = 5 }) {
-  const out = [];
+// Value labels where they help: each day's highest (when it counts) and
+// every 3 hours, never two side by side.
+function sparseLabels(cols, { tz, min, fmt }) {
+  const peak = {};
   cols.forEach((c, i) => {
-    const v = value(c);
-    if (v == null) return;
-    const h = Math.max(v > 0 ? 2 : 0, ((bottom - top) * Math.min(v, max)) / max);
-    if (h) out.push(`<rect class="g-bar" x="${i * colW + pad}" y="${r1(bottom - h)}" width="${colW - pad * 2}" height="${r1(h)}" rx="4" fill="${color(v, c)}"/>`);
-    const t = label?.(v, c, i);
-    if (t) out.push(`<text class="g-val" x="${i * colW + colW / 2}" y="${r1(bottom - h - 4)}">${e(t)}</text>`);
+    const d = dateOf(c.t, tz);
+    if (c.v != null && c.v >= min && (peak[d] == null || c.v > cols[peak[d]].v)) peak[d] = i;
   });
-  return out.join('');
-}
-
-// UV, hourly: bars coloured by level, the value on each hour above 0.
-export function uvGraph(hours, { tz, now = Date.now(), colW = COL } = {}) {
-  const top = 18;
-  const bottom = 120;
-  const max = Math.max(11, ...hours.map(h => h.uv ?? 0));
-  const width = hours.length * colW;
-  const height = bottom + AXIS;
-  const body = [
-    bars(hours, { colW, top, bottom, max, value: h => h.uv, color: v => uvColor(v), label: v => (v >= 1 ? String(Math.round(v)) : '') }),
-    `<line class="g-base" x1="0" x2="${width}" y1="${bottom}" y2="${bottom}"/>`,
-    nowLine(hours, now, colW, 0, bottom),
-    axis(hours, { tz, colW, y: bottom })
-  ].join('');
-  return frame('uv', width, height, body + hits('uv', hours.length, colW, height), '逐時紫外線');
-}
-
-// Rain, hourly: probability as bars (0–100), the amount under it when any.
-export function rainGraph(hours, { tz, now = Date.now(), colW = COL } = {}) {
-  const top = 18;
-  const bottom = 120;
-  const width = hours.length * colW;
-  const height = bottom + AXIS;
-  const mm = hours
-    .map((h, i) => (h.mm >= 0.1 ? `<text class="g-mm" x="${i * colW + colW / 2}" y="${bottom - 4}">${h.mm >= 10 ? Math.round(h.mm) : r1(h.mm)}</text>` : ''))
-    .join('');
-  const body = [
-    `<line class="g-grid" x1="0" x2="${width}" y1="${top + (bottom - top) / 2}" y2="${top + (bottom - top) / 2}"/>`,
-    bars(hours, { colW, top, bottom, max: 100, value: h => h.pop, color: v => rainColor(v), label: v => (v >= 20 ? `${Math.round(v)}` : '') }),
-    mm,
-    `<line class="g-base" x1="0" x2="${width}" y1="${bottom}" y2="${bottom}"/>`,
-    nowLine(hours, now, colW, 0, bottom),
-    axis(hours, { tz, colW, y: bottom })
-  ].join('');
-  return frame('rain', width, height, body + hits('rain', hours.length, colW, height), '逐時降雨機率');
-}
-
-// Air: the last hours measured (hourly bars), then the coming days'
-// forecast (a wider column each). `cols`: [{ t, aqi }…] then [{ date,
-// label, aqi, forecast: true }…].
-export function airGraph(cols, { tz, now = Date.now(), colW = COL } = {}) {
-  const top = 18;
-  const bottom = 120;
-  const max = Math.max(150, ...cols.map(c => c.aqi ?? 0));
-  const wide = colW * 2.2;
-  const xs = [];
-  let x = 0;
-  for (const c of cols) {
-    xs.push(x);
-    x += c.forecast ? wide : colW;
-  }
-  const width = x;
-  const height = bottom + AXIS;
-  const out = [];
-  const firstForecast = cols.findIndex(c => c.forecast);
+  const peaks = new Set(Object.values(peak));
+  let lastAt = -9;
   cols.forEach((c, i) => {
-    const w = c.forecast ? wide : colW;
-    if (c.aqi == null) return;
-    const h = Math.max(2, ((bottom - top) * Math.min(c.aqi, max)) / max);
-    out.push(`<rect class="g-bar${c.forecast ? ' g-fc' : ''}" x="${r1(xs[i] + 4)}" y="${r1(bottom - h)}" width="${r1(w - 8)}" height="${r1(h)}" rx="4" fill="${aqiColor(c.aqi)}"/>`);
-    if (c.forecast || i % 3 === 0 || i === firstForecast - 1) out.push(`<text class="g-val" x="${r1(xs[i] + w / 2)}" y="${r1(bottom - h - 4)}">${c.aqi}</text>`);
-    // Labels under: hours as in the others, the forecast days by name.
-    if (c.forecast) out.push(`<text class="g-time" x="${r1(xs[i] + w / 2)}" y="${bottom + 12}">${e(c.label)}</text><text class="g-time" x="${r1(xs[i] + w / 2)}" y="${bottom + 28}">${shortDate(c.date)}</text>`);
-    else {
-      const hr = hourOf(c.t, tz);
-      if (i % 3 === 0 || hr === 0) out.push(`<text class="g-time${hr === 0 ? ' g-mid' : ''}" x="${r1(xs[i] + w / 2)}" y="${bottom + 12}">${hr}時</text>`);
-      // The date where there's room for it before the forecast.
-      const room = (firstForecast < 0 ? cols.length : firstForecast) - i >= 3;
-      if ((i === 0 || hr === 0) && room) {
-        const d = dateOf(c.t, tz);
-        out.push(`<text class="g-date" x="${r1(xs[i] + 2)}" y="${bottom + 28}">${shortDate(d)} ${weekday(d)}</text>`);
-      }
+    const want = c.v != null && c.v >= min && (peaks.has(i) || hourOf(c.t, tz) % 3 === 0);
+    if (!want) return;
+    if (i - lastAt === 1) {
+      if (!peaks.has(i)) return;
+      cols[lastAt].text = '';
     }
+    c.text = fmt(c.v);
+    lastAt = i;
   });
-  if (firstForecast >= 0) out.push(`<text class="g-date" x="${r1(xs[firstForecast] + 4)}" y="12">預測 →</text>`);
-  if (firstForecast > 0) out.push(`<line class="g-day" x1="${xs[firstForecast]}" x2="${xs[firstForecast]}" y1="0" y2="${bottom + 30}"/>`);
-  const hitRects = cols.map((c, i) => `<rect class="g-hit" data-g="air" data-i="${i}" x="${r1(xs[i])}" y="0" width="${r1(c.forecast ? wide : colW)}" height="${height}"/>`).join('');
-  const body = out.join('') + `<line class="g-base" x1="0" x2="${width}" y1="${bottom}" y2="${bottom}"/>`;
-  return frame('air', r1(width), height, body + hitRects, '空氣品質：過去測值與預測');
+  return cols;
+}
+
+// UV: the daylight hours only (6–18 時), a day's block after another.
+export function uvCols(hours, tz) {
+  return hours.filter(h => {
+    const hr = hourOf(h.t, tz);
+    return hr >= 6 && hr <= 18;
+  });
+}
+export function uvGraph(hours, { tz, now = Date.now() } = {}) {
+  const list = uvCols(hours, tz);
+  const nowIndex = list.findIndex(h => h.t <= now && now < h.t + HOUR);
+  const cols = sparseLabels(
+    list.map((h, i) => ({ t: h.t, v: h.uv, color: uvColor(h.uv), under: i === nowIndex ? '現在' : hourOf(h.t, tz) % 2 ? '' : `${hourOf(h.t, tz)}時`, strong: i === nowIndex })),
+    { tz, min: 1, fmt: v => String(Math.round(v)) }
+  );
+  const max = Math.max(11, ...list.map(h => h.uv ?? 0));
+  return timeline('uv', cols, { max, tz, label: '逐時紫外線（白天）', nowIndex });
+}
+
+// Rain: probability as the bar (0–100), the amount as its darker part
+// (10 mm fills the graph's height; never taller than the bar).
+export function rainGraph(hours, { tz } = {}) {
+  const cols = sparseLabels(
+    hours.map((h, i) => ({ t: h.t, v: h.pop, color: rainColor(h.pop), inner: h.mm >= 0.1 && h.pop > 0 ? Math.min(1, h.mm / 10 / (h.pop / 100)) : 0, under: i === 0 ? '現在' : hourText(h.t, tz), strong: i === 0 })),
+    { tz, min: 20, fmt: v => `${Math.round(v)}` }
+  );
+  return timeline('rain', cols, { max: 100, tz, label: '逐時降雨機率', nowIndex: 0 });
+}
+
+// Air: the hours measured, then the hours forecast (lighter), on one
+// clock; without hourly forecasts, the days' forecasts after the measured
+// hours, a column each.
+export function airGraph(cols, { tz } = {}) {
+  const first = cols.findIndex(c => c.fc);
+  const nowIndex = first > 0 ? first - 1 : first < 0 ? cols.length - 1 : 0;
+  const out = cols.map((c, i) => ({
+    ...c,
+    v: c.aqi,
+    color: aqiColor(c.aqi),
+    under: c.daily ? c.label : i === nowIndex ? '現在' : hourText(c.t, tz),
+    strong: i === nowIndex,
+    dayText: c.daily ? shortDate(c.date) : undefined
+  }));
+  sparseLabels(
+    out.filter(c => !c.daily),
+    { tz, min: 0, fmt: v => String(Math.round(v)) }
+  );
+  for (const c of out) if (c.daily && c.v != null) c.text = String(Math.round(c.v));
+  if (out[nowIndex]?.v != null) out[nowIndex].text = String(Math.round(out[nowIndex].v));
+  const max = Math.max(150, ...cols.map(c => c.aqi ?? 0));
+  return timeline('air', out, { max, tz, label: '空氣品質：測到的與預測的', nowIndex });
 }
 
 // One day, everything over each other (the day list's sheet): temperature
 // and feels-like lines, UV as a coloured band, rain bars, AQI dots where
-// measured. Fitted to the width (24 columns).
+// measured. Fitted to the width (24 columns): small, so one SVG is fine.
 export function dayGraph(hours, { tz, aqi = [], colW = 15 } = {}) {
   const n = hours.length;
   if (!n) return '';
   const width = n * colW;
   const tTop = 26;
-  const tBottom = 118;
-  const uvY = 128;
-  const rTop = 142;
-  const rBottom = 196;
-  const height = rBottom + AXIS;
+  const tBottom = 112;
+  const uvY = 124;
+  const rTop = 140;
+  const rBottom = 190;
+  const height = rBottom + 22;
   const vals = hours.flatMap(h => [h.temp, h.feels]).filter(v => v != null);
   let lo = Math.min(...vals);
   let hi = Math.max(...vals);
@@ -168,32 +147,32 @@ export function dayGraph(hours, { tz, aqi = [], colW = 15 } = {}) {
   const out = [];
   out.push(`<path class="g-feels" d="${line('feels')}"/><path class="g-temp" d="${line('temp')}"/>`);
   hours.forEach((h, i) => {
-    if (h.temp != null && i % 3 === 0) out.push(`<text class="g-val" x="${cx(i)}" y="${r1(y(h.temp) - 7)}">${Math.round(h.temp)}°</text>`);
-    if (h.uv > 0) out.push(`<rect x="${i * colW + 1}" y="${uvY}" width="${colW - 2}" height="7" rx="2" fill="${uvColor(h.uv)}"/>`);
+    if (h.temp != null && i % 3 === 1) out.push(`<text class="g-val" x="${cx(i)}" y="${r1(y(h.temp) - 8)}">${Math.round(h.temp)}°</text>`);
+    if (h.uv > 0) out.push(`<rect x="${i * colW + 1}" y="${uvY}" width="${colW - 2}" height="8" rx="2" fill="${uvColor(h.uv)}"/>`);
+    const p = h.pop ?? 0;
+    const bh = p > 0 ? Math.max(2, ((rBottom - rTop) * p) / 100) : 0;
+    if (bh) out.push(`<rect x="${i * colW + 2}" y="${r1(rBottom - bh)}" width="${colW - 4}" height="${r1(bh)}" rx="2" fill="${rainColor(p)}"/>`);
+    if (p >= 30 && i % 2 === 0) out.push(`<text class="g-val" x="${cx(i)}" y="${r1(rBottom - bh - 3)}">${Math.round(p)}</text>`);
   });
-  // Rain labels every 3 hours, and at the day's wettest hour.
-  const wettest = Math.max(...hours.map(h => h.pop ?? 0));
-  out.push(bars(hours, { colW, top: rTop, bottom: rBottom, max: 100, value: h => h.pop, color: v => rainColor(v), label: (v, c, i) => (v >= 20 && (i % 3 === 0 || v === wettest) ? `${Math.round(v)}` : ''), pad: 2 }));
-  // AQI measured that day, at its hour.
   const t0 = hours[0].t;
   for (const a of aqi) {
-    const i = Math.floor((a.t - t0) / 3_600_000);
-    if (i >= 0 && i < n && a.aqi != null) out.push(`<circle cx="${cx(i)}" cy="${tTop - 14}" r="4" fill="${aqiColor(a.aqi)}"/>`);
+    const i = Math.floor((a.t - t0) / HOUR);
+    if (i >= 0 && i < n && a.aqi != null) out.push(`<circle cx="${cx(i)}" cy="${tTop - 16}" r="4" fill="${aqiColor(a.aqi)}"/>`);
   }
   out.push(`<line class="g-base" x1="0" x2="${width}" y1="${rBottom}" y2="${rBottom}"/>`);
   hours.forEach((h, i) => {
     const hr = hourOf(h.t, tz);
-    if (hr % 3 === 0) out.push(`<text class="g-time" x="${cx(i)}" y="${rBottom + 14}">${hr}時</text>`);
+    if (hr % 3 === 0) out.push(`<text class="g-time" x="${cx(i)}" y="${rBottom + 15}">${hr}時</text>`);
   });
-  return `<svg class="graph day-graph" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="這一天的溫度、紫外線、降雨與空氣">${out.join('')}</svg>`;
+  return `<svg class="graph day-graph" xmlns="http://www.w3.org/2000/svg" viewBox="-10 0 ${width + 20} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="這一天的溫度、紫外線、降雨與空氣">${out.join('')}</svg>`;
 }
 
 // The read-out for a tapped column: "10/3 週六 13:00 · …".
 export function readout(kind, col, tz) {
   if (!col) return '';
-  const when = col.forecast ? `${col.label}（預測）` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}`;
+  const when = col.daily ? `${shortDate(col.date)} ${col.label}（預測）` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.fc ? '（預測）' : ''}`;
   if (kind === 'uv') return `${when} · 紫外線 ${col.uv ?? '–'}`;
-  if (kind === 'rain') return `${when} · 降雨機率 ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · ${col.mm} mm` : ''}`;
+  if (kind === 'rain') return `${when} · 降雨機率 ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · 雨量 ${col.mm} mm` : ''}`;
   if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}`;
   return when;
 }

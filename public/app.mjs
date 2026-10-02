@@ -6,8 +6,8 @@
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS } from './lib/pins.mjs';
-import { pageHtml, daySheet, hoursFrom, airCols } from './lib/cards.mjs';
-import { readout, COL } from './lib/graph.mjs';
+import { pageHtml, daySheet, hoursFrom, airCols, dayText } from './lib/cards.mjs';
+import { readout, uvCols, COL } from './lib/graph.mjs';
 import { escapeHtml as e } from './lib/format.mjs';
 
 const $ = id => document.getElementById(id);
@@ -52,16 +52,33 @@ function renderPage(page) {
   const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
   const top = el.scrollTop;
   el.innerHTML = pageHtml(f, page, { now }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
-  for (const s of el.querySelectorAll('[data-scroll]')) if (kept[s.dataset.scroll]) s.scrollLeft = kept[s.dataset.scroll];
-  // At night the UV graph starts where the sun is next up (once).
-  const uvBox = el.querySelector('[data-scroll="uv"]');
-  if (uvBox && kept.uv === undefined && f) {
-    const hrs = hoursFrom(f, now);
-    const first = hrs.findIndex(h => h.uv > 0);
-    if (first > 3) uvBox.scrollLeft = (first - 2) * COL;
+  if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: hoursFrom(f, now), air: airCols(f, now), tz: f.tz };
+  // The air graph opens at now (the hours measured are to its left).
+  const airBox = el.querySelector('[data-scroll="air"]');
+  if (airBox && kept.air === undefined) {
+    const at = airBox.querySelector('.tl-now');
+    if (at) airBox.scrollLeft = Math.max(0, at.offsetLeft - 3 * COL);
+  }
+  for (const s of el.querySelectorAll('[data-scroll]')) {
+    if (kept[s.dataset.scroll]) s.scrollLeft = kept[s.dataset.scroll];
+    whenChip(s);
   }
   el.scrollTop = top;
-  if (f) state.cols[page.key] = { uv: hoursFrom(f, now), rain: hoursFrom(f, now), air: airCols(f, now), tz: f.tz };
+}
+
+// The date chip over a graph: the day of the leftmost column in view.
+function whenChip(box) {
+  const kind = box.dataset.scroll;
+  const chip = box.parentElement.querySelector(`[data-when="${kind}"]`);
+  const cols = box.querySelectorAll('.tl-col');
+  if (!chip || !cols.length) return;
+  // (Columns are COL wide, a forecast day's wider: find it by position.)
+  let i = Math.max(0, Math.min(cols.length - 1, Math.floor((box.scrollLeft + 6) / COL)));
+  while (i > 0 && cols[i].offsetLeft > box.scrollLeft + 6) i--;
+  while (i < cols.length - 1 && cols[i + 1].offsetLeft <= box.scrollLeft + 6) i++;
+  const key = box.closest('.wx-page')?.dataset.key;
+  const text = dayText(cols[i].dataset.d, Date.now(), state.cols[key]?.tz);
+  if (chip.textContent !== text) chip.textContent = text;
 }
 
 function renderAll() {
@@ -284,23 +301,22 @@ const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，點一下看那一小時的數字。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。']
+    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
-  const hit = ev.target.closest('.g-hit');
+  const hit = ev.target.closest('.tl-col');
   if (hit) {
-    const svg = hit.closest('svg');
-    const key = hit.closest('.wx-page')?.dataset.key;
+    const page = hit.closest('.wx-page');
+    const key = page?.dataset.key;
     const kind = hit.dataset.g;
     const col = state.cols[key]?.[kind]?.[Number(hit.dataset.i)];
-    const out = document.getElementById(`read-${kind}-${key}`);
+    const out = page?.querySelector(`[data-read="${kind}"]`);
     if (out) out.textContent = readout(kind, col, state.cols[key].tz);
-    const sel = svg.querySelector('.g-sel');
-    sel.setAttribute('x', hit.getAttribute('x'));
-    sel.setAttribute('width', hit.getAttribute('width') || COL);
+    hit.parentElement.querySelector('.tl-sel')?.classList.remove('tl-sel');
+    hit.classList.add('tl-sel');
     return;
   }
   const go = ev.target.closest('[data-go]');
@@ -312,6 +328,16 @@ document.addEventListener('click', ev => {
   if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
+
+// A graph swiped: its date chip follows.
+document.addEventListener(
+  'scroll',
+  ev => {
+    const box = ev.target;
+    if (box instanceof Element && box.matches('.wx-scroll')) whenChip(box);
+  },
+  { capture: true, passive: true }
+);
 
 // The page in view, once a swipe settles.
 let settle = 0;
