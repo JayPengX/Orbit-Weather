@@ -1,245 +1,391 @@
-// Orbit Weather: one forecast, one truth, for where you are.
+// Orbit Weather: one forecast, one truth, for where you are and the places
+// you pin. A Quadra app (a related add-on, like Orbit Class): the Quadra
+// Pass signs in and keeps the pins; the kit draws the loading screen, keeps
+// the app current, and sends the notices.
 
-import { loadState, saveState, permissionState, chooseSource, getPosition, isFresh, cellOf, fetchForecast, fetchPlaces, placeName } from './lib/api.mjs';
-import { theme, escapeHtml as e } from './lib/format.mjs';
-import { todayCard, curveCard, airCard, daysCard, sunCard, extrasCard, radarCard, settingsSheet } from './lib/view.mjs';
-import { buildNotices, needsResend, pushSupported, needsHomeScreen, subscribe, sendNotices } from './lib/notify.mjs';
+import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS } from './lib/pins.mjs';
+import { pageHtml, daySheet, hoursFrom, airCols } from './lib/cards.mjs';
+import { readout, COL } from './lib/graph.mjs';
+import { escapeHtml as e } from './lib/format.mjs';
 
-const main = document.getElementById('main');
-const sheet = document.getElementById('sheet');
-let state = loadState(localStorage);
-let ui = { selected: -1, openDay: null, note: '', busy: false, error: '', radar: false };
-let permission = 'unknown';
+const $ = id => document.getElementById(id);
+const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
+const q = quadraSession('weather', { lang: 'zh' });
 
-const save = () => saveState(localStorage, state);
-
-// Where the forecast is for (lat / lon), when the server didn't place it.
-const coords = () => (state.pick ? state.pick : state.forecast ? { lat: state.forecast.lat, lon: state.forecast.lon } : {});
-
-function render() {
-  const f = state.forecast;
-  const now = Date.now();
-  document.documentElement.dataset.sky = f ? theme(f.now?.condition, f.now?.day ?? true) : 'clear';
-  if (!f) {
-    main.innerHTML = ui.error
-      ? `<section class="card empty"><p>${e(ui.error)}</p><button class="btn" data-act="refresh">再試一次</button> <button class="btn ghost" data-act="pick">選擇地區</button></section>`
-      : `<section class="card empty"><div class="spinner"></div><p>正在取得天氣…</p></section>`;
-    return;
-  }
-  const scroller = main.querySelector('[data-scroll="curve"]');
-  const keep = scroller ? scroller.scrollLeft : 0;
-  const { lat, lon } = coords();
-  main.innerHTML = [
-    todayCard(f, { place: placeName(f, state), now, note: ui.note }),
-    curveCard(f, { now, lat, lon, selected: ui.selected }),
-    daysCard(f, { now, open: ui.openDay }),
-    airCard(f),
-    radarCard(f, { now, open: ui.radar }),
-    sunCard(f, { now, lat, lon }),
-    extrasCard(f)
-  ].join('');
-  const s2 = main.querySelector('[data-scroll="curve"]');
-  if (s2) s2.scrollLeft = keep;
-  document.body.classList.toggle('busy', ui.busy);
-}
-
-// The note under the place: how it was found, and the way to better.
-function noteFor(how, why) {
-  if (how === 'ip') {
-    if (permission === 'denied') return '定位權限已關閉，顯示大約位置 · <button class="link" data-act="pick">選擇地區</button>';
-    return `${why === 'timeout' ? '定位逾時，' : ''}依網路的大約位置 · <button class="link" data-act="gps">使用精確位置</button>`;
-  }
-  return '';
-}
-
-async function load(where, how, cell) {
-  ui.busy = true;
-  render();
-  try {
-    const f = await fetchForecast(where);
-    state = { ...state, forecast: f, fetchedAt: Date.now(), cell: cell || cellOf(f.lat, f.lon), how };
-    save();
-    ui.error = '';
-    resendNotices().catch(() => {});
-  } catch (err) {
-    ui.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
-    if (state.forecast) ui.note = (ui.note ? ui.note + '<br>' : '') + e(ui.error);
-  } finally {
-    ui.busy = false;
-    render();
-  }
-}
-
-// Where are we, then the forecast for there (unless the stored one is it).
-async function run({ force = false } = {}) {
-  permission = await permissionState(navigator);
-  const src = chooseSource({ pick: state.pick, permission, wantGps: state.wantGps });
-  const now = Date.now();
-  if (src === 'pick') {
-    ui.note = '';
-    const cell = cellOf(state.pick.lat, state.pick.lon);
-    if (force || !isFresh(state, cell, now)) await load({ lat: state.pick.lat, lon: state.pick.lon }, 'pick', cell);
-    return;
-  }
-  if (src === 'gps') {
-    const pos = await getPosition(navigator);
-    if (!pos.error) {
-      ui.note = '';
-      const cell = cellOf(pos.lat, pos.lon);
-      if (force || !isFresh(state, cell, now)) await load(pos, 'gps', cell);
-      else render();
-      return;
-    }
-    if (pos.error === 'denied') {
-      permission = 'denied';
-      state.wantGps = false;
-      save();
-    }
-    ui.note = noteFor('ip', pos.error);
-  } else ui.note = noteFor('ip');
-  // By IP: the stored forecast stands if it was found this way and is fresh.
-  if (!force && state.how === 'ip' && state.forecast && now - (state.fetchedAt || 0) < 15 * 60_000) return render();
-  await load({ auto: true }, 'ip');
-}
-
-// ---- The place picker ------------------------------------------------------------
-
-async function openPicker() {
-  sheet.hidden = false;
-  sheet.innerHTML = `<div class="sheet-body card"><div class="sheet-head"><h2>選擇地區</h2><button class="link" data-act="close">完成</button></div>
-    <button class="btn wide" data-act="here">📍 使用目前位置</button>
-    <input id="q" type="search" placeholder="搜尋鄉鎮市區，例如：信義區" autocomplete="off">
-    <div id="list" class="list"><div class="dim">載入中…</div></div></div>`;
-  const input = sheet.querySelector('#q');
-  if (!state.places) {
-    try {
-      state.places = await fetchPlaces();
-      save();
-    } catch {
-      sheet.querySelector('#list').innerHTML = '<div class="dim">無法載入地區清單</div>';
-      return;
-    }
-  }
-  const draw = () => {
-    const q = input.value.trim().replace(/台/g, '臺');
-    const rows = state.places.filter(([c, t]) => !q || (c + t).includes(q)).slice(0, 120);
-    let county = '';
-    sheet.querySelector('#list').innerHTML =
-      rows
-        .map(([c, t, la, lo]) => {
-          const head = c !== county ? `<div class="county">${e((county = c))}</div>` : '';
-          return `${head}<button class="row" data-act="choose" data-c="${e(c)}" data-t="${e(t)}" data-lat="${la}" data-lon="${lo}">${e(t)}</button>`;
-        })
-        .join('') || '<div class="dim">找不到這個地區</div>';
-  };
-  input.addEventListener('input', draw);
-  draw();
-}
-const closePicker = () => {
-  sheet.hidden = true;
-  sheet.innerHTML = '';
+const state = {
+  local: loadLocal(),
+  data: emptyData(),
+  pages: [],
+  index: 0,
+  permission: 'unknown',
+  // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
+  cols: {}
 };
 
-// ---- Notices (the morning brief, the rain alert) ----------------------------------
+// ---- Pages: here, then each pin --------------------------------------------------------
 
-// The list for where the forecast is, sent again when the place changes or
-// it's half a day old.
-async function resendNotices(force = false) {
-  const f = state.forecast;
-  if (!f || (!force && !needsResend(state, state.cell, Date.now()))) return;
-  const { lat, lon } = coords();
-  const items = buildNotices({ lat, lon, prefs: state.notify || {} });
-  await sendNotices(state, items);
-  state.sentCell = state.cell;
-  state.sentAt = Date.now();
-  save();
+function buildPages() {
+  const here = state.local.here;
+  const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
+  state.pages = [
+    { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
+    ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town, village: pin.village } }))
+  ];
+}
+const pageOf = key => state.pages.find(p => p.key === key);
+const forecastOf = page => (page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
+
+function renderDots() {
+  $('dots').innerHTML = state.pages
+    .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="${i === state.index}">${p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}</button>`)
+    .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">＋ 釘選</button>`;
 }
 
-function openSettings(error = '') {
-  sheet.hidden = false;
-  sheet.innerHTML = settingsSheet(state, { supported: pushSupported(window), homeScreen: needsHomeScreen(window), error });
-}
-
-sheet.addEventListener('change', async ev => {
-  const el = ev.target.closest('[data-set]');
+function renderPage(page) {
+  const el = document.querySelector(`.wx-page[data-key="${page.key}"]`);
   if (!el) return;
-  const p = { brief: null, rain: false, ...(state.notify || {}) };
-  const time = sheet.querySelector('[data-set="time"]')?.value || '06:30';
-  state.briefTime = time;
-  if (el.dataset.set === 'brief') p.brief = el.checked ? time : null;
-  if (el.dataset.set === 'time' && p.brief) p.brief = time;
-  if (el.dataset.set === 'rain') p.rain = el.checked;
-  const wasOn = !!(state.notify?.brief || state.notify?.rain);
-  const nowOn = !!(p.brief || p.rain);
+  const now = Date.now();
+  const f = forecastOf(page);
+  // Keep where each graph was swiped to, and the page's own scroll.
+  const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
+  const top = el.scrollTop;
+  el.innerHTML = pageHtml(f, page, { now }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
+  for (const s of el.querySelectorAll('[data-scroll]')) if (kept[s.dataset.scroll]) s.scrollLeft = kept[s.dataset.scroll];
+  // At night the UV graph starts where the sun is next up (once).
+  const uvBox = el.querySelector('[data-scroll="uv"]');
+  if (uvBox && kept.uv === undefined && f) {
+    const hrs = hoursFrom(f, now);
+    const first = hrs.findIndex(h => h.uv > 0);
+    if (first > 3) uvBox.scrollLeft = (first - 2) * COL;
+  }
+  el.scrollTop = top;
+  if (f) state.cols[page.key] = { uv: hoursFrom(f, now), rain: hoursFrom(f, now), air: airCols(f, now), tz: f.tz };
+}
+
+function renderAll() {
+  const pager = $('pager');
+  const keys = state.pages.map(p => p.key).join();
+  if (pager.dataset.keys !== keys) {
+    pager.innerHTML = state.pages.map(p => `<article class="wx-page" data-key="${e(p.key)}"></article>`).join('');
+    pager.dataset.keys = keys;
+  }
+  state.pages.forEach(renderPage);
+  renderDots();
+}
+
+function goTo(i, smooth = true) {
+  state.index = Math.max(0, Math.min(state.pages.length - 1, i));
+  const pager = $('pager');
+  pager.scrollTo({ left: state.index * pager.clientWidth, behavior: smooth ? 'smooth' : 'instant' });
+  renderDots();
+  loadPage(state.pages[state.index]);
+}
+
+// ---- Loading a page's forecast -------------------------------------------------------------
+
+async function loadPage(page, { force = false } = {}) {
+  if (!page || page.loading) return;
+  const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
+  if (!force && cell && isFresh(cachedForecast(state.local, cell))) return renderPage(page);
+  page.loading = true;
   try {
-    if (nowOn && !wasOn) await subscribe(state);
-    state.notify = p;
-    save();
-    await resendNotices(true);
-    openSettings();
-  } catch (err) {
-    openSettings(err.code === 'denied' ? '通知權限被拒絕，請到系統設定開啟。' : '暫時無法設定通知，請稍後再試。');
-  }
-});
-
-// ---- Taps --------------------------------------------------------------------------
-
-document.addEventListener('click', async ev => {
-  const hit = ev.target.closest('.hit');
-  if (hit) {
-    ui.selected = Number(hit.dataset.i);
-    return render();
-  }
-  const el = ev.target.closest('[data-act]');
-  if (!el) return;
-  const act = el.dataset.act;
-  if (act === 'pick') return openPicker();
-  if (act === 'settings') return openSettings();
-  if (act === 'close') return closePicker();
-  if (act === 'refresh') return run({ force: true });
-  if (act === 'day') {
-    ui.openDay = ui.openDay === el.dataset.date ? null : el.dataset.date;
-    return render();
-  }
-  if (act === 'gps' || act === 'here') {
-    // Asking only on a tap: the browser shows its prompt then.
-    closePicker();
-    state.pick = null;
-    state.wantGps = true;
-    save();
-    ui.note = '定位中…';
-    render();
-    return run({ force: true });
-  }
-  if (act === 'choose') {
-    state.pick = { county: el.dataset.c, town: el.dataset.t, lat: Number(el.dataset.lat), lon: Number(el.dataset.lon) };
-    save();
-    closePicker();
-    ui.selected = -1;
-    return run();
-  }
-});
-sheet.addEventListener('click', ev => {
-  if (ev.target === sheet) closePicker();
-});
-
-// Back in front after a while: fresh again if it's old.
-main.addEventListener(
-  'toggle',
-  ev => {
-    if (ev.target.matches?.('details[data-act="radar"]') && ev.target.open !== ui.radar) {
-      ui.radar = ev.target.open;
-      render();
+    const token = await q.ensureToken();
+    if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
+    const f = await fetchForecast(page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true }, token);
+    if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
+    else {
+      // Where the network said: the page takes the forecast's own place.
+      page.ipForecast = f;
+      page.place = page.place || f.place;
     }
-  },
-  true
-);
+    page.error = '';
+    saveLocal(state.local);
+  } catch (err) {
+    page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
+  } finally {
+    page.loading = false;
+    renderPage(page);
+  }
+}
 
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') run();
+// Where the device is: as precise as it gives, to the village. Asked each
+// time the app opens (the phone remembers the permission).
+async function locate() {
+  state.permission = await permissionState();
+  const here = pageOf('here');
+  if (state.permission === 'denied') {
+    here.note = state.local.here ? '定位已關閉，顯示上次的位置' : '定位已關閉，顯示大約位置';
+    if (!state.local.here) {
+      here.lat = here.lon = null;
+      return loadPage(here);
+    }
+    return loadPage(here);
+  }
+  let pos = await getPosition(navigator, { high: true, timeout: 8000 });
+  if (pos.error === 'timeout') pos = await getPosition(navigator, { high: false, timeout: 5000, maximumAge: 30 * 60_000 });
+  if (pos.error) {
+    if (pos.error === 'denied') state.permission = 'denied';
+    here.note = state.local.here ? '無法定位，顯示上次的位置' : '無法定位，顯示大約位置';
+    if (!state.local.here) here.lat = here.lon = null;
+    return loadPage(here);
+  }
+  here.note = pos.acc > 1000 ? '大約位置' : '';
+  const moved = !state.local.here || Math.abs(state.local.here.lat - pos.lat) > 0.001 || Math.abs(state.local.here.lon - pos.lon) > 0.001;
+  let place = state.local.here?.place || null;
+  if (moved || !place?.village) {
+    try {
+      const token = await q.ensureToken();
+      const w = await fetchWhere(pos.lat, pos.lon, token);
+      if (w?.county) place = w;
+    } catch {}
+  }
+  state.local.here = { lat: pos.lat, lon: pos.lon, place, at: Date.now() };
+  saveLocal(state.local);
+  Object.assign(here, { lat: pos.lat, lon: pos.lon, place });
+  renderPage(here);
+  await loadPage(here);
+  sendNotices();
+}
+
+// ---- The pins on the pass ---------------------------------------------------------------
+
+let saving = null;
+async function saveData() {
+  state.data.t = Date.now();
+  state.local.data = encodeData(state.data);
+  saveLocal(state.local);
+  buildPages();
+  renderAll();
+  sendNotices();
+  if (!q.active) return;
+  saving = q.write({ payload: encodeData(state.data) }).catch(() => {});
+  await saving;
+}
+
+function sendNotices() {
+  const here = state.local.here;
+  schedulePush(q, planNotices({ pins: state.data.pins, brief: state.data.brief, here: here ? { lat: here.lat, lon: here.lon } : null }));
+}
+
+// ---- Sheets: a pin, the settings, a day --------------------------------------------------
+
+function sheet(html, cls = '') {
+  const d = document.createElement('dialog');
+  d.className = `q-sheet wx-sheet ${cls}`;
+  d.innerHTML = html;
+  d.addEventListener('click', ev => (ev.target === d || ev.target.closest('[data-act="close"]')) && d.close());
+  d.addEventListener('close', () => d.remove());
+  document.body.append(d);
+  d.showModal();
+  return d;
+}
+
+const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+async function pinSheet(pin = null) {
+  if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: `最多 ${MAX_PINS} 個釘選地點`, body: '先刪掉一個再新增。' });
+  const here = state.local.here;
+  const draft = pin ? { ...pin } : { id: newPinId(), name: '', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00', lat: here?.lat, lon: here?.lon, ...(here?.place || {}) };
+  const where = () => [draft.county, draft.town, draft.village].filter(Boolean).join(' ') || '尚未選擇';
+  const d = sheet(`
+    <div class="q-sheet-head"><h2>${pin ? '編輯釘選地點' : '釘選地點'}</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
+    <label class="wx-field"><span>名稱</span><input id="pin-name" maxlength="20" placeholder="例如：學校、家" value="${e(draft.name)}"></label>
+    <div class="wx-field"><span>地點</span><b id="pin-where">${e(where())}</b></div>
+    <div class="wx-row">
+      ${here ? `<button class="q-btn" type="button" data-pin-act="here">📍 用目前位置${here.place?.village ? `（${e(here.place.village)}）` : ''}</button>` : ''}
+    </div>
+    <label class="wx-field"><span>或搜尋鄉鎮市區</span><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off"></label>
+    <div id="pin-list" class="wx-list"></div>
+    <div class="wx-field"><span>這些時間打開 App 時，直接顯示這裡</span>
+      <div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div>
+      <div class="wx-row"><input id="pin-from" type="time" value="${draft.from}"> 到 <input id="pin-to" type="time" value="${draft.to}"></div>
+    </div>
+    <div class="wx-row wx-actions">
+      ${pin ? '<button class="q-btn wx-danger" type="button" data-pin-act="delete">刪除</button>' : ''}
+      <button class="q-btn primary" type="button" data-pin-act="save">儲存</button>
+    </div>`);
+  const list = d.querySelector('#pin-list');
+  const qInput = d.querySelector('#pin-q');
+  let places = null;
+  qInput.addEventListener('input', async () => {
+    const text = qInput.value.trim().replace(/台/g, '臺');
+    if (!text) return (list.innerHTML = '');
+    places ||= await fetchPlaces().catch(() => []);
+    const rows = places.filter(([c, t]) => (c + t).includes(text)).slice(0, 30);
+    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-row-btn" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}">${e(t)}<small>${e(c)}</small></button>`).join('') || '<p class="wx-foot">找不到這個地區</p>';
+  });
+  d.addEventListener('click', async ev => {
+    const day = ev.target.closest('[data-day]');
+    if (day) {
+      const i = Number(day.dataset.day);
+      draft.days = draft.days.includes(i) ? draft.days.filter(x => x !== i) : [...draft.days, i];
+      day.setAttribute('aria-pressed', String(draft.days.includes(i)));
+      return;
+    }
+    const place = ev.target.closest('[data-place]');
+    if (place) {
+      const [c, t, la, lo] = place.dataset.place.split('|');
+      Object.assign(draft, { county: c, town: t, village: '', lat: Number(la), lon: Number(lo) });
+      d.querySelector('#pin-where').textContent = where();
+      list.innerHTML = '';
+      qInput.value = '';
+      return;
+    }
+    const act = ev.target.closest('[data-pin-act]')?.dataset.pinAct;
+    if (act === 'here' && here) {
+      Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '', village: here.place?.village || '' });
+      d.querySelector('#pin-where').textContent = where();
+    }
+    if (act === 'delete') {
+      if (!(await ask({ title: `刪除「${pin.name}」？`, ok: '刪除', cancel: '取消', danger: true }))) return;
+      state.data.pins = state.data.pins.filter(p => p.id !== pin.id);
+      state.data.gone[pin.id] = Date.now();
+      d.close();
+      await saveData();
+      goTo(0, false);
+    }
+    if (act === 'save') {
+      draft.name = d.querySelector('#pin-name').value;
+      draft.from = d.querySelector('#pin-from').value || '07:00';
+      draft.to = d.querySelector('#pin-to').value || '17:00';
+      const clean = cleanPin({ ...draft, t: Date.now() });
+      if (!clean) return tell({ title: '請選擇臺灣的地點', body: '用目前位置，或搜尋鄉鎮市區。' });
+      const at = state.data.pins.findIndex(p => p.id === clean.id);
+      if (at >= 0) state.data.pins[at] = clean;
+      else state.data.pins.push(clean);
+      d.close();
+      await saveData();
+      goTo(state.pages.findIndex(p => p.key === clean.id));
+    }
+  });
+}
+
+function settingsSheet() {
+  const d = sheet(`
+    <div class="q-sheet-head"><h2>設定</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
+    <label class="wx-field"><span>早晨天氣的時間</span><input id="brief-time" type="time" value="${state.data.brief}"></label>
+    <p class="wx-foot">早晨天氣和降雨提醒的開關，在右上角的帳戶裡（Quadra Pass 的通知設定）。早晨天氣以那時的釘選地點為準，沒有的話以最後打開本 App 的位置為準。</p>`);
+  d.querySelector('#brief-time').addEventListener('change', ev => {
+    if (/^\d{2}:\d{2}$/.test(ev.target.value)) {
+      state.data.brief = ev.target.value;
+      saveData();
+    }
+  });
+}
+
+function openDay(key, date) {
+  const page = pageOf(key);
+  const f = page && forecastOf(page);
+  if (f) sheet(daySheet(f, date, { now: Date.now(), lat: page.lat, lon: page.lon }), 'wx-day-sheet');
+}
+
+const help = () =>
+  tell({
+    title: 'Orbit Weather',
+    body: '一個答案的天氣：多個來源在背後合成一個數字。',
+    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，點一下看那一小時的數字。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。']
+  });
+
+// ---- Taps and swipes --------------------------------------------------------------------
+
+document.addEventListener('click', ev => {
+  const hit = ev.target.closest('.g-hit');
+  if (hit) {
+    const svg = hit.closest('svg');
+    const key = hit.closest('.wx-page')?.dataset.key;
+    const kind = hit.dataset.g;
+    const col = state.cols[key]?.[kind]?.[Number(hit.dataset.i)];
+    const out = document.getElementById(`read-${kind}-${key}`);
+    if (out) out.textContent = readout(kind, col, state.cols[key].tz);
+    const sel = svg.querySelector('.g-sel');
+    sel.setAttribute('x', hit.getAttribute('x'));
+    sel.setAttribute('width', hit.getAttribute('width') || COL);
+    return;
+  }
+  const go = ev.target.closest('[data-go]');
+  if (go) return goTo(Number(go.dataset.go));
+  const day = ev.target.closest('[data-day][data-page]');
+  if (day) return openDay(day.dataset.page, day.dataset.day);
+  const act = ev.target.closest('[data-act]')?.dataset.act;
+  if (act === 'add-pin') return pinSheet();
+  if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
+  if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
 
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+// The page in view, once a swipe settles.
+let settle = 0;
+$('pager').addEventListener('scroll', () => {
+  clearTimeout(settle);
+  settle = setTimeout(() => {
+    const pager = $('pager');
+    const i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
+    if (i !== state.index) {
+      state.index = i;
+      renderDots();
+      loadPage(state.pages[i]);
+      $('dots').querySelector(`[data-go="${i}"]`)?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+  }, 120);
+});
+window.addEventListener('resize', () => goTo(state.index, false));
 
-render();
-run();
+// Back on screen: fresh again, where the device is now.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !state.started) return;
+  locate();
+  loadPage(state.pages[state.index]);
+});
+
+// A notice's tap (#pin=<id>) opens that pin.
+function openFromHash() {
+  const m = /pin=(p[a-z0-9]+)/.exec(location.hash);
+  const i = m ? state.pages.findIndex(p => p.key === m[1]) : -1;
+  return i >= 0 ? i : null;
+}
+window.addEventListener('hashchange', () => {
+  const i = openFromHash();
+  if (i != null) goTo(i);
+});
+
+// ---- Start --------------------------------------------------------------------------------
+
+window.__fxStarted = true;
+const gated = installGate('weather', 'zh');
+watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-', busy: () => Boolean(document.querySelector('dialog[open]')) });
+topActions(q, { help, refresh: () => loadPage(state.pages[state.index], { force: true }) });
+// The app's own buttons beside the kit's: add a place, the settings.
+const extra = document.createElement('button');
+extra.className = 'q-icon-btn';
+extra.type = 'button';
+extra.setAttribute('aria-label', '設定');
+extra.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2"/></svg>';
+extra.addEventListener('click', settingsSheet);
+$('top-actions').prepend(extra);
+
+async function boot() {
+  // This device's copy first (paints at once), then the pass's.
+  state.data = decodeData(state.local.data) || emptyData();
+  buildPages();
+  renderAll();
+  const first = await q.start();
+  const theirs = decodeData(first?.payload);
+  const merged = mergeData(state.data, theirs);
+  const changed = encodeData(merged) !== (first?.payload || '');
+  state.data = merged;
+  state.local.data = encodeData(merged);
+  saveLocal(state.local);
+  buildPages();
+  renderAll();
+  const start = openFromHash() ?? Math.max(0, state.pages.findIndex(p => p.pin && p.key === activePin(state.data.pins)?.id));
+  $('loading').hidden = true;
+  state.started = true;
+  goTo(start, false);
+  if (changed && (merged.pins.length || theirs) && q.active) q.write({ payload: encodeData(merged) }).catch(() => {});
+  locate();
+  sendNotices();
+}
+q.on('active', live => live && state.started && q.write({ payload: encodeData(state.data) }).catch(() => {}));
+if (!gated) boot();
+
+if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('./sw.js').catch(() => {});

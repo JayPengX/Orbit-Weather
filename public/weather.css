@@ -1,0 +1,544 @@
+/* Orbit Weather on the Quadra kit (quadra.css): always dark
+   (html[data-theme=dark]), the app's accent, and its own pieces: the pages
+   swiped sideways (here, then each pin), the cards with their graphs. */
+
+:root {
+  --q-accent: #6366f1;
+  --q-status-bg: var(--q-page);
+  --wx-max: 600px;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--q-page);
+  color: var(--q-text);
+  font-family: var(--q-font);
+}
+.q-appbar {
+  flex: none;
+}
+
+/* The places: a chip each, the one in view pressed. */
+.wx-dots {
+  padding: 4px 16px 10px;
+  max-width: calc(var(--wx-max) + 32px);
+  margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
+}
+.wx-dot[aria-pressed='true'] {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: #fff;
+}
+.wx-add {
+  color: var(--q-muted);
+}
+
+/* The pages, sideways; each scrolls on its own. */
+.wx-pager {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.wx-pager::-webkit-scrollbar {
+  display: none;
+}
+.wx-page {
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  box-sizing: border-box;
+  padding: 6px max(16px, calc((100% - var(--wx-max)) / 2)) calc(env(safe-area-inset-bottom) + 40px);
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+/* Top: where, now, today's high and low. */
+.wx-top {
+  padding: 6px 2px 0;
+}
+.wx-place {
+  margin: 0;
+  font: 750 24px/1.2 var(--q-font);
+}
+.wx-sub {
+  margin: 4px 0 0;
+  color: var(--q-muted);
+  font-size: 14px;
+}
+.wx-sched {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--q-accent-wash);
+  color: var(--q-text);
+  font-size: 12px;
+}
+.wx-now {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.wx-temp {
+  font: 250 92px/1 var(--q-font);
+  letter-spacing: -4px;
+}
+.wx-cond {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  padding-bottom: 10px;
+  font-size: 17px;
+  font-weight: 600;
+}
+.wx-icon {
+  font-size: 46px;
+  line-height: 1;
+}
+.wx-hilo {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+.wx-hilo div {
+  display: grid;
+  padding: 10px 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-surface);
+}
+.wx-hilo span,
+.wx-grid span {
+  color: var(--q-muted);
+  font-size: 12px;
+}
+.wx-hilo b {
+  font: 700 22px/1.2 var(--q-font);
+}
+.wx-hilo small,
+.wx-grid small {
+  color: var(--q-muted);
+  font-size: 12px;
+}
+.wx-headline {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.wx-alert {
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--q-bad) 60%, transparent);
+  border-radius: var(--q-radius-sm);
+  background: color-mix(in srgb, var(--q-bad) 18%, transparent);
+  font-weight: 650;
+}
+.wx-alert span {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--q-muted);
+}
+
+/* The cards with graphs. */
+.wx-card {
+  padding: 14px 16px 12px;
+  min-width: 0;
+}
+.wx-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.wx-card-head h3,
+.wx-h {
+  margin: 0;
+  font: 700 16px/1.3 var(--q-font);
+}
+.wx-h small {
+  margin-left: 6px;
+  color: var(--q-muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+.wx-big {
+  font: 750 30px/1 var(--q-font);
+  color: var(--c, var(--q-text));
+}
+.wx-big small {
+  margin-left: 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.wx-rain-big {
+  color: #60a5fa;
+}
+.wx-readout {
+  min-height: 18px;
+  margin: 6px 0 4px;
+  color: var(--q-muted);
+  font-size: 13px;
+}
+.wx-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 0 -16px;
+  padding: 0 16px;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.wx-scroll::-webkit-scrollbar {
+  display: none;
+}
+.wx-foot {
+  margin: 8px 0 0;
+  color: var(--q-muted);
+  font-size: 13px;
+}
+.graph {
+  display: block;
+}
+.graph text {
+  font-family: var(--q-font);
+}
+.g-time {
+  fill: var(--q-muted);
+  font-size: 11px;
+  text-anchor: middle;
+}
+.g-mid {
+  fill: var(--q-text);
+  font-weight: 700;
+}
+.g-date {
+  fill: var(--q-text);
+  font-size: 11px;
+  font-weight: 650;
+}
+.g-noon {
+  fill: var(--q-muted);
+  font-weight: 500;
+  text-anchor: middle;
+}
+.g-day {
+  stroke: var(--q-border);
+  stroke-dasharray: 3 3;
+}
+.g-base,
+.g-grid {
+  stroke: var(--q-border);
+}
+.g-grid {
+  stroke-dasharray: 2 4;
+}
+.g-val {
+  fill: var(--q-text);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-anchor: middle;
+}
+.g-mm {
+  fill: #fff;
+  font-size: 9px;
+  text-anchor: middle;
+}
+.g-fc {
+  opacity: 0.75;
+}
+.g-now {
+  stroke: var(--q-text);
+  stroke-width: 1.5;
+  opacity: 0.6;
+}
+.g-sel {
+  fill: color-mix(in srgb, var(--q-accent) 22%, transparent);
+  pointer-events: none;
+}
+.g-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+.g-temp {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.g-feels {
+  fill: none;
+  stroke: #fbbf24;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+}
+
+/* What to do. */
+.wx-section {
+  display: grid;
+  gap: 10px;
+}
+.wx-advice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.wx-tip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+  padding: 12px;
+}
+.wx-tip-icon {
+  grid-row: span 2;
+  font-size: 26px;
+}
+.wx-tip b {
+  font-size: 14px;
+}
+.wx-tip p {
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.wx-tip-week {
+  grid-column: 1 / -1;
+}
+.wx-tip-umbrella.lv-yes,
+.wx-tip-mask,
+.wx-tip-heat {
+  border-color: color-mix(in srgb, var(--q-warn) 50%, transparent);
+}
+
+/* The days. */
+.wx-days {
+  margin: 0;
+}
+.wx-day {
+  display: grid;
+  grid-template-columns: 50px 28px 52px 32px minmax(40px, 1fr) 32px 22px;
+  gap: 6px;
+  width: 100%;
+  min-height: 52px;
+}
+.wx-day:first-child {
+  border-top: 0;
+}
+.wx-dname {
+  display: grid;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.wx-dname small {
+  color: var(--q-muted);
+  font-weight: 500;
+  font-size: 11px;
+}
+.wx-dicon {
+  font-size: 21px;
+  text-align: center;
+}
+.wx-dpop {
+  font-size: 12px;
+  color: #93c5fd;
+}
+.wx-dlo {
+  text-align: right;
+  color: var(--q-muted);
+}
+.wx-dhi {
+  font-weight: 700;
+}
+.wx-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--q-sunken);
+}
+.wx-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #7dd3fc, #fbbf24, #fb923c);
+}
+.wx-duv {
+  border-radius: 6px;
+  color: #111;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* Everything else. */
+.wx-info {
+  padding: 16px;
+}
+.wx-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-top: 12px;
+}
+.wx-grid div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+}
+.wx-grid b {
+  font-size: 16px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+.wx-compass {
+  display: inline-block;
+  transform: rotate(calc(var(--d) + 90deg));
+}
+.wx-edit {
+  justify-self: center;
+}
+.wx-empty {
+  padding: 36px 16px;
+  text-align: center;
+}
+.wx-spin {
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 10px;
+  border: 3px solid var(--q-border);
+  border-top-color: var(--q-accent);
+  border-radius: 50%;
+  animation: wx-spin 0.9s linear infinite;
+}
+@keyframes wx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Sheets: a pin, the settings, a day. */
+.wx-sheet {
+  width: min(560px, 100vw);
+}
+.wx-field {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0 0;
+}
+.wx-field > span {
+  color: var(--q-muted);
+  font-size: 13px;
+}
+.wx-sheet input {
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 1px solid var(--q-border);
+  border-radius: var(--q-radius-sm);
+  background: var(--q-surface);
+  color: var(--q-text);
+  font: 16px var(--q-font);
+}
+.wx-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.wx-actions {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.wx-danger {
+  color: var(--q-bad);
+}
+.wx-week {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.wx-week .q-chip {
+  min-width: 40px;
+  justify-content: center;
+}
+.wx-week .q-chip[aria-pressed='true'] {
+  background: var(--q-accent);
+  border-color: var(--q-accent);
+  color: #fff;
+}
+.wx-list {
+  display: grid;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+.wx-list .q-row-btn {
+  justify-content: space-between;
+}
+.wx-list small {
+  color: var(--q-muted);
+}
+.wx-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 6px;
+  color: var(--q-muted);
+  font-size: 12px;
+}
+.wx-legend span::before {
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 4px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+.l-temp::before {
+  background: #fff;
+}
+.l-feels::before {
+  background: repeating-linear-gradient(90deg, #fbbf24 0 4px, transparent 4px 7px);
+}
+.l-uv::before {
+  background: linear-gradient(90deg, #4caf50, #f5c518, #ff8c1a, #e53935, #8e24aa);
+}
+.l-rain::before {
+  background: #42a5f5;
+  height: 8px !important;
+}
+.l-air::before {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: #4caf50;
+}
+.wx-dayg .graph {
+  width: 100%;
+  height: auto;
+}

@@ -1,51 +1,60 @@
 # Orbit Weather
 
-One forecast, one truth: rain, temperature and feels-like, UV, air quality,
-10 days, sun and moon, for where you are. A home-screen web app (PWA).
+One forecast, one truth, for where you are and the places you pin. A Quadra
+app (a related add-on, like Orbit Class): the Quadra Pass signs in and keeps
+the pins; the shared kit draws the loading screen, keeps the app on the
+newest version, gates phones to the home-screen app, and sends the notices.
 
 Live: https://jaypengx.github.io/Orbit-Weather/
 
-Behind the one answer, the proxy (`Shared-Proxy`'s `weather.js`, route
-`/weather`) blends several forecasts (Google Weather, CWA 中央氣象署,
-MOENV 環境部) and real station measurements. The app never shows sources
-or second opinions; the plan is `Shared-Proxy/docs/WEATHER-PLAN.md`.
+Behind the one answer, the proxy (`Shared-Proxy`'s `weather.js`, `/weather`)
+blends several forecasts (Google Weather, CWA 中央氣象署, MOENV 環境部) and
+real station measurements, and learns which to trust
+(`weather-skill.js`). The app never names a source.
 
-Always dark: the sky follows the weather and the sun in deep tones.
+## A page, top to bottom
 
-## Notices (🔔)
+1. Where (to the village, 里, from the device's position), now, today's high
+   and low with 體感 beside each, one sentence.
+2. 紫外線, 降雨機率, 空氣品質: a card each with its graph, hourly for as far
+   as the forecast goes (10 days; air: the last 48 hours measured, then the
+   coming days' forecast), swiped sideways, the time and date under it, a
+   tap reads an hour out.
+3. 建議: umbrella, sunscreen, what to wear, mask, heat, the week.
+4. 10 天預報: tap a day for its own graph, everything on one.
+5. 更多資訊: wind, pressure, humidity, dew point, visibility, cloud, sun and
+   moon, the nearest station's measurement, the place.
 
-A morning brief at the chosen time (one line: rain, high / low, UV window,
-air, what to wear) and a rain alert (once a day, 07:00–21:00, when the next
-2 hours reach 60%), for where the app was last opened. No sign-in: the
-device has a random id the proxy keeps its list under. On an iPhone, only
-from the home-screen app (iOS 16.4+).
+## Pins
 
-## Location, without depending on permission
+Swipe the whole page (or tap a chip at the top) between 目前位置 and each
+pinned place. A pin has a name, a place (the current location or a
+township) and days and hours: opening the app inside them shows that pin,
+any other time the current location. Saved on the Quadra Pass
+(`lib/pins.mjs`, payload `w1:`), newest wins per pin.
 
-1. The last forecast on the device shows at once.
-2. Location already allowed: the device's coarse position (Wi-Fi / cell,
-   about a second). Otherwise the proxy's estimate from the network (IP),
-   which needs no permission, with a 「使用精確位置」 button that asks once.
-3. Denied or wanted elsewhere: pick a township (📍 at the top).
-4. The same ~1 km cell under 15 minutes old: no fetch.
+## Notices
+
+The kit's (switches in the account sheet: 早晨天氣, 降雨提醒). The brief at
+the time set in ⚙︎, for the pin whose hours hold it (else where the app was
+last); the rain watch 07:00–21:00 each day, split by the pins' hours.
 
 ## Files
 
 | File | What |
 | --- | --- |
-| `public/index.html`, `app.css`, `app.mjs` | The page, its look (glass cards over a sky that follows the weather and the sun), the flow |
-| `public/lib/api.mjs` | Proxy calls, location, the device's stored state |
-| `public/lib/view.mjs` | The cards, as HTML from the forecast |
-| `public/lib/chart.mjs` | The 48-hour curve (SVG) |
-| `public/lib/format.mjs` | Labels, colours, icons (zh-TW) |
-| `public/lib/sun.mjs` | Sunrise / sunset worked out on the page (when the forecast has none) |
-| `public/lib/notify.mjs` | The morning brief and rain alert: device id, subscription, the next 7 days' notices |
-| `public/sw.js` | Offline (the app's files cached; bump `VERSION` on every change), and showing notices |
+| `public/index.html`, `weather.css`, `app.mjs` | The page (the kit's frame, always dark), its look, the flow: session, location, pages, pins, sheets |
+| `public/lib/api.mjs` | The proxy (signed in), the device's position, this device's copies |
+| `public/lib/cards.mjs` | A page's sections, as HTML |
+| `public/lib/graph.mjs` | The graphs (SVG): UV, rain, air, a day's |
+| `public/lib/pins.mjs` | Pins: hours, the pass's copy, where each notice is for |
+| `public/lib/format.mjs`, `sun.mjs` | Labels and colours; sunrise / sunset worked out |
+| `public/quadra.css`, `lib/quadra.mjs`, `boot.js` | The kit's (synced from `Shared-Proxy/kit`, never edited here) |
+| `public/sw.js` | Offline, like the other Quadra apps; shows notices |
 
 ## Develop
 
 - `npm test` (Node 22, no dependencies).
-- `npm start` serves `public/` on http://localhost:8080 (the proxy allows
-  localhost).
-- Push to `main` deploys (GitHub Actions → Pages; Settings → Pages → Source:
-  **GitHub Actions**).
+- See it signed in, with data: `node tools/preview.mjs weather` in
+  Shared-Proxy (screenshots; `--store`, `--click`, `--eval`).
+- Push to `main` deploys (tests, `scripts/stamp-version.mjs`, Pages).

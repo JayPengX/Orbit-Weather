@@ -26,6 +26,8 @@ export function dayLabel(date, now, tz = TZ) {
   return '週' + WEEK[new Date(date + 'T12:00:00Z').getUTCDay()];
 }
 export const shortDate = date => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+// 「週六」 for a "YYYY-MM-DD".
+export const weekday = date => '週' + WEEK[new Date(date + 'T12:00:00Z').getUTCDay()];
 
 export const deg = v => (v == null ? '–' : `${Math.round(v)}°`);
 export const pct = v => (v == null ? '–' : `${Math.round(v)}%`);
@@ -82,15 +84,6 @@ const MOON = {
 };
 export const moonPhase = p => MOON[p] || null;
 
-// The page's look: a gradient for the weather and the time of day.
-export function theme(condition, day) {
-  const c = String(condition?.code || '').toUpperCase();
-  const t = condition?.text || '';
-  const wet = /RAIN|THUNDER|SHOWER|DRIZZLE/.test(c) || /雨/.test(t);
-  const grey = /CLOUDY|OVERCAST|FOG|HAZE/.test(c) || /陰|霧/.test(t);
-  if (!day) return wet ? 'night-rain' : 'night';
-  return wet ? 'rain' : grey ? 'cloudy' : 'clear';
-}
 
 export const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
