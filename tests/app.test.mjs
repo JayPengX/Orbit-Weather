@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayGraph, readout, uvCols } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, rainSummary, daySheet, hoursFrom } from '../public/lib/cards.mjs';
+import { pageHtml, airCols, rainCols, rainSummary, daySheet, hoursFrom } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -251,4 +251,28 @@ test('the cards: the owner\'s order and the hidden ones, kept on the pass, the n
   assert.ok(html.indexOf('10 天預報') < html.indexOf('wx-card wx-uv'), 'days before UV');
   assert.ok(html.indexOf('wx-hero') < html.indexOf('10 天預報'), 'the top stays on top');
   assert.ok(!html.includes('wx-card wx-air'), 'air hidden');
+});
+
+test('rain as far as the forecast goes: hourly, then a column a day past the hours', () => {
+  const short = { ...forecast, hours: forecast.hours.slice(0, 48) };
+  const cols = rainCols(short, NOW);
+  const daily = cols.filter(c => c.daily);
+  assert.equal(cols.length - daily.length, 48);
+  assert.equal(daily[0].date, dateOf(short.hours[47].t + 86_400_000));
+  assert.equal(daily[daily.length - 1].date, forecast.days[9].date, 'to the last day');
+  const html = rainGraph(cols, { tz: 'Asia/Taipei' });
+  assert.equal((html.match(/tl-wide/g) || []).length, daily.length);
+  assert.equal(readout('rain', daily[0], 'Asia/Taipei').endsWith(`降雨機率 ${daily[0].pop}%`), true);
+});
+
+test('the day sheet: a read-out the finger moves, the days either side', () => {
+  const html = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });
+  assert.match(html, /class="wx-scrub"/);
+  assert.match(html, /<b>12:00<\/b>/, 'a day ahead starts at noon');
+  assert.match(html, /data-dayn="2026-10-02"/);
+  assert.match(html, /data-dayn="2026-10-04"/);
+  assert.match(html, /g-cross/);
+  assert.match(html, /data-ty="[\d.,]+"/);
+  const first = daySheet(forecast, '2026-10-02', { now: NOW });
+  assert.match(first, /data-dayn="" aria-label="前一天" disabled/);
 });

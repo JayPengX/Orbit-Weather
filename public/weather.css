@@ -913,3 +913,87 @@ body {
 .wx-reset {
   margin-top: 10px;
 }
+.wx-day-sheet .q-sheet-head {
+  justify-content: flex-start;
+  gap: 8px;
+}
+.wx-day-sheet .q-sheet-head h2 {
+  flex: 1;
+  text-align: center;
+  font-size: 17px;
+}
+.wx-scrub {
+  display: grid;
+  gap: 6px;
+  padding: 6px 4px 8px;
+  border-bottom: 1px solid var(--q-border);
+}
+.wx-scrub-time {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.wx-scrub-time b {
+  font: 750 20px/1.1 var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.wx-scrub-time span {
+  color: var(--q-muted);
+  font-size: 13px;
+}
+.wx-scrub-vals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.wx-scrub-vals div {
+  display: grid;
+  min-width: 0;
+}
+.wx-scrub-vals span,
+.wx-scrub-vals small {
+  color: var(--q-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.wx-scrub-vals b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.wx-dayg-plot {
+  touch-action: pan-y;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.g-cross {
+  stroke: var(--q-text);
+  stroke-width: 1.2;
+  stroke-dasharray: 3 3;
+  opacity: 0.8;
+}
+.g-dot-t {
+  fill: #fff;
+  stroke: var(--q-page);
+  stroke-width: 2;
+}
+.g-dot-f {
+  fill: #fbbf24;
+  stroke: var(--q-page);
+  stroke-width: 2;
+}
+.wx-legend em {
+  margin-left: auto;
+  font-style: normal;
+}
+.wx-scroll.is-scrub {
+  overflow-x: hidden;
+}
+.wx-scroll.is-scrub .tl-sel .tl-plot {
+  background: color-mix(in srgb, var(--q-accent) 42%, transparent);
+}
+.tl-col {
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+}

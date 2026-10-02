@@ -3,7 +3,7 @@
 // today and this week; the days; everything else). One truth: one value for each thing, no sources named.
 
 import { clock, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, conditionIcon, moonPhase, escapeHtml as e, ago } from './format.mjs';
-import { uvGraph, rainGraph, airGraph, dayGraph, uvCols } from './graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayGraph, uvCols, scrubHtml } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines } from './api.mjs';
 import { scheduleText } from './pins.mjs';
@@ -103,6 +103,14 @@ export function rainSummary(hours, tz, now) {
   return next.t <= now ? `正在或即將下雨（${next.pop}%）` : `${dayLabel(dateOf(next.t, tz), now, tz)} ${clock(next.t, tz)} 起可能下雨（${next.pop}%）`;
 }
 
+// The rain graph's columns: every hour forecast, then any days past them.
+export function rainCols(f, now) {
+  const hours = hoursFrom(f, now);
+  const lastDate = hours.length ? dateOf(hours[hours.length - 1].t, f.tz) : dateOf(now - 86_400_000, f.tz);
+  const more = (f.days || []).filter(d => d.date > lastDate).map(d => ({ date: d.date, daily: true, label: dayLabel(d.date, now, f.tz), pop: d.pop, mm: d.mm }));
+  return [...hours, ...more];
+}
+
 export function rainCard(f, { now }) {
   const hours = hoursFrom(f, now);
   if (!hours.length) return '';
@@ -110,7 +118,7 @@ export function rainCard(f, { now }) {
   const big = `<div class="wx-big wx-rain-big">${pop ?? '–'}<small>%</small></div>`;
   const n = f.now || {};
   const extra = [n.rainToday != null ? `今日雨量 ${n.rainToday} mm` : '', n.rain1h ? `過去 1 小時 ${n.rain1h} mm` : ''].filter(Boolean).join(' · ');
-  return card({ cls: 'rain', icon: '☔', title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, graph: rainGraph(hours, { tz: f.tz, now }), first: dayText(dateOf(hours[0].t, f.tz), now, f.tz), foot: `淺色是機率，深色是雨量${extra ? ` · ${e(extra)}` : ''}` });
+  return card({ cls: 'rain', icon: '☔', title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, graph: rainGraph(rainCols(f, now), { tz: f.tz, now }), first: dayText(dateOf(hours[0].t, f.tz), now, f.tz), foot: `淺色是機率，深色是雨量${extra ? ` · ${e(extra)}` : ''}` });
 }
 
 // The air graph's columns: the hours measured, then the hours forecast; or
@@ -219,13 +227,29 @@ export function daySheet(f, date, { now, lat, lon }) {
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
   const half = (name, h) => (h ? `<div><span>${name}</span><b>${conditionIcon(h.condition?.code, h.condition?.text, name === '白天')} ${e(h.condition?.text || '')}</b><small>降雨 ${pct(h.pop)}</small></div>` : '');
   const fc = f.air?.forecast?.days?.find(x => x.date === date);
+  // The days either side (for ‹ ›), and the hour the read-out starts at:
+  // now on today, else noon.
+  const dates = (f.days || []).map(x => x.date).filter(x => x >= dateOf(now, f.tz));
+  const at = dates.indexOf(date);
+  const prev = at > 0 ? dates[at - 1] : null;
+  const next = at >= 0 && at < dates.length - 1 ? dates[at + 1] : null;
+  const nowAt = hours.findIndex(h => h.t <= now && now < h.t + HOUR);
+  const noon = hours.findIndex(h => clock(h.t, f.tz) === '12:00');
+  const start = Math.max(0, nowAt >= 0 ? nowAt : noon);
+  const aqiAt = h => (h ? aqi.find(a => Math.floor(a.t / HOUR) === Math.floor(h.t / HOUR)) || null : null);
   return `
-    <div class="q-sheet-head"><h2>${e(dayLabel(date, now, f.tz))} ${shortDate(date)} ${weekday(date)}</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
+    <div class="q-sheet-head">
+      <button class="q-icon-btn wx-mini" type="button" data-dayn="${e(prev || '')}" aria-label="前一天" ${prev ? '' : 'disabled'}>‹</button>
+      <h2>${/^週/.test(dayLabel(date, now, f.tz)) ? '' : `${e(dayLabel(date, now, f.tz))} `}${shortDate(date)} ${weekday(date)}</h2>
+      <button class="q-icon-btn wx-mini" type="button" data-dayn="${e(next || '')}" aria-label="後一天" ${next ? '' : 'disabled'}>›</button>
+      <button class="q-close" type="button" data-act="close" aria-label="關閉">×</button>
+    </div>
     ${
       hours.length >= 4
         ? `<div class="wx-dayg">
-      <div class="wx-legend"><span class="l-temp">溫度</span><span class="l-feels">體感</span><span class="l-uv">紫外線</span><span class="l-rain">降雨機率</span>${aqi.length ? '<span class="l-air">空氣</span>' : ''}</div>
-      ${dayGraph(hours, { tz: f.tz, aqi })}
+      <div class="wx-scrub" aria-live="polite">${scrubHtml(hours[start], { tz: f.tz, aqi: aqiAt(hours[start]) })}</div>
+      <div class="wx-dayg-plot" data-start="${start}">${dayGraph(hours, { tz: f.tz, aqi })}</div>
+      <div class="wx-legend"><span class="l-temp">溫度</span><span class="l-feels">體感</span><span class="l-uv">紫外線</span><span class="l-rain">降雨機率</span>${aqi.length ? '<span class="l-air">空氣</span>' : ''}<em>按住圖左右滑，看每小時</em></div>
     </div>`
         : '<p class="wx-foot">這一天沒有逐時資料。</p>'
     }

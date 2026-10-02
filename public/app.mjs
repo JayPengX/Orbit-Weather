@@ -6,9 +6,9 @@
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, activePin, planNotices, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
-import { pageHtml, daySheet, hoursFrom, airCols, dayText } from './lib/cards.mjs';
-import { readout, uvCols, COL } from './lib/graph.mjs';
-import { escapeHtml as e } from './lib/format.mjs';
+import { pageHtml, daySheet, hoursFrom, airCols, rainCols, dayText } from './lib/cards.mjs';
+import { readout, uvCols, scrubHtml, COL } from './lib/graph.mjs';
+import { escapeHtml as e, dateOf } from './lib/format.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -52,7 +52,7 @@ function renderPage(page) {
   const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
   const top = el.scrollTop;
   el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
-  if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: hoursFrom(f, now), air: airCols(f, now), tz: f.tz };
+  if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: rainCols(f, now), air: airCols(f, now), tz: f.tz };
   // The air graph opens at now (the hours measured are to its left).
   const airBox = el.querySelector('[data-scroll="air"]');
   if (airBox && kept.air === undefined) {
@@ -340,31 +340,84 @@ function settingsSheet() {
 function openDay(key, date) {
   const page = pageOf(key);
   const f = page && forecastOf(page);
-  if (f) sheet(daySheet(f, date, { now: Date.now(), lat: page.lat, lon: page.lon }), 'wx-day-sheet');
+  if (!f) return;
+  const d = sheet('', 'wx-day-sheet');
+  const show = when => {
+    d.innerHTML = daySheet(f, when, { now: Date.now(), lat: page.lat, lon: page.lon });
+    d.scrollTop = 0;
+    armScrub(d, f, when);
+  };
+  d.addEventListener('click', ev => {
+    const step = ev.target.closest('[data-dayn]');
+    if (step?.dataset.dayn) show(step.dataset.dayn);
+  });
+  show(date);
+}
+
+// The day graph's crosshair, like a stock chart's: a finger (or the mouse)
+// on the graph picks the hour under it; the line, the dots on the curves and
+// the read-out above follow while it moves.
+function armScrub(d, f, date) {
+  const plot = d.querySelector('.wx-dayg-plot');
+  const svg = plot?.querySelector('svg');
+  const read = d.querySelector('.wx-scrub');
+  if (!svg || !read) return;
+  const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
+  const aqi = (f.air?.history || []).filter(a => dateOf(a.t, f.tz) === date);
+  const n = Number(svg.dataset.n);
+  const colW = Number(svg.dataset.col);
+  const ty = svg.dataset.ty.split(',');
+  const fy = svg.dataset.fy.split(',');
+  const cross = svg.querySelector('.g-cross');
+  const dotT = svg.querySelector('.g-dot-t');
+  const dotF = svg.querySelector('.g-dot-f');
+  let shown = -1;
+  const put = i => {
+    i = Math.max(0, Math.min(n - 1, i));
+    if (i === shown) return;
+    shown = i;
+    const x = String(i * colW + colW / 2);
+    cross.setAttribute('x1', x);
+    cross.setAttribute('x2', x);
+    for (const [dot, ys] of [[dotT, ty], [dotF, fy]]) {
+      dot.setAttribute('cx', ys[i] === '' ? '-99' : x);
+      dot.setAttribute('cy', ys[i] || '0');
+    }
+    const h = hours[i];
+    const a = h && aqi.find(x2 => Math.floor(x2.t / 3_600_000) === Math.floor(h.t / 3_600_000));
+    read.innerHTML = scrubHtml(h, { tz: f.tz, aqi: a || null });
+  };
+  // The viewBox runs from -10 to width + 10 (room for the edge labels).
+  const at = ev => {
+    const r = svg.getBoundingClientRect();
+    const u = ((ev.clientX - r.left) / r.width) * (n * colW + 20) - 10;
+    return Math.floor(u / colW);
+  };
+  let down = false;
+  plot.addEventListener('pointerdown', ev => {
+    down = true;
+    plot.setPointerCapture?.(ev.pointerId);
+    put(at(ev));
+  });
+  plot.addEventListener('pointermove', ev => {
+    if (down || ev.pointerType === 'mouse') put(at(ev));
+  });
+  for (const type of ['pointerup', 'pointercancel']) plot.addEventListener(type, () => (down = false));
+  put(Number(plot.dataset.start) || 0);
 }
 
 const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
+    points: ['左右滑動整頁，切換目前位置和釘選地點。', '每張卡片的圖可以左右滑動，左上角是那段的日期；點柱子看那一小時的數字，按住再滑可以一路看下去。', '建議卡：今天要做的，和這一週每天的標記。', '點「10 天預報」的任一天，看當天所有的圖：按住圖左右滑，看每小時的數字；‹ › 換一天。', '釘選地點可設定星期和時間：那段時間打開 App 會直接顯示它。', '⚙︎ 設定：調整卡片的順序、關掉不需要的卡片。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
   const hit = ev.target.closest('.tl-col');
-  if (hit) {
-    const page = hit.closest('.wx-page');
-    const key = page?.dataset.key;
-    const kind = hit.dataset.g;
-    const col = state.cols[key]?.[kind]?.[Number(hit.dataset.i)];
-    const out = page?.querySelector(`[data-read="${kind}"]`);
-    if (out) out.textContent = readout(kind, col, state.cols[key].tz);
-    hit.parentElement.querySelector('.tl-sel')?.classList.remove('tl-sel');
-    hit.classList.add('tl-sel');
-    return;
-  }
+  if (hit) return pickCol(hit);
   const go = ev.target.closest('[data-go]');
   if (go) return goTo(Number(go.dataset.go));
   const day = ev.target.closest('[data-day][data-page]');
@@ -374,6 +427,63 @@ document.addEventListener('click', ev => {
   if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
+
+// A column picked (a tap, or a held finger sliding): its numbers in the
+// card's read-out.
+function pickCol(hit) {
+  if (hit.classList.contains('tl-sel')) return;
+  const page = hit.closest('.wx-page');
+  const key = page?.dataset.key;
+  const kind = hit.dataset.g;
+  const col = state.cols[key]?.[kind]?.[Number(hit.dataset.i)];
+  const out = page?.querySelector(`[data-read="${kind}"]`);
+  if (out) out.textContent = readout(kind, col, state.cols[key].tz);
+  hit.parentElement.querySelector('.tl-sel')?.classList.remove('tl-sel');
+  hit.classList.add('tl-sel');
+}
+
+// Hold a graph a moment, then slide: the read-out follows the finger like
+// a stock chart's (a quick swipe still scrolls).
+let hold = null;
+document.addEventListener(
+  'touchstart',
+  ev => {
+    const col = ev.target.closest?.('.tl-col');
+    if (!col || ev.touches.length > 1) return;
+    const t = ev.touches[0];
+    hold = { x: t.clientX, y: t.clientY, on: false, box: col.closest('.wx-scroll') };
+    hold.timer = setTimeout(() => {
+      if (!hold) return;
+      hold.on = true;
+      hold.box?.classList.add('is-scrub');
+      pickCol(col);
+    }, 260);
+  },
+  { passive: true }
+);
+document.addEventListener(
+  'touchmove',
+  ev => {
+    if (!hold) return;
+    const t = ev.touches[0];
+    if (!hold.on) {
+      if (Math.abs(t.clientX - hold.x) > 8 || Math.abs(t.clientY - hold.y) > 8) endHold();
+      return;
+    }
+    ev.preventDefault();
+    const col = document.elementFromPoint(t.clientX, hold.box ? hold.box.getBoundingClientRect().top + 60 : t.clientY)?.closest('.tl-col');
+    if (col && col.parentElement === hold.box?.querySelector('.tl')) pickCol(col);
+  },
+  { passive: false }
+);
+const endHold = () => {
+  if (!hold) return;
+  clearTimeout(hold.timer);
+  hold.box?.classList.remove('is-scrub');
+  hold = null;
+};
+document.addEventListener('touchend', endHold);
+document.addEventListener('touchcancel', endHold);
 
 // A graph swiped: its date chip follows.
 document.addEventListener(

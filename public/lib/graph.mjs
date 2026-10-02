@@ -85,12 +85,16 @@ export function uvGraph(hours, { tz, now = Date.now() } = {}) {
 
 // Rain: probability as the bar (0–100), the amount as its darker part
 // (10 mm fills the graph's height; never taller than the bar).
+// `hours` may end with whole days (`daily`: past the hourly forecast), a
+// wider column each.
 export function rainGraph(hours, { tz } = {}) {
+  const hourly = hours.filter(h => !h.daily);
   const cols = sparseLabels(
-    hours.map((h, i) => ({ t: h.t, v: h.pop, color: rainColor(h.pop), inner: h.mm >= 0.1 && h.pop > 0 ? Math.min(1, h.mm / 10 / (h.pop / 100)) : 0, under: i === 0 ? '現在' : hourText(h.t, tz), strong: i === 0 })),
+    hourly.map((h, i) => ({ t: h.t, v: h.pop, color: rainColor(h.pop), inner: h.mm >= 0.1 && h.pop > 0 ? Math.min(1, h.mm / 10 / (h.pop / 100)) : 0, under: i === 0 ? '現在' : hourText(h.t, tz), strong: i === 0 })),
     { tz, min: 20, fmt: v => `${Math.round(v)}` }
   );
-  return timeline('rain', cols, { max: 100, tz, label: '逐時降雨機率', nowIndex: 0 });
+  for (const d of hours.filter(h => h.daily)) cols.push({ date: d.date, daily: true, fc: true, v: d.pop, color: rainColor(d.pop), text: d.pop != null ? `${d.pop}` : '', under: d.label, dayText: shortDate(d.date) });
+  return timeline('rain', cols, { max: 100, tz, label: '降雨機率：逐時，之後逐日', nowIndex: 0 });
 }
 
 // Air: the hours measured, then the hours forecast (lighter), on one
@@ -164,7 +168,27 @@ export function dayGraph(hours, { tz, aqi = [], colW = 15 } = {}) {
     const hr = hourOf(h.t, tz);
     if (hr % 3 === 0) out.push(`<text class="g-time" x="${cx(i)}" y="${rBottom + 15}">${hr}時</text>`);
   });
-  return `<svg class="graph day-graph" xmlns="http://www.w3.org/2000/svg" viewBox="-10 0 ${width + 20} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="這一天的溫度、紫外線、降雨與空氣">${out.join('')}</svg>`;
+  // The crosshair a finger moves (app.mjs): a line, a dot on each curve.
+  // `data-ty` / `data-fy`: each hour's height on the curves.
+  const ys = key => hours.map(h => (h[key] == null ? '' : r1(y(h[key])))).join(',');
+  out.push(`<line class="g-cross" x1="-99" x2="-99" y1="${tTop - 22}" y2="${rBottom}"/><circle class="g-dot g-dot-f" r="4" cx="-99" cy="0"/><circle class="g-dot g-dot-t" r="5" cx="-99" cy="0"/>`);
+  return `<svg class="graph day-graph" xmlns="http://www.w3.org/2000/svg" viewBox="-10 0 ${width + 20} ${height}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="這一天的溫度、紫外線、降雨與空氣" data-n="${n}" data-col="${colW}" data-ty="${ys('temp')}" data-fy="${ys('feels')}">${out.join('')}</svg>`;
+}
+
+// What the crosshair reads at one hour of the day sheet: the time, then
+// every number for it.
+export function scrubHtml(h, { tz, aqi = null } = {}) {
+  if (!h) return '';
+  const cell = (k, v, sub = '') => `<div><span>${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+  const deg = v => (v == null ? '–' : `${Math.round(v)}°`);
+  const w = h.wind || {};
+  return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${e(h.condition?.text || '')}</span></div>
+    <div class="wx-scrub-vals">
+      ${cell('溫度', deg(h.temp), `體感 ${deg(h.feels)}`)}
+      ${cell('降雨', h.pop == null ? '–' : `${h.pop}%`, h.mm >= 0.1 ? `${h.mm} mm` : '')}
+      ${cell('紫外線', h.uv ?? '–', h.uv >= 3 ? '要防曬' : '')}
+      ${aqi ? cell('空氣', String(aqi.aqi), aqi.pm25 != null ? `PM2.5 ${aqi.pm25}` : '') : cell('濕度', h.humidity == null ? '–' : `${h.humidity}%`, w.speed != null ? `風 ${Math.round(w.speed)} km/h` : '')}
+    </div>`;
 }
 
 // The read-out for a tapped column: "10/3 週六 13:00 · …".
