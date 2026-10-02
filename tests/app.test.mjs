@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
-import { uvGraph, rainGraph, airGraph, dayGraph, readout, uvCols } from '../public/lib/graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayGraph, readout, uvCols, COL } from '../public/lib/graph.mjs';
 import { pageHtml, airCols, rainCols, rainSummary, daySheet, hoursFrom } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
@@ -115,45 +115,43 @@ const forecast = {
   advice: [{ kind: 'umbrella', level: 'maybe', text: '可帶摺疊傘：13:00 降雨機率 41%', week: { text: '週日要帶傘', days: ['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09'].map((date, i) => ({ date, mark: i === 1 ? 'yes' : null, v: `${i * 10}%` })) } }, { kind: 'sun', level: '高', text: '防曬：11:00–14:00 UV 7（高）' }, { kind: 'week', level: 'info', text: '本週最佳：10/7（週三）' }]
 };
 
-test('graphs: a column an hour as far as the data goes, plain elements, every hour drawn', () => {
+test('charts: smooth areas, a small SVG a day, as far as the data goes', () => {
   const shown = hoursFrom(forecast, NOW);
   assert.equal(shown.length, 240);
-  const rain = rainGraph(shown, { tz: 'Asia/Taipei', now: NOW });
-  assert.ok(!/<svg/.test(rain), 'no long picture (phones drop parts of one)');
-  assert.equal((rain.match(/class="tl-col/g) || []).length, 240, 'a column for each of the 240 hours');
-  assert.equal((rain.match(/class="tl-bar/g) || []).length, 240, 'and a bar in each');
-  assert.match(rain, />70</);
-  assert.match(rain, /tl-inner/, 'the amount inside its bar');
-  // The date at each day's first column: the first and 10 midnights.
-  assert.equal((rain.match(/class="tl-date"/g) || []).length, 11);
-  assert.match(rain, />10\/2 週五</);
+  const rain = rainGraph(rainCols(forecast, NOW), { tz: 'Asia/Taipei' });
+  const segs = rain.match(/<svg class="ch-seg"[^>]*>/g);
+  assert.equal(segs.length, 11, 'a piece for each day the hours touch (10/2 evening … 10/12)');
+  for (const sg of segs) assert.ok(Number(/width="(\d+)"/.exec(sg)[1]) <= 24 * COL, 'none wider than a day');
+  assert.equal(segs.map(x => Number(/data-n="(\d+)"/.exec(x)[1])).reduce((a, b) => a + b), 240, 'every hour in one');
+  assert.match(rain, /class="ch-area"/);
+  assert.match(rain, /class="ch-line"/);
+  assert.match(rain, />70%</, 'the day\'s peak labelled');
+  assert.match(rain, /class="ch-inner"/, 'the amount as a bar');
   assert.match(rain, />10\/3 週六</);
   assert.match(rain, />現在</);
-  // A missing value says so; zero is a stub, not a gap.
-  const gaps = rainGraph([{ ...shown[0], pop: null }, { ...shown[1], pop: 0 }], { tz: 'Asia/Taipei' });
-  assert.match(gaps, /tl-none/);
-  assert.match(gaps, /tl-zero/);
-  // UV: daylight only, 13 hours a day.
+  // A missing value: the line breaks (two runs), it doesn't drop to zero.
+  const gap = rainGraph(shown.slice(5, 11).map((h, i) => ({ ...h, pop: i === 3 ? null : h.pop })), { tz: 'Asia/Taipei' });
+  assert.equal((gap.match(/class="ch-line"/g) || []).length, 2);
+  // UV: daylight only, a piece a day.
   const uv = uvGraph(shown, { tz: 'Asia/Taipei', now: NOW });
-  assert.equal((uv.match(/class="tl-col/g) || []).length, uvCols(shown, 'Asia/Taipei').length);
+  assert.equal((uv.match(/class="ch-seg"/g) || []).length, 10);
   assert.equal(uvCols(shown, 'Asia/Taipei').length % 13, 0);
-  assert.match(uv, />7</);
-  // Air: measured hours, then the days forecast (no hourly forecast here).
+  // Air: measured hours then the forecast days as bars.
   const cols = airCols(forecast, NOW);
   assert.deepEqual(cols.map(c => (c.daily ? c.label : c.aqi)), [45, 41, 39, '今天', '明天', '週日']);
   const air = airGraph(cols, { tz: 'Asia/Taipei', now: NOW });
-  assert.equal((air.match(/class="tl-col/g) || []).length, 6);
-  assert.match(air, /tl-col[^"]*tl-now/);
-  assert.match(air, /tl-wide[^>]*>.*?>10\/3</, 'a forecast day: a wider column, its date');
-  // With hourly forecasts: one clock, measured then forecast.
+  assert.equal((air.match(/class="ch-dbar"/g) || []).length, 3);
+  assert.match(air, />之後幾天</);
+  // With hourly forecasts: one clock, the forecast dashed.
   const hourlyAir = airCols({ ...forecast, air: { ...forecast.air, hourly: [0, 1, 2, 3].map(i => ({ t: NOW + i * H, aqi: 40 + i })) } }, NOW);
   assert.deepEqual(hourlyAir.map(c => Boolean(c.fc)), [false, false, false, true, true, true, true]);
+  assert.match(airGraph(hourlyAir, { tz: 'Asia/Taipei' }), /ch-line ch-fc/);
   assert.equal(readout('rain', shown[5], 'Asia/Taipei'), '10/3 週六 00:00 · 降雨機率 70% · 雨量 2.4 mm');
+  assert.equal(readout('rain', { ...shown[5], place: '學校' }, 'Asia/Taipei'), '10/3 週六 00:00 · 學校 · 降雨機率 70% · 雨量 2.4 mm');
   assert.equal(readout('air', cols[4], 'Asia/Taipei'), '10/3 明天（預測） · AQI 55');
   assert.equal(readout('uv', null), '');
   const day = dayGraph(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
   assert.match(day, /g-temp/);
-  assert.match(day, /g-feels/);
 });
 
 test('the page, top to bottom, one truth, nothing unescaped', () => {
@@ -265,7 +263,7 @@ test('rain as far as the forecast goes: hourly, then a column a day past the hou
   assert.equal(daily[0].date, dateOf(short.hours[47].t + 86_400_000));
   assert.equal(daily[daily.length - 1].date, forecast.days[9].date, 'to the last day');
   const html = rainGraph(cols, { tz: 'Asia/Taipei' });
-  assert.equal((html.match(/tl-wide/g) || []).length, daily.length);
+  assert.equal((html.match(/class="ch-dbar"/g) || []).length, daily.length, 'a bar a day past the hours');
   assert.equal(readout('rain', daily[0], 'Asia/Taipei').endsWith(`降雨機率 ${daily[0].pop}%`), true);
 });
 
@@ -282,7 +280,7 @@ test('the day sheet: a read-out the finger moves, the days either side', () => {
 });
 
 // ---- 我的行程 ----
-import { stitch, segments, planTips, planHtml, planCols, adviceSpan } from '../public/lib/plan.mjs';
+import { stitch, segments, planTips, routeForecast, adviceSpan } from '../public/lib/plan.mjs';
 import { placeAt } from '../public/lib/pins.mjs';
 
 test('my route: each hour from where I am — school on weekdays 07–17, home otherwise', () => {
@@ -296,7 +294,7 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.equal(placeAt(pins, tpe('2026-10-05T18:00:00')).id, 'phome');
   assert.equal(placeAt([sch], tpe('2026-10-05T18:00:00')), null, 'no home pin: the device\'s place');
   // Two forecasts: the school's hotter and wetter in the afternoon.
-  const mk = (base, popAt) => ({ tz: 'Asia/Taipei', now: { temp: base, feels: base }, hours: Array.from({ length: 240 }, (_, i) => { const t = tpe('2026-10-02T19:00:00') + i * H; const hr = (19 + i) % 24; return { t, temp: base + (hr > 9 && hr < 16 ? 6 : 0), feels: base + (hr > 9 && hr < 16 ? 7 : 0), pop: popAt(hr), uv: hr > 9 && hr < 15 ? 6 : 0, condition: { code: 'CLOUDY', text: '陰' } }; }) });
+  const mk = (base, popAt) => ({ tz: 'Asia/Taipei', now: { temp: base, feels: base }, hours: Array.from({ length: 240 }, (_, i) => { const t = tpe('2026-10-02T19:00:00') + i * H; const hr = (19 + i) % 24; return { t, temp: base + (hr > 9 && hr < 16 ? 6 : 0), feels: base + (hr > 9 && hr < 16 ? 7 : 0), pop: popAt(hr), uv: hr > 9 && hr < 15 ? 6 : 0, condition: { code: 'CLOUDY', text: '陰' } }; }), days: Array.from({ length: 10 }, (_, i) => ({ date: dateOf(tpe('2026-10-02T12:00:00') + i * 86_400_000), hi: base + 6, lo: base, pop: 20, uvMax: 6, day: { condition: { code: 'CLOUDY', text: '陰' } } })) });
   const fc = { phome: mk(22, () => 10), pschool2: mk(25, hr => (hr === 15 ? 70 : 20)) };
   const forecastFor = key => fc[key] || null;
   const monday7 = tpe('2026-10-05T06:00:00');
@@ -309,19 +307,32 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.equal(k.umbrella.text, '要帶：學校 15時 70%');
   assert.match(k.wear.text, /帶件外套（家 \d+時 22°，學校 \d+時 3[12]°）/);
   assert.equal(k.sun.text, '學校 10時 UV 6');
-  assert.equal(tips.filter(t => t.kind === 'move').map(t => t.title).join(), '07:00 移動,17:00 移動');
+  assert.deepEqual(tips.filter(t => t.kind === 'move').map(t => t.text.slice(0, 10)), ['07:00 家→學校', '17:00 學校→家']);
   assert.match(k.diff.text, /學校比家熱 \d°/);
   // After 21時: tomorrow's.
   assert.equal(adviceSpan(tpe('2026-10-05T21:30:00')).word, '明天');
-  // The page: now at school, the next move, the stays, the graph with place names.
-  const html = planHtml(pins, forecastFor, tpe('2026-10-05T10:00:00'));
-  assert.match(html, /現在在 📌 學校/);
-  assert.match(html, /接下來 17:00 到🏠家/);
-  assert.match(html, /data-go-key="pschool2"/);
-  assert.match(html, /🏠家<\/em>/);
-  const cols = planCols(pins, forecastFor, tpe('2026-10-05T10:00:00'));
-  assert.equal(cols.length, 48);
-  assert.equal(readout('plan', cols[5], 'Asia/Taipei'), '10/5 週一 15:00 · 學校 · 31° · 雨 70%');
+  // One forecast for the route, the same shape as a city's: each hour the
+  // city you're in then.
+  const at10 = tpe('2026-10-05T10:00:00');
+  const f = routeForecast(pins, forecastFor, at10);
+  assert.equal(f.hours[0].place, '學校');
+  assert.equal(f.hours[5].pop, 70, '15時 at school');
+  assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).place, '家');
+  assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).temp, 22);
+  assert.match(f.headline, /^現在在學校，17:00 到家/);
+  const monday = f.days.find(d => d.date === '2026-10-05');
+  assert.deepEqual(monday.places, ['學校', '家']);
+  assert.equal(monday.hi, 31, 'the high from the hours where you are');
+  assert.equal(f.advice.find(a => a.kind === 'umbrella').text, '雨傘：要帶：學校 15時 70%');
+  assert.equal(f.advice.find(a => a.kind === 'umbrella').week.days.length > 0, true);
+  // The regular page draws it, the route's title on top, the places on the graphs.
+  const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
+  assert.match(html, /🗓️ 我的行程/);
+  assert.match(html, /現在在 學校 · 東區/);
+  assert.match(html, /wx-card wx-rain/);
+  assert.match(html, /class="ch-place"[^>]*>家</);
+  assert.match(html, /學校·家/, 'a day\'s places in the 10 days');
+  assert.equal(routeForecast(pins, () => null, at10), null, 'nothing until the place you\'re in has loaded');
 });
 
 test('notices follow the route: home outside the pins\' hours', () => {

@@ -28,15 +28,16 @@ export function topArea(f, { page, now }) {
   const n = f?.now || {};
   const d = f ? today(f, now) : null;
   const place = placeLines(page.place);
-  const title = page.pin ? page.pin.name : place.main || '目前位置';
-  const sub = page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || '目前位置'].filter(Boolean).join(' · ');
+  // 我的行程: the route's title, where you are now under it.
+  const title = page.plan ? '我的行程' : page.pin ? page.pin.name : place.main || '目前位置';
+  const sub = page.plan ? `現在在 ${page.pin ? page.pin.name : '目前位置'}${place.main ? ` · ${place.main}` : ''}` : page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || '目前位置'].filter(Boolean).join(' · ');
   const alerts = (f?.alerts || []).map(a => `<div class="wx-alert">⚠️ ${e(a.title)}${a.to ? `<span>至 ${e(clock(a.to, f.tz))}</span>` : ''}</div>`).join('');
   const h0 = f ? hoursFrom(f, now)[0] : null;
   return `
   <section class="wx-hero ${f ? skyOf(n) : 'sky-cloud sky-day'}">
     <div class="wx-where">
-      <h2 class="wx-place">${page.pin ? '📌' : '📍'} ${e(title)}</h2>
-      <p class="wx-sub">${e(sub)}${page.pin ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}</p>
+      <h2 class="wx-place">${page.plan ? '🗓️' : page.pin?.home ? '🏠' : page.pin ? '📌' : '📍'} ${e(title)}</h2>
+      <p class="wx-sub">${e(sub)}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}</p>
     </div>
     ${
       f
@@ -64,11 +65,11 @@ const card = ({ cls, icon, title, summary, big, graph, first, foot = '' }) => `
       <div class="wx-card-title"><h3>${title}</h3><p>${summary}</p></div>
       ${big}
     </header>
+    <div class="wx-readout" data-read="${cls}" aria-live="polite" data-hint="${e(foot)}">${foot}</div>
     <div class="wx-graphbox">
       <span class="wx-when" data-when="${cls}">${e(first || '')}</span>
       <div class="wx-scroll" data-scroll="${cls}">${graph}</div>
     </div>
-    <p class="wx-readout" data-read="${cls}" aria-live="polite">${foot}</p>
   </section>`;
 export const dayText = (date, now, tz) => `${dayLabel(date, now, tz)} ${shortDate(date)}`;
 
@@ -90,7 +91,7 @@ export function uvCard(f, { now }) {
   const tomorrowText = dayPeak(dateOf(now + 86_400_000, f.tz));
   const summary = todayText ? `今天${todayText}` : tomorrowText ? `明天${tomorrowText}` : '很弱';
   const cols = uvCols(hours, f.tz);
-  return card({ cls: 'uv', icon: '☀️', title: '紫外線', summary: e(summary), big, graph: uvGraph(hours, { tz: f.tz, now }), first: cols[0] ? dayText(dateOf(cols[0].t, f.tz), now, f.tz) : '', foot: '' });
+  return card({ cls: 'uv', icon: '☀️', title: '紫外線', summary: e(summary), big, graph: uvGraph(hours, { tz: f.tz, now }), first: cols[0] ? dayText(dateOf(cols[0].t, f.tz), now, f.tz) : '', foot: '點一下或按住滑動看每小時' });
 }
 
 // The next rain, said once.
@@ -118,7 +119,7 @@ export function rainCard(f, { now }) {
   const big = `<div class="wx-big wx-rain-big">${pop ?? '–'}<small>%</small></div>`;
   const n = f.now || {};
   const extra = [n.rainToday != null ? `今日雨量 ${n.rainToday} mm` : '', n.rain1h ? `過去 1 小時 ${n.rain1h} mm` : ''].filter(Boolean).join(' · ');
-  return card({ cls: 'rain', icon: '☔', title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, graph: rainGraph(rainCols(f, now), { tz: f.tz, now }), first: dayText(dateOf(hours[0].t, f.tz), now, f.tz), foot: `深色＝雨量${extra ? ` · ${e(extra)}` : ''}` });
+  return card({ cls: 'rain', icon: '☔', title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, graph: rainGraph(rainCols(f, now), { tz: f.tz, now }), first: dayText(dateOf(hours[0].t, f.tz), now, f.tz), foot: `深色柱＝雨量${extra ? ` · ${e(extra)}` : ''}` });
 }
 
 // The air graph's columns: the hours measured, then the hours forecast; or
@@ -148,16 +149,17 @@ export function airCard(f, { now }) {
   const worst = ahead.reduce((x, d) => (d.aqi > (x?.aqi ?? -1) ? d : x), null);
   const summary = `PM2.5 ${a.pm25 ?? '–'} · ${e(a.station?.name || '')} ${a.station?.km ?? '–'} km${worst && worst.aqi > 50 ? ` · ${e(dayLabel(worst.date, now, f.tz))} ${worst.aqi}` : ''}`;
   const c0 = cols[0];
-  return card({ cls: 'air', icon: '🌫️', title: '空氣品質', summary, big, graph: airGraph(cols, { tz: f.tz, now }), first: c0 ? dayText(c0.date || dateOf(c0.t, f.tz), now, f.tz) : '', foot: '左：實測 · 右：預測' });
+  return card({ cls: 'air', icon: '🌫️', title: '空氣品質', summary, big, graph: airGraph(cols, { tz: f.tz, now }), first: c0 ? dayText(c0.date || dateOf(c0.t, f.tz), now, f.tz) : '', foot: '實線：實測 · 虛線：預測' });
 }
 
 // ---- What to do: today, and the week -------------------------------------------------------
 
 const LIFE = {
   umbrella: ['☂️', '雨傘'], commute: ['🚇', '通勤'], wear: ['👕', '穿著'], sun: ['🧴', '防曬'], outdoor: ['🏃', '戶外'], laundry: ['🧺', '曬衣'],
-  sleep: ['🛏️', '睡覺'], window: ['🪟', '開窗'], mask: ['😷', '口罩'], heat: ['🥵', '炎熱'], carwash: ['🚗', '洗車']
+  sleep: ['🛏️', '睡覺'], window: ['🪟', '開窗'], mask: ['😷', '口罩'], heat: ['🥵', '炎熱'], carwash: ['🚗', '洗車'],
+  move: ['🚆', '移動'], diff: ['↔️', '兩地溫差']
 };
-const ORDER = Object.keys(LIFE);
+const ORDER = ['umbrella', 'move', 'commute', 'wear', 'sun', 'diff', 'outdoor', 'laundry', 'sleep', 'window', 'mask', 'heat', 'carwash'];
 // The week's table: a row per kind that has days.
 const ROWS = { umbrella: '☂️ 雨', laundry: '🧺 曬衣', sun: '🧴 UV', wear: '👕 穿', heat: '🥵 熱', mask: '😷 空氣' };
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -221,7 +223,7 @@ export function daysList(f, { now, key }) {
           const right = (((d.hi ?? hi) - lo) / span) * 100;
           const c = d.day?.condition || {};
           return `<button class="wx-day" type="button" data-day="${e(d.date)}" data-page="${e(key)}">
-            <span class="wx-dname">${e(dayLabel(d.date, now, f.tz))}<small>${shortDate(d.date)}</small></span>
+            <span class="wx-dname">${e(dayLabel(d.date, now, f.tz))}<small>${d.places?.length > 1 ? e(d.places.join('·')) : shortDate(d.date)}</small></span>
             <span class="wx-dicon">${conditionIcon(c.code, c.text, true)}</span>
             <span class="wx-dpop" style="--p:${d.pop ?? 0}%"><b>${d.pop == null ? '–' : `${d.pop}%`}</b><i></i></span>
             <span class="wx-dlo">${deg(d.lo)}</span>

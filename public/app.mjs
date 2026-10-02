@@ -5,11 +5,11 @@
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, hoursFrom, airCols, rainCols, dayText } from './lib/cards.mjs';
-import { readout, uvCols, scrubHtml, COL } from './lib/graph.mjs';
+import { readout, uvCols, scrubHtml, colAt, colSpot, COL } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf } from './lib/format.mjs';
-import { planHtml, planCols } from './lib/plan.mjs';
+import { routeForecast } from './lib/plan.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -38,7 +38,8 @@ function buildPages() {
   ];
 }
 const pageOf = key => state.pages.find(p => p.key === key);
-const forecastOf = page => (page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
+// A page's forecast: its cell's; 我的行程's, the places' made one.
+const forecastOf = page => (page.plan ? routeForecast(state.data.pins, forecastFor, Date.now()) : page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
 const forecastFor = key => {
   const page = pageOf(key);
   return page && !page.plan ? forecastOf(page) : null;
@@ -54,18 +55,25 @@ function renderPage(page) {
   const el = document.querySelector(`.wx-page[data-key="${page.key}"]`);
   if (!el) return;
   const now = Date.now();
-  if (page.plan) return renderPlan(el, now);
+  if (page.plan) {
+    // Where the route has you now, for the top.
+    const cur = placeAt(state.data.pins, now);
+    page.pin = cur;
+    page.place = cur ? { county: cur.county, town: cur.town, village: cur.village } : pageOf('here')?.place || null;
+  }
   const f = forecastOf(page);
   // Keep where each graph was swiped to, and the page's own scroll.
   const kept = Object.fromEntries([...el.querySelectorAll('[data-scroll]')].map(s => [s.dataset.scroll, s.scrollLeft]));
   const top = el.scrollTop;
-  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden }) + (page.pin ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
+  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
   if (f) state.cols[page.key] = { uv: uvCols(hoursFrom(f, now), f.tz), rain: rainCols(f, now), air: airCols(f, now), tz: f.tz };
   // The air graph opens at now (the hours measured are to its left).
   const airBox = el.querySelector('[data-scroll="air"]');
-  if (airBox && kept.air === undefined) {
-    const at = airBox.querySelector('.tl-now');
-    if (at) airBox.scrollLeft = Math.max(0, at.offsetLeft - 3 * COL);
+  if (airBox && kept.air === undefined && f) {
+    const cols = state.cols[page.key].air;
+    const first = cols.findIndex(c => c.fc);
+    const spot = colSpot(airBox.querySelector('.ch'), first > 0 ? first - 1 : cols.length - 1);
+    if (spot) airBox.scrollLeft = Math.max(0, spot.x - 4 * COL);
   }
   for (const s of el.querySelectorAll('[data-scroll]')) {
     if (kept[s.dataset.scroll]) s.scrollLeft = kept[s.dataset.scroll];
@@ -74,33 +82,20 @@ function renderPage(page) {
   el.scrollTop = top;
 }
 
-// 我的行程: built from every place's forecast.
-function renderPlan(el, now) {
-  const kept = el.querySelector('[data-scroll="plan"]')?.scrollLeft || 0;
-  const top = el.scrollTop;
-  el.innerHTML = planHtml(state.data.pins, forecastFor, now);
-  state.cols.plan = { plan: planCols(state.data.pins, forecastFor, now), tz: 'Asia/Taipei' };
-  const box = el.querySelector('[data-scroll="plan"]');
-  if (box) {
-    box.scrollLeft = kept;
-    whenChip(box);
-  }
-  el.scrollTop = top;
-}
 const planPage = () => state.pages.find(p => p.plan);
 
-// The date chip over a graph: the day of the leftmost column in view.
+// The chip over a graph: the day (and on 我的行程 the place) of the
+// leftmost column in view.
 function whenChip(box) {
-  const kind = box.dataset.scroll;
-  const chip = box.parentElement.querySelector(`[data-when="${kind}"]`);
-  const cols = box.querySelectorAll('.tl-col');
-  if (!chip || !cols.length) return;
-  // (Columns are COL wide, a forecast day's wider: find it by position.)
-  let i = Math.max(0, Math.min(cols.length - 1, Math.floor((box.scrollLeft + 6) / COL)));
-  while (i > 0 && cols[i].offsetLeft > box.scrollLeft + 6) i--;
-  while (i < cols.length - 1 && cols[i + 1].offsetLeft <= box.scrollLeft + 6) i++;
+  const chip = box.parentElement.querySelector(`[data-when="${box.dataset.scroll}"]`);
+  const ch = box.querySelector('.ch');
+  if (!chip || !ch) return;
+  const i = colAt(ch, box.getBoundingClientRect().left + 30);
   const key = box.closest('.wx-page')?.dataset.key;
-  const text = dayText(cols[i].dataset.d, Date.now(), state.cols[key]?.tz);
+  const col = state.cols[key]?.[ch.dataset.graph]?.[i];
+  if (!col) return;
+  const date = col.date || dateOf(col.t, state.cols[key].tz);
+  const text = `${dayText(date, Date.now(), state.cols[key].tz)}${col.place ? ` · ${col.place}` : ''}`;
   if (chip.textContent !== text) chip.textContent = text;
 }
 
@@ -454,8 +449,8 @@ const help = () =>
 // ---- Taps and swipes --------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
-  const hit = ev.target.closest('.tl-col');
-  if (hit) return pickCol(hit);
+  const ch = ev.target.closest('.ch');
+  if (ch) return pick(ch, colAt(ch, ev.clientX));
   const go = ev.target.closest('[data-go]');
   if (go) return goTo(Number(go.dataset.go));
   const stay = ev.target.closest('[data-go-key]');
@@ -468,36 +463,46 @@ document.addEventListener('click', ev => {
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
 
-// A column picked (a tap, or a held finger sliding): its numbers in the
-// card's read-out.
-function pickCol(hit) {
-  if (hit.classList.contains('tl-sel')) return;
-  const page = hit.closest('.wx-page');
+// A column picked (a tap, a held finger sliding, the mouse): the crosshair
+// and the dot on it, its numbers above the graph.
+function pick(chartEl, i) {
+  if (chartEl.dataset.sel === String(i)) return;
+  chartEl.dataset.sel = String(i);
+  const page = chartEl.closest('.wx-page');
   const key = page?.dataset.key;
-  const kind = hit.dataset.g;
-  const col = state.cols[key]?.[kind]?.[Number(hit.dataset.i)];
+  const kind = chartEl.dataset.graph;
+  const col = state.cols[key]?.[kind]?.[i];
   const out = page?.querySelector(`[data-read="${kind}"]`);
-  if (out) out.textContent = readout(kind, col, state.cols[key].tz);
-  hit.parentElement.querySelector('.tl-sel')?.classList.remove('tl-sel');
-  hit.classList.add('tl-sel');
+  if (out) {
+    out.textContent = readout(kind, col, state.cols[key]?.tz);
+    out.classList.add('is-on');
+  }
+  const spot = colSpot(chartEl, i);
+  const cross = chartEl.querySelector('.ch-cross');
+  const dot = chartEl.querySelector('.ch-dot');
+  if (!spot) return;
+  cross.hidden = false;
+  cross.style.transform = `translateX(${spot.x}px)`;
+  dot.hidden = spot.y == null;
+  if (spot.y != null) dot.style.transform = `translate(${spot.x}px, ${spot.y}px)`;
 }
 
-// Hold a graph a moment, then slide: the read-out follows the finger like
+// Hold a graph a moment, then slide: the crosshair follows the finger like
 // a stock chart's (a quick swipe still scrolls).
 let hold = null;
 document.addEventListener(
   'touchstart',
   ev => {
-    const col = ev.target.closest?.('.tl-col');
-    if (!col || ev.touches.length > 1) return;
+    const ch = ev.target.closest?.('.ch');
+    if (!ch || ev.touches.length > 1) return;
     const t = ev.touches[0];
-    hold = { x: t.clientX, y: t.clientY, on: false, box: col.closest('.wx-scroll') };
+    hold = { x: t.clientX, y: t.clientY, on: false, ch, box: ch.closest('.wx-scroll') };
     hold.timer = setTimeout(() => {
       if (!hold) return;
       hold.on = true;
       hold.box?.classList.add('is-scrub');
-      pickCol(col);
-    }, 260);
+      pick(ch, colAt(ch, hold.x));
+    }, 220);
   },
   { passive: true }
 );
@@ -511,8 +516,7 @@ document.addEventListener(
       return;
     }
     ev.preventDefault();
-    const col = document.elementFromPoint(t.clientX, hold.box ? hold.box.getBoundingClientRect().top + 60 : t.clientY)?.closest('.tl-col');
-    if (col && col.parentElement === hold.box?.querySelector('.tl')) pickCol(col);
+    pick(hold.ch, colAt(hold.ch, t.clientX));
   },
   { passive: false }
 );
@@ -524,6 +528,12 @@ const endHold = () => {
 };
 document.addEventListener('touchend', endHold);
 document.addEventListener('touchcancel', endHold);
+// A mouse: the crosshair follows it.
+document.addEventListener('pointermove', ev => {
+  if (ev.pointerType !== 'mouse') return;
+  const ch = ev.target.closest?.('.ch');
+  if (ch) pick(ch, colAt(ch, ev.clientX));
+});
 
 // A graph swiped: its date chip follows.
 document.addEventListener(

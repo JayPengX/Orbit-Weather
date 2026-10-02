@@ -1,73 +1,208 @@
-// The cards' graphs: one column per hour (or forecast day), as far ahead as
-// the data goes, swiped sideways. Plain elements, not one long picture: a
-// phone's browser draws a 6,000-pixel-wide SVG in tiles and drops some while
-// scrolling (the "empty hours"); a row of small boxes it always draws.
+// The cards' graphs: smooth area charts, as far ahead as the data goes,
+// swiped sideways, one small SVG a day (a phone's browser drops parts of a
+// single very wide picture). The fill and the line take the level's colour
+// (UV green → violet, AQI green → red, rain light → deep blue); a day's
+// peak is labelled; under it the hours and each day's date; a place's name
+// where the route changes city (我的行程).
 //
-// Under the bars the hour, and at each day's first column its date; each day
-// on its own shade. Every column is a tap target (`data-g` the graph,
-// `data-i` the column) for the card's read-out, and carries its date
-// (`data-d`) for the date chip that follows the swipe.
+// The app puts a crosshair on a column (tap, or hold and slide) and its
+// numbers above the graph: `colAt` finds the column under a finger, `colY`
+// says where its dot goes.
 
 import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e } from './format.mjs';
 
-export const COL = 34;
+export const COL = 28;
+export const DAY_COL = 56;
 const HOUR = 3_600_000;
+const TOP = 30;
+const PH = 176;
+const AX = 44;
+export const CHART_H = TOP + PH + AX;
 const r1 = v => Math.round(v * 10) / 10;
+const BASE = TOP + PH;
+const yOf = (v, max) => r1(BASE - Math.max(0, Math.min(1, v / max)) * PH);
 
-// cols: [{ t | date, v, color, text (above the bar), under (the time row),
-// strong, fc (a forecast: lighter), inner (a darker part, 0–1 of the bar) }].
-export function timeline(id, cols, { max, tz, label, nowIndex = -1 }) {
-  let dayN = -1;
-  let last = null;
-  const html = cols.map((c, i) => {
-    const date = c.date || dateOf(c.t, tz);
-    const start = date !== last;
-    if (start) dayN++;
-    last = date;
-    const v = c.v;
-    const h = v == null ? 0 : Math.max(v > 0 ? 3 : 0, Math.min(100, (v / max) * 100));
-    const bar = v == null ? '<i class="tl-none">–</i>' : v <= 0 ? '<i class="tl-zero"></i>' : `<i class="tl-bar${c.fc ? ' tl-fc' : ''}" style="height:${r1(h)}%;background:${c.color}">${c.inner ? `<i class="tl-inner" style="height:${r1(Math.min(1, c.inner) * 100)}%"></i>` : ''}</i>`;
-    const text = c.text ? `<span class="tl-val" style="bottom:${r1(h)}%">${e(c.text)}</span>` : '';
-    // The date at a day's first column; a place's name where it changes (`tag`).
-    const words = [start ? c.dayText || `${shortDate(date)} ${weekday(date)}` : '', c.tag || ''].filter(Boolean).join(' · ');
-    const dayTag = words ? `<em class="tl-date${c.tag ? ' tl-place' : ''}">${e(words)}</em>` : '';
-    const cls = ['tl-col', c.daily ? 'tl-wide' : '', dayN % 2 ? 'tl-odd' : '', (start || c.tag) && i ? 'tl-start' : '', i === nowIndex ? 'tl-now' : ''].filter(Boolean).join(' ');
-    return `<button type="button" class="${cls}" data-g="${id}" data-i="${i}" data-d="${date}"><span class="tl-plot">${text}${bar}</span><b class="tl-t${c.strong ? ' tl-strong' : ''}">${e(c.under || '')}</b>${dayTag}</button>`;
+// Level colours, as stops on the value scale.
+const UV_STOPS = [[0, '#4caf50'], [3, '#f5c518'], [6, '#ff8c1a'], [8, '#e53935'], [11, '#8e24aa']];
+const AQI_STOPS = [[0, '#4caf50'], [51, '#f5c518'], [101, '#ff8c1a'], [151, '#e53935'], [201, '#8e24aa']];
+const RAIN_STOPS = [[0, '#a5d4ff'], [40, '#5aa9f5'], [70, '#2f7de1']];
+
+// A vertical gradient in the plot's own units: a value's height gets its
+// level's colour (hard steps between levels).
+function gradient(id, stops, max) {
+  const out = [];
+  stops.forEach(([v, c], i) => {
+    const from = Math.min(1, v / max);
+    const next = stops[i + 1] ? Math.min(1, stops[i + 1][0] / max) : 1;
+    if (from >= 1) return;
+    out.push(`<stop offset="${r1(from * 100)}%" stop-color="${c}"/><stop offset="${r1(next * 100)}%" stop-color="${c}"/>`);
   });
-  return `<div class="tl" data-graph="${id}" role="img" aria-label="${e(label)}">${html.join('')}</div>`;
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${BASE}" y2="${TOP}">${out.join('')}</linearGradient>`;
 }
 
-// An hour's label: every 3 hours by the clock ("6時"); midnight is the
-// date's place, so none.
+// Points → a smooth path (Catmull-Rom as Béziers).
+function smooth(pts) {
+  if (!pts.length) return '';
+  if (pts.length === 1) return `M${pts[0][0] - 6},${pts[0][1]}L${pts[0][0] + 6},${pts[0][1]}`;
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    // Never above the top or below the base between points.
+    const cl = y => Math.max(TOP, Math.min(BASE, y));
+    d += `C${r1(c1[0])},${r1(cl(c1[1]))} ${r1(c2[0])},${r1(cl(c2[1]))} ${p2[0]},${p2[1]}`;
+  }
+  return d;
+}
+
+// The columns cut into pieces: a piece per day, a new one at a gap in the
+// hours, and the forecast days (`daily`) together at the end.
+function pieces(cols, tz) {
+  const out = [];
+  cols.forEach((c, i) => {
+    const date = c.date || dateOf(c.t, tz);
+    const last = out[out.length - 1];
+    const prev = cols[i - 1];
+    const joins = last && (c.daily ? prev?.daily : !prev?.daily && last.date === date && c.t - prev.t === HOUR);
+    if (joins) last.cols.push(c);
+    else out.push({ start: i, date, daily: Boolean(c.daily), cols: [c] });
+  });
+  return out;
+}
+
+// cols: [{ t | date, v, under, strong, fc, inner (0–1, a darker bar from
+// the bottom: rain's amount), place, daily, label }].
+let made = 0;
+export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, grid = [], minLabel = 0, fmt = v => String(Math.round(v)) }) {
+  const parts = pieces(cols, tz);
+  const chartN = ++made;
+  const svgs = parts.map((p, pi) => {
+    // Each piece its own gradient (an id another SVG defines isn't always found).
+    const gid = `g${chartN}-${id}-${pi}`;
+    const w = p.daily ? DAY_COL : COL;
+    const width = p.cols.length * w;
+    const out = [];
+    const xOf = j => r1((j + 0.5) * w);
+    // Days alternate shade; the level lines.
+    if (pi % 2) out.push(`<rect class="ch-band" x="0" y="0" width="${width}" height="${CHART_H}"/>`);
+    for (const g of grid) if (g < max) out.push(`<line class="ch-grid" x1="0" x2="${width}" y1="${yOf(g, max)}" y2="${yOf(g, max)}"/>`);
+    out.push(`<line class="ch-base" x1="0" x2="${width}" y1="${BASE}" y2="${BASE}"/>`);
+    if (p.daily) {
+      p.cols.forEach((c, j) => {
+        if (c.v == null) return;
+        const y = yOf(c.v, max);
+        out.push(`<rect class="ch-dbar" x="${j * w + 10}" y="${y}" width="${w - 20}" height="${r1(BASE - y)}" rx="7" fill="url(#${gid})"/>`);
+        out.push(`<text class="ch-val" x="${xOf(j)}" y="${r1(y - 8)}">${e(fmt(c.v))}</text>`);
+      });
+    } else {
+      // The line (and its area) through each run of known values; the
+      // neighbouring day's point outside the edge keeps it continuous.
+      const prevP = parts[pi - 1];
+      const nextP = parts[pi + 1];
+      const before = prevP && !prevP.daily && p.cols[0].t - prevP.cols[prevP.cols.length - 1].t === HOUR ? prevP.cols[prevP.cols.length - 1] : null;
+      const after = nextP && !nextP.daily && nextP.cols[0].t - p.cols[p.cols.length - 1].t === HOUR ? nextP.cols[0] : null;
+      const seq = [...(before ? [{ ...before, x: -w / 2 }] : []), ...p.cols.map((c, j) => ({ ...c, x: xOf(j) })), ...(after ? [{ ...after, x: width + w / 2 }] : [])];
+      // Runs: known values, cut where measured turns to forecast (both keep the joint).
+      const runs = [];
+      let run = null;
+      for (const c of seq) {
+        if (c.v == null) {
+          run = null;
+          continue;
+        }
+        if (run && run.fc !== Boolean(c.fc)) {
+          const joint = run.pts[run.pts.length - 1];
+          run = { fc: Boolean(c.fc), pts: [joint] };
+          runs.push(run);
+        } else if (!run) {
+          run = { fc: Boolean(c.fc), pts: [] };
+          runs.push(run);
+        }
+        run.pts.push([r1(c.x), yOf(c.v, max)]);
+      }
+      for (const r of runs) {
+        const line = smooth(r.pts);
+        const a = r.pts[0];
+        const z = r.pts[r.pts.length - 1];
+        out.push(`<path class="ch-area${r.fc ? ' ch-fc' : ''}" d="${line}L${z[0]},${BASE}L${a[0]},${BASE}Z" fill="url(#${gid})"/>`);
+        out.push(`<path class="ch-line${r.fc ? ' ch-fc' : ''}" d="${line}" stroke="url(#${gid})"/>`);
+      }
+      // The darker bars from the bottom (rain's amount).
+      p.cols.forEach((c, j) => {
+        if (c.inner > 0) out.push(`<rect class="ch-inner" x="${j * w + 7}" y="${r1(BASE - c.inner * PH * 0.4)}" width="${w - 14}" height="${r1(c.inner * PH * 0.4)}" rx="3"/>`);
+      });
+      // The day's peak, labelled (and now's value).
+      let peak = -1;
+      p.cols.forEach((c, j) => {
+        if (c.v != null && c.v >= minLabel && (peak < 0 || c.v > p.cols[peak].v)) peak = j;
+      });
+      const nowJ = nowIndex - p.start;
+      // (The peak's label only away from now's, so they don't overlap.)
+      const nowIn = nowJ >= 0 && nowJ < p.cols.length;
+      if (nowIn && Math.abs(peak - nowJ) <= 2) peak = -1;
+      for (const j of new Set([peak, nowIn ? nowJ : -1])) {
+        const c = p.cols[j];
+        if (j < 0 || c?.v == null) continue;
+        const y = yOf(c.v, max);
+        out.push(`<circle class="ch-pt" cx="${xOf(j)}" cy="${y}" r="3.5" fill="url(#${gid})"/><text class="ch-val${j === nowJ ? ' ch-now-val' : ''}" x="${xOf(j)}" y="${r1(Math.max(TOP - 6, y - 10))}">${e(fmt(c.v))}</text>`);
+      }
+      if (nowJ >= 0 && nowJ < p.cols.length) out.push(`<line class="ch-now" x1="${xOf(nowJ)}" x2="${xOf(nowJ)}" y1="${TOP - 4}" y2="${BASE}"/>`);
+    }
+    // A place's name where the route changes city.
+    p.cols.forEach((c, j) => {
+      const prev = cols[p.start + j - 1];
+      if (c.place && prev && prev.place !== c.place) out.push(`<line class="ch-move" x1="${j * w}" x2="${j * w}" y1="0" y2="${BASE}"/><text class="ch-place" x="${j * w + 4}" y="13">${e(c.place)}</text>`);
+    });
+    // Under: the hours (or the forecast days' names), then the date.
+    p.cols.forEach((c, j) => {
+      if (c.under) out.push(`<text class="ch-t${c.strong ? ' ch-strong' : ''}" x="${xOf(j)}" y="${BASE + 17}">${e(c.under)}</text>`);
+    });
+    // The date, where the piece has room for it.
+    if (width >= 76 || p.daily) out.push(`<text class="ch-date" x="4" y="${BASE + 37}">${e(p.daily ? '之後幾天' : `${shortDate(p.date)} ${weekday(p.date)}`)}</text>`);
+    return `<svg class="ch-seg" xmlns="http://www.w3.org/2000/svg" width="${width}" height="${CHART_H}" viewBox="0 0 ${width} ${CHART_H}" data-start="${p.start}" data-n="${p.cols.length}" data-w="${w}" data-d="${e(p.date)}" data-ys="${p.cols.map(c => (c.v == null ? '' : yOf(c.v, max))).join(',')}"><defs>${gradient(gid, stops, max)}</defs>${out.join('')}</svg>`;
+  });
+  return `<div class="ch" data-graph="${id}" role="img" aria-label="${e(label)}">${svgs.join('')}<i class="ch-cross" hidden></i><i class="ch-dot" hidden></i></div>`;
+}
+
+// The column under a finger at clientX in a chart: its index.
+export function colAt(chartEl, clientX) {
+  const segs = [...chartEl.querySelectorAll('svg.ch-seg')];
+  for (const s of segs) {
+    const r = s.getBoundingClientRect();
+    if (clientX < r.right || s === segs[segs.length - 1]) {
+      const j = Math.max(0, Math.min(Number(s.dataset.n) - 1, Math.floor((clientX - r.left) / Number(s.dataset.w))));
+      return Number(s.dataset.start) + j;
+    }
+  }
+  return 0;
+}
+// Where column i is in the chart: { x, y (null without a value), seg }.
+export function colSpot(chartEl, i) {
+  for (const s of chartEl.querySelectorAll('svg.ch-seg')) {
+    const start = Number(s.dataset.start);
+    const n = Number(s.dataset.n);
+    if (i >= start && i < start + n) {
+      const j = i - start;
+      const y = s.dataset.ys.split(',')[j];
+      // (An SVG has no offsetLeft: measured against the chart.)
+      const left = s.getBoundingClientRect().left - chartEl.getBoundingClientRect().left;
+      return { x: left + (j + 0.5) * Number(s.dataset.w), y: y === '' ? null : Number(y), seg: s };
+    }
+  }
+  return null;
+}
+
+// An hour's label: every 3 hours by the clock; midnight is the date's.
 const hourText = (t, tz) => {
   const h = hourOf(t, tz);
   return h % 3 === 0 && h !== 0 ? `${h}時` : '';
 };
 
-// Value labels where they help: each day's highest (when it counts) and
-// every 3 hours, never two side by side.
-function sparseLabels(cols, { tz, min, fmt }) {
-  const peak = {};
-  cols.forEach((c, i) => {
-    const d = dateOf(c.t, tz);
-    if (c.v != null && c.v >= min && (peak[d] == null || c.v > cols[peak[d]].v)) peak[d] = i;
-  });
-  const peaks = new Set(Object.values(peak));
-  let lastAt = -9;
-  cols.forEach((c, i) => {
-    const want = c.v != null && c.v >= min && (peaks.has(i) || hourOf(c.t, tz) % 3 === 0);
-    if (!want) return;
-    if (i - lastAt === 1) {
-      if (!peaks.has(i)) return;
-      cols[lastAt].text = '';
-    }
-    c.text = fmt(c.v);
-    lastAt = i;
-  });
-  return cols;
-}
-
-// UV: the daylight hours only (6–18 時), a day's block after another.
+// UV: the daylight hours only (6–18 時), a day's piece after another.
 export function uvCols(hours, tz) {
   return hours.filter(h => {
     const hr = hourOf(h.t, tz);
@@ -77,51 +212,34 @@ export function uvCols(hours, tz) {
 export function uvGraph(hours, { tz, now = Date.now() } = {}) {
   const list = uvCols(hours, tz);
   const nowIndex = list.findIndex(h => h.t <= now && now < h.t + HOUR);
-  const cols = sparseLabels(
-    list.map((h, i) => ({ t: h.t, v: h.uv, color: uvColor(h.uv), under: i === nowIndex ? '現在' : hourOf(h.t, tz) % 2 ? '' : `${hourOf(h.t, tz)}時`, strong: i === nowIndex })),
-    { tz, min: 1, fmt: v => String(Math.round(v)) }
-  );
+  const cols = list.map((h, i) => ({ t: h.t, v: h.uv, place: h.place, under: i === nowIndex ? '現在' : hourOf(h.t, tz) % 3 === 0 ? `${hourOf(h.t, tz)}時` : '', strong: i === nowIndex }));
   const max = Math.max(11, ...list.map(h => h.uv ?? 0));
-  return timeline('uv', cols, { max, tz, label: '逐時紫外線（白天）', nowIndex });
+  return chart('uv', cols, { max, stops: UV_STOPS, tz, label: '逐時紫外線（白天）', nowIndex, grid: [3, 6, 8], minLabel: 1 });
 }
 
-// Rain: probability as the bar (0–100), the amount as its darker part
-// (10 mm fills the graph's height; never taller than the bar).
-// `hours` may end with whole days (`daily`: past the hourly forecast), a
-// wider column each.
+// Rain: the chance as the area (0–100), the amount as darker bars from the
+// bottom (10 mm fills 40% of the height); then any days past the hours.
 export function rainGraph(hours, { tz } = {}) {
-  const hourly = hours.filter(h => !h.daily);
-  const cols = sparseLabels(
-    hourly.map((h, i) => ({ t: h.t, v: h.pop, color: rainColor(h.pop), inner: h.mm >= 0.1 && h.pop > 0 ? Math.min(1, h.mm / 10 / (h.pop / 100)) : 0, under: i === 0 ? '現在' : hourText(h.t, tz), strong: i === 0 })),
-    { tz, min: 20, fmt: v => `${Math.round(v)}` }
+  const cols = hours.map((h, i) =>
+    h.daily
+      ? { date: h.date, daily: true, v: h.pop, under: h.label }
+      : { t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: i === 0 ? '現在' : hourText(h.t, tz), strong: i === 0 }
   );
-  for (const d of hours.filter(h => h.daily)) cols.push({ date: d.date, daily: true, fc: true, v: d.pop, color: rainColor(d.pop), text: d.pop != null ? `${d.pop}` : '', under: d.label, dayText: shortDate(d.date) });
-  return timeline('rain', cols, { max: 100, tz, label: '降雨機率：逐時，之後逐日', nowIndex: 0 });
+  return chart('rain', cols, { max: 100, stops: RAIN_STOPS, tz, label: '降雨機率：逐時，之後逐日', nowIndex: 0, grid: [25, 50, 75], minLabel: 10, fmt: v => `${Math.round(v)}%` });
 }
 
-// Air: the hours measured, then the hours forecast (lighter), on one
-// clock; without hourly forecasts, the days' forecasts after the measured
-// hours, a column each.
+// Air: the hours measured, then the hours forecast (dashed), on one clock;
+// the forecast days after, a bar each.
 export function airGraph(cols, { tz } = {}) {
   const first = cols.findIndex(c => c.fc);
   const nowIndex = first > 0 ? first - 1 : first < 0 ? cols.length - 1 : 0;
-  const out = cols.map((c, i) => ({
-    ...c,
-    v: c.aqi,
-    color: aqiColor(c.aqi),
-    under: c.daily ? c.label : i === nowIndex ? '現在' : hourText(c.t, tz),
-    strong: i === nowIndex,
-    dayText: c.daily ? shortDate(c.date) : undefined
-  }));
-  sparseLabels(
-    out.filter(c => !c.daily),
-    { tz, min: 0, fmt: v => String(Math.round(v)) }
-  );
-  for (const c of out) if (c.daily && c.v != null) c.text = String(Math.round(c.v));
-  if (out[nowIndex]?.v != null) out[nowIndex].text = String(Math.round(out[nowIndex].v));
+  const out = cols.map((c, i) => ({ ...c, v: c.aqi, under: c.daily ? c.label : i === nowIndex ? '現在' : hourText(c.t, tz), strong: i === nowIndex }));
   const max = Math.max(150, ...cols.map(c => c.aqi ?? 0));
-  return timeline('air', out, { max, tz, label: '空氣品質：測到的與預測的', nowIndex });
+  return chart('air', out, { max, stops: AQI_STOPS, tz, label: '空氣品質：測到的與預測的', nowIndex, grid: [50, 100] });
 }
+
+// (Kept for the day sheet's legend colours.)
+export { uvColor, aqiColor, rainColor };
 
 // One day, everything over each other (the day list's sheet): temperature
 // and feels-like lines, UV as a coloured band, rain bars, AQI dots where
@@ -184,7 +302,7 @@ export function scrubHtml(h, { tz, aqi = null } = {}) {
   const cell = (k, v, sub = '') => `<div><span>${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
   const deg = v => (v == null ? '–' : `${Math.round(v)}°`);
   const w = h.wind || {};
-  return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${e(h.condition?.text || '')}</span></div>
+  return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${h.place ? `${e(h.place)} · ` : ''}${e(h.condition?.text || '')}</span></div>
     <div class="wx-scrub-vals">
       ${cell('溫度', deg(h.temp), `體感 ${deg(h.feels)}`)}
       ${cell('降雨', h.pop == null ? '–' : `${h.pop}%`, h.mm >= 0.1 ? `${h.mm} mm` : '')}
@@ -196,7 +314,7 @@ export function scrubHtml(h, { tz, aqi = null } = {}) {
 // The read-out for a tapped column: "10/3 週六 13:00 · …".
 export function readout(kind, col, tz) {
   if (!col) return '';
-  const when = col.daily ? `${shortDate(col.date)} ${col.label}（預測）` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.fc ? '（預測）' : ''}`;
+  const when = col.daily ? `${shortDate(col.date)} ${col.label}（預測）` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.fc ? '（預測）' : ''}${col.place && kind !== 'plan' ? ` · ${col.place}` : ''}`;
   if (kind === 'uv') return `${when} · 紫外線 ${col.uv ?? '–'}`;
   if (kind === 'rain') return `${when} · 降雨機率 ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · 雨量 ${col.mm} mm` : ''}`;
   if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}`;

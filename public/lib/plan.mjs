@@ -1,14 +1,11 @@
-// 我的行程: the weather where you'll be, hour by hour. The pins say where
-// you are when (school on weekdays 07–17…), home (a pin marked so, else the
-// device's place) the rest of the time; each hour is taken from that
-// place's forecast, and the page is built from the stitched hours: now and
-// next, what to bring for the day, one graph, today and tomorrow by place,
-// the week.
+// 我的行程: a city page like any other, but each hour is the one of the
+// city you're in then. The pins say where you are when (school on weekdays
+// 07–17…), home (a pin marked so, else the device's place) the rest of the
+// time; `routeForecast` stitches the places' forecasts into one, in the
+// same shape, so the same cards draw it.
 
 import { placeAt } from './pins.mjs';
-import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, uvColor, rainColor, conditionIcon, escapeHtml as e } from './format.mjs';
-import { timeline } from './graph.mjs';
-import { skyOf } from './cards.mjs';
+import { clock, hourOf, dateOf, dayLabel, conditionIcon } from './format.mjs';
 
 const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';
@@ -113,7 +110,7 @@ export function planTips(pins, forecastFor, now) {
     const pa = ha?.pop ?? 0;
     const pb = hb?.pop ?? 0;
     const worst = Math.max(pa, pb);
-    tips.push({ kind: 'move', icon: '🚆', title: `${clock(b.from, TZ)} 移動`, text: `${placeName(a.pin)}→${placeName(b.pin)}${worst >= 30 ? `：雨 ${pa}%→${pb}%` : '：乾爽'}${hb?.temp != null && ha?.temp != null && Math.abs(hb.temp - ha.temp) >= 2 ? `，${hb.temp > ha.temp ? '熱' : '涼'} ${Math.round(Math.abs(hb.temp - ha.temp))}°` : ''}`, level: worst >= 50 ? 'yes' : worst >= 30 ? 'maybe' : 'none' });
+    tips.push({ kind: 'move', icon: '🚆', title: '移動', text: `${clock(b.from, TZ)} ${placeName(a.pin)}→${placeName(b.pin)}${worst >= 30 ? `：雨 ${pa}%→${pb}%` : '：乾爽'}${hb?.temp != null && ha?.temp != null && Math.abs(hb.temp - ha.temp) >= 2 ? `，${hb.temp > ha.temp ? '熱' : '涼'} ${Math.round(Math.abs(hb.temp - ha.temp))}°` : ''}`, level: worst >= 50 ? 'yes' : worst >= 30 ? 'maybe' : 'none' });
   }
   // How different the places are at the same hour (the main stay away from home).
   const away = segs.filter(s => s.pin && !s.pin.home).sort((x, y) => y.to - y.from - (x.to - x.from))[0];
@@ -129,123 +126,90 @@ export function planTips(pins, forecastFor, now) {
   return { span, tips };
 }
 
-// ---- The page ------------------------------------------------------------------------
+// ---- One forecast for the route ---------------------------------------------------
 
-function nowCard(pins, forecastFor, now) {
-  const pin = placeAt(pins, now);
-  const f = forecastFor(placeKey(pin));
-  const n = f?.now || {};
-  // The day the numbers are for: the rest of today, or tomorrow's route after 21時.
-  const span = adviceSpan(now);
-  const today = stitch(pins, forecastFor, span.from, Math.max(1, Math.ceil((span.to - span.from) / HOUR)));
-  const hi = maxBy(today.map(x => x.h), 'temp');
-  const lo = minBy(today.map(x => x.h), 'temp');
-  const wet = today.filter(x => x.h).reduce((a, x) => ((x.h.pop ?? -1) > (a?.h.pop ?? -1) ? x : a), null);
-  // The next move, said once.
+const WEEK_SHORT = { 外套: '外套', 薄外套: '薄外套', 長袖: '長袖', 短袖: '短袖' };
+const md = date => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+const wd = date => '週' + '日一二三四五六'[new Date(date + 'T12:00:00Z').getUTCDay()];
+
+// The places' forecasts made one: { tz, now, hours (each with its place),
+// days, air, alerts, advice, headline, at, partial, places } — or null until
+// the place you're in now has loaded.
+export function routeForecast(pins, forecastFor, now) {
+  const cur = placeAt(pins, now);
+  const fNow = forecastFor(placeKey(cur));
+  if (!fNow) return null;
+  const tz = fNow.tz || TZ;
+  // Every hour any place has, from this one on, each from where you'll be.
+  const ends = [...new Set([...pins.map(p => p.id), 'here'])].map(k => forecastFor(k)?.hours?.at(-1)?.t || 0);
+  const last = Math.max(...ends);
+  const span = Math.max(1, Math.floor((last - Math.floor(now / HOUR) * HOUR) / HOUR) + 1);
+  const list = stitch(pins, forecastFor, now, Math.min(span, 240));
+  const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: placeName(x.pin) }));
+  // The days: the hours where you are make a day's high and low; its rain
+  // chance is the highest of the places you're in 7–22時; its words and sun
+  // the place you're in at noon.
+  const dates = [...new Set((fNow.days || []).map(d => d.date))];
+  const days = dates.map(date => {
+    const noonT = Date.parse(`${date}T12:00:00+08:00`);
+    const main = forecastFor(placeKey(placeAt(pins, noonT)))?.days?.find(d => d.date === date) || fNow.days.find(d => d.date === date);
+    const dayList = stitch(pins, forecastFor, Date.parse(`${date}T00:00:00+08:00`), 24);
+    const hs = dayList.map(x => x.h).filter(Boolean);
+    const awake = dayList.filter(x => hourOf(x.t, tz) >= 7 && hourOf(x.t, tz) < 22);
+    const keys = [...new Set(awake.map(x => x.key))];
+    const pops = keys.map(k => forecastFor(k)?.days?.find(d => d.date === date)?.pop).filter(v => v != null);
+    const val = (k, fn) => (hs.some(h => h[k] != null) ? fn(...hs.map(h => h[k]).filter(v => v != null)) : null);
+    const names = [...new Set(awake.map(x => placeName(x.pin)))];
+    return {
+      ...main,
+      hi: hs.length >= 12 ? val('temp', Math.max) : main?.hi ?? null,
+      lo: hs.length >= 12 ? val('temp', Math.min) : main?.lo ?? null,
+      feelsHi: hs.length >= 12 ? val('feels', Math.max) : main?.feelsHi ?? null,
+      feelsLo: hs.length >= 12 ? val('feels', Math.min) : main?.feelsLo ?? null,
+      uvMax: hs.length >= 12 ? val('uv', Math.max) : main?.uvMax ?? null,
+      pop: pops.length ? Math.max(...pops) : main?.pop ?? null,
+      places: names
+    };
+  });
+  // Advice: the route's own (rain, clothes, sun, the moves, the places'
+  // difference), then the place's for the rest (outdoors, mask, heat where
+  // you are by day; laundry, the window at night, sleep, the car at home).
+  const { span: aSpan, tips } = planTips(pins, forecastFor, now);
+  const dayKey = placeKey(placeAt(pins, aSpan.from + Math.floor((aSpan.to - aSpan.from) / 2 / HOUR) * HOUR));
+  const nightKey = placeKey(placeAt(pins, aSpan.to + HOUR));
+  const take = (k, kinds) => (forecastFor(k)?.advice || []).filter(a => kinds.includes(a.kind));
+  const advice = [
+    ...tips.map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}` })),
+    ...take(dayKey, ['outdoor', 'mask', 'heat']),
+    ...take(nightKey, ['laundry', 'window', 'sleep', 'carwash'])
+  ];
+  // The week's table, from the route's days.
+  const week = days.filter(d => d.date >= dateOf(aSpan.from, tz)).slice(0, 7);
+  const row = (kind, f) => {
+    const a = advice.find(x => x.kind === kind);
+    if (a && week.length) a.week = { text: '', days: week.map(d => ({ date: d.date, ...f(d) })) };
+  };
+  row('umbrella', d => ({ mark: d.pop >= 50 ? 'yes' : d.pop >= 30 ? 'maybe' : null, v: d.pop != null ? `${d.pop}%` : '' }));
+  row('sun', d => ({ mark: d.uvMax >= 8 ? 'bad' : d.uvMax >= 6 ? 'yes' : d.uvMax >= 3 ? 'maybe' : null, v: d.uvMax != null ? String(d.uvMax) : '' }));
+  row('wear', d => {
+    const lo = d.feelsLo ?? d.lo;
+    const hi = d.feelsHi ?? d.hi;
+    if (lo == null || hi == null) return { mark: null, v: '' };
+    const w = wearFor(lo + (hi - lo) / 3);
+    return { mark: { 外套: 'coat', 薄外套: 'jacket', 長袖: 'sleeves', 短袖: 'light' }[w], v: WEEK_SHORT[w] };
+  });
+  if (week.length >= 3) {
+    const score = d => (d.pop ?? 0) + (d.uvMax ?? 0) * 3 + Math.abs((d.hi ?? 25) - 25) * 2;
+    const sorted = [...week].sort((a, b) => score(a) - score(b));
+    advice.push({ kind: 'week', level: 'info', text: `本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: forecastFor(nightKey)?.advice?.find(a => a.kind === 'laundry')?.why?.date || null } });
+  }
+  // One sentence: where you are, and the next move.
   const segs = segments(stitch(pins, forecastFor, now, 36));
   const next = segs[1];
   const nf = next && stayFacts(next);
-  const place = pin ? [pin.town, pin.village].filter(Boolean).join(' ') : '依裝置位置';
-  return `
-  <section class="wx-hero ${f ? skyOf(n) : 'sky-cloud sky-day'}">
-    <div class="wx-where">
-      <h2 class="wx-place">🗓️ 我的行程</h2>
-      <p class="wx-sub">現在在 ${placeIcon(pin)} ${e(placeName(pin))}${place ? ` · ${e(place)}` : ''}</p>
-    </div>
-    ${
-      f
-        ? `<div class="wx-now">
-      <div class="wx-temp">${deg(n.temp)}</div>
-      <div class="wx-cond"><span class="wx-icon">${conditionIcon(n.condition?.code, n.condition?.text, n.day ?? true)}</span><b>${e(n.condition?.text || '')}</b><span>體感 ${deg(n.feels)}</span></div>
-    </div>
-    <div class="wx-hilo">
-      <div><span>${span.word}最高</span><b>${deg(hi?.temp)}</b><small>${hi ? `${e(placeName(today.find(x => x.h === hi)?.pin))} ${hourOf(hi.t, TZ)}時` : ''}</small></div>
-      <div><span>${span.word}最低</span><b>${deg(lo?.temp)}</b><small>${lo ? `${e(placeName(today.find(x => x.h === lo)?.pin))} ${hourOf(lo.t, TZ)}時` : ''}</small></div>
-      <div><span>${span.word}最大雨</span><b>${wet ? `${wet.h.pop}%` : '–'}</b><small>${wet ? `${e(placeName(wet.pin))} ${hourOf(wet.t, TZ)}時` : ''}</small></div>
-    </div>
-    ${next ? `<p class="wx-headline">接下來 ${e(dayLabel(dateOf(next.from, TZ), now, TZ) === '今天' ? '' : dayLabel(dateOf(next.from, TZ), now, TZ) + ' ')}${clock(next.from, TZ)} 到${placeIcon(next.pin)}${e(placeName(next.pin))}${nf.loaded ? `：${deg(nf.lo)}–${deg(nf.hi)}，雨 ${nf.wet?.pop ?? 0}%` : ''}</p>` : ''}`
-        : '<p class="wx-headline">正在取得天氣…</p>'
-    }
-  </section>`;
-}
-
-function tipsHtml({ span, tips }) {
-  if (!tips.length) return '';
-  return `
-  <section class="wx-section">
-    <h3 class="wx-h">${span.word}的行程建議</h3>
-    <div class="wx-lifegrid">${tips.map(t => `<div class="wx-life lv-${e(t.level)} k-${e(t.kind)}"><span class="wx-life-icon">${t.icon}</span><div><b>${e(t.title)}</b><p>${e(t.text)}</p></div></div>`).join('')}</div>
-  </section>`;
-}
-
-// The stitched graph's columns (48 hours): rain as the bar, the
-// temperature above every 3 hours, the place's name where it changes.
-export function planCols(pins, forecastFor, now) {
-  const list = stitch(pins, forecastFor, now, 48);
-  return list.map((x, i) => ({
-    t: x.t,
-    place: placeName(x.pin),
-    temp: x.h?.temp ?? null,
-    pop: x.h?.pop ?? null,
-    mm: x.h?.mm ?? null,
-    uv: x.h?.uv ?? null,
-    tag: i === 0 || x.key !== list[i - 1].key ? `${placeIcon(x.pin)}${placeName(x.pin)}` : '',
-    key: x.key
-  }));
-}
-function planGraph(cols, now) {
-  const tl = cols.map((c, i) => ({
-    t: c.t,
-    v: c.pop,
-    color: rainColor(c.pop),
-    inner: c.mm >= 0.1 && c.pop > 0 ? Math.min(1, c.mm / 10 / (c.pop / 100)) : 0,
-    text: c.temp != null && (i === 0 || c.tag || hourOf(c.t, TZ) % 3 === 0) ? `${Math.round(c.temp)}°` : '',
-    under: i === 0 ? '現在' : hourOf(c.t, TZ) % 3 === 0 && hourOf(c.t, TZ) ? `${hourOf(c.t, TZ)}時` : '',
-    strong: i === 0,
-    tag: c.tag
-  }));
-  return timeline('plan', tl, { max: 100, tz: TZ, label: '行程中每小時的降雨機率與溫度', nowIndex: 0 });
-}
-
-// A day's stays, in a row each.
-function stayRows(pins, forecastFor, date, now) {
-  const start = date === dateOf(now, TZ) ? now : Date.parse(`${date}T06:00:00+08:00`);
-  const end = Date.parse(`${date}T23:00:00+08:00`);
-  if (end <= start) return '';
-  const segs = segments(stitch(pins, forecastFor, start, Math.ceil((end - start) / HOUR)));
-  return segs
-    .map(s => {
-      const x = stayFacts(s);
-      const go = s.pin ? `data-go-key="${e(s.key)}"` : 'data-go-key="here"';
-      return `<button class="wx-stay" type="button" ${go}>
-        <span class="wx-stay-time">${clock(s.from, TZ)}<small>–${clock(s.to, TZ)}</small></span>
-        <span class="wx-stay-place">${placeIcon(s.pin)} ${e(placeName(s.pin))}</span>
-        <span class="wx-stay-icon">${x.loaded ? x.icon : '…'}</span>
-        <span class="wx-stay-temp">${x.loaded ? `${deg(x.lo)}–${deg(x.hi)}` : ''}</span>
-        <span class="wx-stay-rain" style="color:${rainColor(x.wet?.pop ?? 0)}">${x.wet ? `${x.wet.pop}%` : ''}</span>
-        <span class="wx-stay-uv" style="--c:${uvColor(x.uv?.uv)}">${x.uv?.uv >= 3 ? x.uv.uv : ''}</span>
-      </button>`;
-    })
-    .join('');
-}
-
-export function planHtml(pins, forecastFor, now) {
-  const cols = planCols(pins, forecastFor, now);
-  const today = dateOf(now, TZ);
-  const tomorrow = dateOf(now + 24 * HOUR, TZ);
-  const week = Array.from({ length: 6 }, (_, i) => dateOf(now + (i + 2) * 24 * HOUR, TZ));
-  return [
-    nowCard(pins, forecastFor, now),
-    tipsHtml(planTips(pins, forecastFor, now)),
-    `<section class="q-card wx-card wx-plan">
-      <header class="wx-card-head"><span class="wx-ic">🗺️</span><div class="wx-card-title"><h3>一路的天氣</h3><p>每小時取你在的地方</p></div></header>
-      <div class="wx-graphbox"><span class="wx-when" data-when="plan">${e(`${dayLabel(today, now, TZ)} ${shortDate(today)}`)}</span><div class="wx-scroll" data-scroll="plan">${planGraph(cols, now)}</div></div>
-      <p class="wx-readout" data-read="plan" aria-live="polite">柱子：降雨機率 · 數字：溫度</p>
-    </section>`,
-    `<section class="wx-section"><h3 class="wx-h">今天</h3><div class="q-card wx-stays">${stayRows(pins, forecastFor, today, now) || '<p class="wx-foot">今天的行程結束了</p>'}</div></section>`,
-    `<section class="wx-section"><h3 class="wx-h">明天 <small>${shortDate(tomorrow)} ${weekday(tomorrow)}</small></h3><div class="q-card wx-stays">${stayRows(pins, forecastFor, tomorrow, now)}</div></section>`,
-    `<section class="wx-section"><h3 class="wx-h">這一週</h3>${week
-      .map(d => `<div class="q-card wx-stays wx-stays-day"><p class="wx-stays-h">${weekday(d)} <small>${shortDate(d)}</small></p>${stayRows(pins, forecastFor, d, now)}</div>`)
-      .join('')}</section>`
-  ].join('');
+  const when = next ? `${dayLabel(dateOf(next.from, tz), now, tz) === '今天' ? '' : dayLabel(dateOf(next.from, tz), now, tz)}${clock(next.from, tz)}` : '';
+  const headline = next ? `現在在${placeName(cur)}，${when} 到${placeName(next.pin)}${nf.loaded ? `（${Math.round(nf.lo)}–${Math.round(nf.hi)}°，雨 ${nf.wet?.pop ?? 0}%）` : ''}。` : `今天都在${placeName(cur)}。`;
+  const alerts = [];
+  for (const k of new Set(list.slice(0, 24).map(x => x.key))) for (const a of forecastFor(k)?.alerts || []) if (!alerts.some(b => b.title === a.title)) alerts.push(a);
+  return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, place: fNow.place, places: [...new Set(list.map(x => placeName(x.pin)))] };
 }
