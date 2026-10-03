@@ -49,7 +49,7 @@ last); the rain watch 07:00–21:00 each day, split by the pins' hours.
 | `public/lib/graph.mjs` | The graphs (SVG): UV, rain, air, a day's |
 | `public/lib/pins.mjs` | Pins: hours, the pass's copy, where each notice is for |
 | `public/lib/format.mjs`, `sun.mjs` | Labels and colours; sunrise / sunset worked out |
-| `public/quadra.css`, `lib/quadra.mjs`, `boot.js` | The kit's (synced from `Shared-Proxy/kit`, never edited here) |
+| `#kit/quadra.mjs` (the page's `kit:head`, `kit:boot`) | The kit, loaded from Shared-Proxy's Pages (`Shared-Proxy/kit/loader.html`) |
 | `public/sw.js` | Offline, like the other Quadra apps; shows notices |
 
 ## Develop

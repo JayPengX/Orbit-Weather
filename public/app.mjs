@@ -1,5 +1,5 @@
 // Orbit Weather: one forecast, one truth, for where you are and the places
-// you pin. A Quadra app (a related add-on, like Orbit Class): the Quadra
+// you pin. An Orbit app (the everyday tools, like Orbit Class): the Quadra
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
