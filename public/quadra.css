@@ -356,12 +356,22 @@ body {
    screen, above anything an app draws. */
 dialog.q-gate,
 dialog.q-moved {
+  /* Its padding inside the 100vw, whatever box-sizing the app uses (Orbit
+     Weather and Transit set none: the screen was 40px wider and scrolled). */
+  box-sizing: border-box;
   width: 100vw;
   max-width: none;
   height: 100dvh;
   max-height: none;
   margin: 0;
   border: 0;
+}
+/* …and everything in it: the steps box and the sign-in form are 100% wide
+   with padding (the steps scrolled 8px sideways on the install screen). */
+.q-gate *,
+.q-gate *::before,
+.q-gate *::after {
+  box-sizing: border-box;
 }
 dialog.q-gate::backdrop {
   background: var(--q-page);
