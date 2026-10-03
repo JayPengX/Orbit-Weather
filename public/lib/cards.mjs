@@ -3,7 +3,7 @@
 // today and this week; the days; everything else). One truth: one value for each thing, no sources named.
 
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, conditionIcon, moonPhase, escapeHtml as e, ago } from './format.mjs';
-import { uvGraph, rainGraph, airGraph, dayGraph, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayCharts, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines } from './api.mjs';
 import { scheduleText } from './pins.mjs';
@@ -183,8 +183,6 @@ const LIFE = {
   move: ['🚆', '移動'], diff: ['↔️', '兩地溫差'], weekend: ['🏕️', '週末'], humid: ['💧', '除濕'], temp: ['🌡️', '氣溫'], wind: ['💨', '強風'], thunder: ['⛈️', '雷雨'], fog: ['🌫️', '起霧']
 };
 const ORDER = ['thunder', 'umbrella', 'move', 'commute', 'wear', 'temp', 'sun', 'wind', 'fog', 'diff', 'run', 'laundry', 'weekend', 'sleep', 'humid', 'window', 'mask', 'heat', 'carwash'];
-// The week's table: a row per kind that has days.
-const ROWS = { umbrella: '☂️ 雨', laundry: '🧺 曬衣', run: '🏃 跑步', sun: '🧴 UV', wear: '👕 穿', heat: '🥵 熱', mask: '😷 空氣' };
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 
 export function adviceCards(f, { now } = {}) {
@@ -201,29 +199,11 @@ export function adviceCards(f, { now } = {}) {
       return `<div class="wx-life lv-${e(a.level)} k-${e(a.kind)}"><span class="wx-life-icon">${icon}</span><div><b>${title}</b><p>${e(text)}</p></div></div>`;
     })
     .join('');
-  const rows = Object.keys(ROWS)
-    .map(k => [k, (f.advice || []).find(a => a.kind === k)?.week?.days])
-    .filter(([, days]) => days?.length);
-  const dates = rows[0]?.[1].map(d => d.date) || [];
-  const best = plan?.why?.best;
-  const worst = plan?.why?.worst;
-  const table = rows.length
-    ? `<div class="q-card wx-weekgrid" style="--n:${dates.length}">
-      <div class="wx-wg-row wx-wg-head"><span></span>${dates.map(d => `<span class="${d === best ? 'is-best' : d === worst ? 'is-worst' : ''}">${d === best ? '★' : ''}${WEEK[new Date(d + 'T12:00:00Z').getUTCDay()]}<small>${shortDate(d)}</small></span>`).join('')}</div>
-      ${rows
-        .map(([k, days]) => `<div class="wx-wg-row k-${k}"><span class="wx-wg-name">${ROWS[k]}</span>${dates.map(d => {
-          const c = days.find(x => x.date === d);
-          return `<span class="wx-wg-cell m-${e(c?.mark || 'none')}">${e(c?.v || '')}</span>`;
-        }).join('')}</div>`)
-        .join('')}
-      ${plan ? `<p class="wx-wg-foot">★ 最佳 ${e(wdOf(best))}${worst ? ` · 最差 ${e(wdOf(worst))}` : ''}${plan.why?.laundry ? ` · 曬衣 ${e(wdOf(plan.why.laundry))}` : ''}</p>` : ''}
-    </div>`
-    : '';
   return `
   <section class="wx-section">
     <h3 class="wx-h">${whose}的建議</h3>
     <div class="wx-lifegrid">${tiles}</div>
-    ${table ? `<h3 class="wx-h">這一週</h3>${table}` : ''}
+    <p class="wx-foot">其他天的建議：點 10 天預報的任一天。</p>
   </section>`;
 }
 const wdOf = date => (date ? `${weekday(date)} ${shortDate(date)}` : '');
@@ -261,45 +241,96 @@ export function daysList(f, { now, key }) {
 }
 
 // The sheet for one day: its graph with everything on it, then its numbers.
+// A day's recommendations, from its own hours: what to bring and wear, when
+// to run, whether to wash and hang laundry, sun, heat, air, storms, wind.
+const WEAR = [[15, '外套'], [20, '薄外套'], [26, '長袖'], [Infinity, '短袖']];
+export function dayTips(f, date, now) {
+  const tz = f.tz;
+  const d = f.days?.find(x => x.date === date);
+  const hours = (f.hours || []).filter(h => dateOf(h.t, tz) === date);
+  const awake = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) < 22);
+  const tips = [];
+  const at = h => `${hourOf(h.t, tz)}時${h.place ? `（${h.place}）` : ''}`;
+  // Rain.
+  const wet = awake.reduce((a, h) => ((h.pop ?? -1) > (a?.pop ?? -1) ? h : a), null);
+  const pop = wet?.pop ?? d?.pop ?? null;
+  if (pop != null) tips.push(pop >= 50 ? { k: 'umbrella', icon: '☂️', title: '雨傘', text: `要帶${wet ? `，${at(wet)} ${wet.pop}%` : ''}`, lv: 'yes' } : pop >= 30 ? { k: 'umbrella', icon: '☂️', title: '雨傘', text: `摺疊傘${wet ? `，${at(wet)} ${wet.pop}%` : ''}`, lv: 'maybe' } : { k: 'umbrella', icon: '☂️', title: '雨傘', text: '不用帶', lv: 'none' });
+  // Clothes: a third of the way from the day's coolest to warmest feel.
+  const fl = awake.map(h => h.feels ?? h.temp).filter(v => v != null);
+  const lo = fl.length ? Math.min(...fl) : d?.feelsLo ?? d?.lo;
+  const hi = fl.length ? Math.max(...fl) : d?.feelsHi ?? d?.hi;
+  if (lo != null && hi != null) tips.push({ k: 'wear', icon: '👕', title: '穿著', text: `${WEAR.find(([m]) => lo + (hi - lo) / 3 < m)[1]}${hi - lo >= 7 ? '，早晚加件' : ''}（${Math.round(lo)}–${Math.round(hi)}°）`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
+  // Running: the best 2 hours, 6–20時.
+  const cost = h => {
+    const v = h.feels ?? h.temp;
+    return (h.pop ?? 0) * 1.2 + Math.max(0, v - 24) * 6 + Math.max(0, 16 - v) * 4 + Math.max(0, (h.uv ?? 0) - 5) * 8 + ((h.thunder ?? 0) >= 40 ? 30 : 0);
+  };
+  const runH = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) <= 20 && h.t + HOUR > now && (h.feels ?? h.temp) != null);
+  let best = null;
+  for (let i = 0; i + 1 < runH.length; i++) {
+    if (runH[i + 1].t - runH[i].t !== HOUR) continue;
+    const c = (cost(runH[i]) + cost(runH[i + 1])) / 2;
+    if (!best || c < best.c) best = { c, h: runH[i] };
+  }
+  if (best) tips.push({ k: 'run', icon: '🏃', title: '跑步', text: `${hourOf(best.h.t, tz)}–${hourOf(best.h.t, tz) + 2}時${best.c < 45 ? '最好' : '還可以'}（${Math.round(best.h.feels ?? best.h.temp)}°）`, lv: best.c < 45 ? 'good' : 'none' });
+  // Laundry: dry and not overcast.
+  if (d) {
+    const dry = d.pop != null && d.pop < 20 && !/^CLOUDY|RAIN|SHOWER|THUNDER|DRIZZLE/.test(d.day?.condition?.code || '');
+    tips.push({ k: 'laundry', icon: '🧺', title: '曬衣', text: dry ? '適合' : d.pop != null && d.pop < 40 ? '可以，但乾得慢' : '不適合，用烘乾', lv: dry ? 'good' : d.pop >= 40 ? 'bad' : 'none' });
+  }
+  // Sun.
+  const sunny = hours.filter(h => h.uv >= 3);
+  if (sunny.length) {
+    const top = Math.max(...sunny.map(h => h.uv));
+    tips.push({ k: 'sun', icon: '🧴', title: '防曬', text: `${hourOf(sunny[0].t, tz)}–${hourOf(sunny[sunny.length - 1].t, tz) + 1}時 UV ${top}`, lv: top >= 6 ? 'yes' : 'none' });
+  }
+  // Heat, air, storms, wind (only when they matter).
+  if (hi >= 34) tips.push({ k: 'heat', icon: '🥵', title: '炎熱', text: `體感 ${Math.round(hi)}°，多喝水`, lv: 'yes' });
+  const air = f.air?.forecast?.days?.find(x => x.date === date);
+  if (air?.aqi > 100) tips.push({ k: 'mask', icon: '😷', title: '口罩', text: `空氣${air.level || '不佳'}（${air.aqi}）`, lv: 'yes' });
+  const storm = hours.filter(h => h.thunder >= 40);
+  if (storm.length) tips.push({ k: 'thunder', icon: '⛈️', title: '雷雨', text: `${hourOf(storm[0].t, tz)}–${hourOf(storm[storm.length - 1].t, tz) + 1}時可能打雷`, lv: 'yes' });
+  const gust = hours.reduce((a, h) => ((h.wind?.gust ?? 0) > (a?.wind?.gust ?? 0) ? h : a), null);
+  if (gust?.wind?.gust >= 50) tips.push({ k: 'wind', icon: '💨', title: '強風', text: `${hourOf(gust.t, tz)}時陣風 ${Math.round(gust.wind.gust)} km/h`, lv: 'yes' });
+  return tips;
+}
+
+// The sheet for one day: its numbers, its charts (a finger on them reads
+// each hour), and what to do that day.
 export function daySheet(f, date, { now, lat, lon }) {
   const d = f.days?.find(x => x.date === date);
   const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
-  const aqi = (f.air?.history || []).filter(a => dateOf(a.t, f.tz) === date);
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
-  const half = (name, h) => (h ? `<div><span>${name}</span><b>${conditionIcon(h.condition?.code, h.condition?.text, name === '白天')} ${e(h.condition?.text || '')}</b><small>降雨 ${pct(h.pop)}</small></div>` : '');
   const fc = f.air?.forecast?.days?.find(x => x.date === date);
-  // The days either side (for ‹ ›), and the hour the read-out starts at:
-  // now on today, else noon.
   const dates = (f.days || []).map(x => x.date).filter(x => x >= dateOf(now, f.tz));
   const at = dates.indexOf(date);
   const prev = at > 0 ? dates[at - 1] : null;
   const next = at >= 0 && at < dates.length - 1 ? dates[at + 1] : null;
-  const nowAt = hours.findIndex(h => h.t <= now && now < h.t + HOUR);
-  const noon = hours.findIndex(h => clock(h.t, f.tz) === '12:00');
-  const start = Math.max(0, nowAt >= 0 ? nowAt : noon);
-  const aqiAt = h => (h ? aqi.find(a => Math.floor(a.t / HOUR) === Math.floor(h.t / HOUR)) || null : null);
+  const c = d?.day?.condition || {};
+  const tips = dayTips(f, date, now);
+  const places = d?.places?.length ? d.places.join(' → ') : '';
+  const sum = `<div class="wx-scrub-time"><b>全天</b><span>${e(places || c.text || '')}</span></div>
+    <div class="wx-scrub-vals">
+      <div><span>最高 / 最低</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>體感 ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
+      <div><span>降雨</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `約 ${d.mm} mm` : ''}</small></div>
+      <div><span>紫外線</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
+      <div><span>空氣</span><b style="color:${fc ? aqiColor(fc.aqi) : 'inherit'}">${fc?.aqi ?? '–'}</b><small>${e(fc?.level || '')}</small></div>
+    </div>`;
   return `
     <div class="q-sheet-head">
       <button class="q-icon-btn wx-mini" type="button" data-dayn="${e(prev || '')}" aria-label="前一天" ${prev ? '' : 'disabled'}>‹</button>
-      <h2>${/^週/.test(dayLabel(date, now, f.tz)) ? '' : `${e(dayLabel(date, now, f.tz))} `}${shortDate(date)} ${weekday(date)}</h2>
+      <h2>${/^週/.test(dayLabel(date, now, f.tz)) ? '' : `${e(dayLabel(date, now, f.tz))} `}${shortDate(date)} ${weekday(date)} <span class="wx-day-icon">${conditionIcon(c.code, c.text, true)}</span></h2>
       <button class="q-icon-btn wx-mini" type="button" data-dayn="${e(next || '')}" aria-label="後一天" ${next ? '' : 'disabled'}>›</button>
       <button class="q-close" type="button" data-act="close" aria-label="關閉">×</button>
     </div>
-    ${
-      hours.length >= 4
-        ? `<div class="wx-dayg">
-      <div class="wx-scrub" aria-live="polite">${scrubHtml(hours[start], { tz: f.tz, aqi: aqiAt(hours[start]) })}</div>
-      <div class="wx-dayg-plot" data-start="${start}">${dayGraph(hours, { tz: f.tz, aqi })}</div>
-      <div class="wx-legend"><span class="l-temp">溫度</span><span class="l-feels">體感</span><span class="l-uv">紫外線</span><span class="l-rain">降雨機率</span>${aqi.length ? '<span class="l-air">空氣</span>' : ''}<em>按住圖左右滑，看每小時</em></div>
-    </div>`
-        : '<p class="wx-foot">這一天沒有逐時資料。</p>'
-    }
+    <div class="wx-dayg">
+      <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
+      ${hours.length >= 4 ? `<div class="wx-dayg-plot">${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">手指按在圖上滑動，看每小時</p>` : '<p class="wx-foot">這一天沒有逐時資料。</p>'}
+    </div>
+    ${tips.length ? `<h3 class="q-sheet-h">這天的建議</h3><div class="wx-lifegrid">${tips.map(t => `<div class="wx-life lv-${t.lv} k-${t.k}"><span class="wx-life-icon">${t.icon}</span><div><b>${t.title}</b><p>${e(t.text)}</p></div></div>`).join('')}</div>` : ''}
     <div class="wx-grid">
-      <div><span>最高 / 最低</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>體感 ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
-      <div><span>降雨機率</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `約 ${d.mm} mm` : ''}</small></div>
-      <div><span>紫外線最高</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
-      ${fc ? `<div><span>空氣（預測）</span><b style="color:${aqiColor(fc.aqi)}">${e(fc.level || '')}</b><small>AQI ${fc.aqi ?? '–'}</small></div>` : ''}
-      ${half('白天', d?.day)}${half('晚上', d?.night)}
+      ${d?.day ? `<div><span>白天</span><b>${conditionIcon(d.day.condition?.code, d.day.condition?.text, true)} ${e(d.day.condition?.text || '')}</b><small>降雨 ${pct(d.day.pop)}</small></div>` : ''}
+      ${d?.night ? `<div><span>晚上</span><b>${conditionIcon(d.night.condition?.code, d.night.condition?.text, false)} ${e(d.night.condition?.text || '')}</b><small>降雨 ${pct(d.night.pop)}</small></div>` : ''}
       ${s ? `<div><span>日出 / 日落</span><b>${clock(s.sunrise, f.tz)} / ${clock(s.sunset, f.tz)}</b></div>` : ''}
     </div>`;
 }

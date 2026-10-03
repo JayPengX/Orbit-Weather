@@ -413,64 +413,72 @@ function openDay(key, date) {
   show(date);
 }
 
-// The day graph's crosshair, like a stock chart's: a finger (or the mouse)
-// on the graph picks the hour under it; the line, the dots on the curves and
-// the read-out above follow while it moves.
+// The day sheet's crosshair, like a stock chart's: only while a finger (or
+// the mouse) is on the charts; the read-out above follows it, and goes back
+// to the day's summary when it lifts.
 function armScrub(d, f, date) {
   const plot = d.querySelector('.wx-dayg-plot');
-  const svg = plot?.querySelector('svg');
   const read = d.querySelector('.wx-scrub');
-  if (!svg || !read) return;
+  if (!plot || !read) return;
+  const summary = read.innerHTML;
   const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
-  const aqi = (f.air?.history || []).filter(a => dateOf(a.t, f.tz) === date);
-  const n = Number(svg.dataset.n);
-  const colW = Number(svg.dataset.col);
-  const ty = svg.dataset.ty.split(',');
-  const fy = svg.dataset.fy.split(',');
-  const cross = svg.querySelector('.g-cross');
-  const dotT = svg.querySelector('.g-dot-t');
-  const dotF = svg.querySelector('.g-dot-f');
+  const temp = plot.querySelector('svg.ch-daytemp');
+  const xh = plot.querySelector('.ch-xh');
+  const dh = plot.querySelector('.ch-dh');
+  const svgs = [...plot.querySelectorAll('svg.ch')];
   let shown = -1;
   const put = i => {
-    i = Math.max(0, Math.min(n - 1, i));
     if (i === shown) return;
     shown = i;
-    const x = String(i * colW + colW / 2);
-    cross.setAttribute('x1', x);
-    cross.setAttribute('x2', x);
-    for (const [dot, ys] of [[dotT, ty], [dotF, fy]]) {
-      dot.setAttribute('cx', ys[i] === '' ? '-99' : x);
-      dot.setAttribute('cy', ys[i] || '0');
-    }
-    const h = hours[i];
-    const a = h && aqi.find(x2 => Math.floor(x2.t / 3_600_000) === Math.floor(h.t / 3_600_000));
-    read.innerHTML = scrubHtml(h, { tz: f.tz, aqi: a || null });
+    read.innerHTML = scrubHtml(hours[i], { tz: f.tz });
+    const b = plot.getBoundingClientRect();
+    const r = temp.getBoundingClientRect();
+    const last = svgs[svgs.length - 1].getBoundingClientRect();
+    const scale = r.width / CHART_W;
+    const spot = colSpot(temp, i);
+    const x = r.left - b.left + spot.x * scale;
+    xh.hidden = false;
+    xh.style.height = `${last.bottom - r.top - 24 * scale}px`;
+    xh.style.transform = `translate(${x}px, ${r.top - b.top + 20 * scale}px)`;
+    dh.hidden = spot.y == null;
+    if (spot.y != null) dh.style.transform = `translate(${x}px, ${r.top - b.top + spot.y * scale}px)`;
   };
-  // The viewBox runs from -10 to width + 10 (room for the edge labels).
-  const at = ev => {
-    const r = svg.getBoundingClientRect();
-    const u = ((ev.clientX - r.left) / r.width) * (n * colW + 20) - 10;
-    return Math.floor(u / colW);
+  const hide = () => {
+    shown = -1;
+    xh.hidden = true;
+    dh.hidden = true;
+    read.innerHTML = summary;
   };
   let down = false;
+  let want = null;
+  const soon = x => {
+    const first = want == null;
+    want = x;
+    if (first) requestAnimationFrame(() => {
+      if (want != null && (down || hover)) put(colAt(temp, want));
+      want = null;
+    });
+  };
+  let hover = false;
   plot.addEventListener('pointerdown', ev => {
     down = true;
     plot.setPointerCapture?.(ev.pointerId);
-    put(at(ev));
+    soon(ev.clientX);
   });
-  // Once a frame at most.
-  let want = null;
   plot.addEventListener('pointermove', ev => {
-    if (!down && ev.pointerType !== 'mouse') return;
-    const first = want == null;
-    want = at(ev);
-    if (first) requestAnimationFrame(() => {
-      put(want);
-      want = null;
-    });
+    hover = ev.pointerType === 'mouse';
+    if (down || hover) soon(ev.clientX);
   });
-  for (const type of ['pointerup', 'pointercancel']) plot.addEventListener(type, () => (down = false));
-  put(Number(plot.dataset.start) || 0);
+  for (const type of ['pointerup', 'pointercancel']) plot.addEventListener(type, ev => {
+    down = false;
+    if (ev.pointerType !== 'mouse') hide();
+  });
+  plot.addEventListener('pointerleave', ev => {
+    if (ev.pointerType === 'mouse' && !down) {
+      hover = false;
+      hide();
+    }
+  });
 }
 
 const help = () =>
@@ -566,7 +574,21 @@ document.addEventListener('pointermove', ev => {
   const svg = dragging || (ev.pointerType === 'mouse' ? ev.target.closest?.('svg.ch') : null);
   if (svg) pickSoon(svg, ev.clientX);
 });
-for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => (dragging = null));
+// A finger lifted (or the mouse gone): the crosshair goes; the read-out stays.
+const unpick = svg => {
+  if (!svg) return;
+  delete svg.dataset.sel;
+  svg.parentElement.querySelector('.ch-xh')?.setAttribute('hidden', '');
+  svg.parentElement.querySelector('.ch-dh')?.setAttribute('hidden', '');
+};
+for (const type of ['pointerup', 'pointercancel'])
+  document.addEventListener(type, ev => {
+    if (dragging && ev.pointerType !== 'mouse') unpick(dragging);
+    dragging = null;
+  });
+document.addEventListener('pointerout', ev => {
+  if (ev.pointerType === 'mouse' && ev.target.matches?.('svg.ch') && !ev.target.contains(ev.relatedTarget)) unpick(ev.target);
+});
 
 // The page in view, once a swipe settles.
 let settle = 0;

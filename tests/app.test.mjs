@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayGraph, readout, CHART_W } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, rainSummary, daySheet, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet } from '../public/lib/cards.mjs';
+import { pageHtml, airCols, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -153,8 +153,10 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   assert.equal(readout('uv', daysCols(forecast, NOW)[1], 'Asia/Taipei'), '明天 10/3 · 最高 UV 7');
   assert.equal(readout('uv', null), '');
   const day = dayGraph(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
-  assert.match(day, /g-temp/);
-  assert.match(day, /g-big/, 'the day\'s high and low marked');
+  assert.match(day, /class="ch-tline"/);
+  assert.match(day, /最高 \d+°/, 'the day\'s high and low marked');
+  assert.equal((day.match(/<svg class="ch/g) || []).length, 3, 'temperature, rain, UV');
+  assert.match(day, /<i class="ch-xh" hidden>/, 'no crosshair until a finger is on it');
 });
 
 test('the page, top to bottom, one truth, nothing unescaped', () => {
@@ -172,9 +174,8 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
   assert.match(html, /明天的建議/, 'in the evening, the advice is for tomorrow');
   assert.match(html, /k-umbrella"><span class="wx-life-icon">☂️<\/span><div><b>雨傘<\/b><p>13:00 降雨機率 41%<\/p>/);
-  assert.match(html, /這一週/);
-  assert.equal((html.match(/class="wx-wg-cell /g) || []).length, 7, 'one row (rain), 7 days');
-  assert.match(html, /wx-wg-cell m-yes">10%/);
+  assert.ok(!/wx-weekgrid/.test(html), 'no week table: each day\'s advice is in its sheet');
+  assert.match(html, /點 10 天預報的任一天/);
   // The 10 days: each day's rain chance.
   assert.equal((html.match(/class="wx-dpop"/g) || []).length, 10);
   assert.match(html, /現在陰，22 點前後/);
@@ -190,13 +191,23 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.equal(rainSummary(hours, 'Asia/Taipei', NOW), '明天 0時起 70%');
 });
 
-test('a day\'s sheet: its numbers, and its graph with everything on it', () => {
+test('a day\'s sheet: its numbers, its charts, its own advice', () => {
   const html = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });
   assert.match(html, /明天 10\/3 週六/);
-  assert.match(html, /day-graph/);
-  assert.match(html, /空氣（預測）/);
+  assert.match(html, /ch-daytemp/);
+  assert.match(html, /<b>全天<\/b>/, 'the day\'s summary until a finger reads an hour');
+  assert.match(html, /這天的建議/);
+  assert.match(html, /k-umbrella/);
+  assert.match(html, /k-run/);
+  assert.match(html, /k-laundry/);
   assert.match(html, /日出 \/ 日落/);
   assert.match(daySheet({ ...forecast, hours: [] }, '2026-10-09', { now: NOW }), /沒有逐時資料/);
+  // The day's advice from its own hours.
+  const tips = Object.fromEntries(dayTips(forecast, '2026-10-03', NOW).map(t => [t.k, t]));
+  assert.equal(tips.umbrella.text, '不用帶', 'the 70% is at midnight, not in the day');
+  assert.match(tips.run.text, /^\d+–\d+時(最好|還可以)（\d+°）$/);
+  assert.match(tips.sun.text, /UV 7$/);
+  assert.equal(tips.laundry.text, '適合', '10%, partly cloudy');
 });
 
 test('proxy calls carry the session; the device keeps a few places', async () => {
@@ -261,14 +272,11 @@ test('the cards: the owner\'s order and the hidden ones, kept on the pass, the n
   assert.ok(!html.includes('更多資訊'), 'info hidden');
 });
 
-test('the day sheet: a read-out the finger moves, the days either side', () => {
+test('the day sheet: the days either side', () => {
   const html = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });
   assert.match(html, /class="wx-scrub"/);
-  assert.match(html, /<b>12:00<\/b>/, 'a day ahead starts at noon');
   assert.match(html, /data-dayn="2026-10-02"/);
   assert.match(html, /data-dayn="2026-10-04"/);
-  assert.match(html, /g-cross/);
-  assert.match(html, /data-ty="[\d.,]+"/);
   const first = daySheet(forecast, '2026-10-02', { now: NOW });
   assert.match(first, /data-dayn="" aria-label="前一天" disabled/);
 });
