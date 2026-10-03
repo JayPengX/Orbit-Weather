@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayGraph, readout, CHART_W } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, rainSummary, daySheet, hoursFrom, colsFor, uvCols, uvDays, daysCols } from '../public/lib/cards.mjs';
+import { pageHtml, airCols, rainSummary, daySheet, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -160,7 +160,9 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
 test('the page, top to bottom, one truth, nothing unescaped', () => {
   const page = { key: 'here', pin: null, place: { county: '臺北市', town: '信義區', village: '西村里<b>' }, lat: 25.034, lon: 121.565 };
   const html = pageHtml(forecast, page, { now: NOW });
-  const order = ['wx-hero', 'wx-card wx-uv', 'wx-card wx-rain', 'wx-card wx-air', '建議', '10 天預報', '更多資訊'].map(k => html.indexOf(k));
+  const order = ['wx-hero', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '建議', '10 天預報', '更多資訊'].map(k => html.indexOf(k));
+  assert.ok(!html.includes('<svg class="ch"'), 'no big graphs on the page: small cards, the graph in a sheet');
+  assert.equal((html.match(/class="wx-spark"/g) || []).length, 3);
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
   assert.match(html, /信義區 西村里&lt;b&gt;/);
@@ -242,20 +244,21 @@ test('labels in Taipei time and Taiwan levels; the sun worked out', () => {
 });
 
 test('the cards: the owner\'s order and the hidden ones, kept on the pass, the newer copy wins', () => {
-  const d = { ...emptyData(), t: 5, cards: ['days', 'uv', 'nonsense'], hidden: ['air', 'bogus'] };
+  const d = { ...emptyData(), t: 5, cards: ['days', 'metrics', 'nonsense'], hidden: ['info', 'bogus'] };
   const back = decodeData(encodeData(d));
-  assert.deepEqual(back.cards, ['days', 'uv', 'rain', 'air', 'advice', 'info'], 'unknown dropped, missing ones added at the end');
-  assert.deepEqual(back.hidden, ['air']);
-  // An old payload without cards: the default.
-  assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {} })).cards, ['uv', 'rain', 'air', 'advice', 'days', 'info']);
+  assert.deepEqual(back.cards, ['days', 'metrics', 'advice', 'info'], 'unknown dropped, missing ones added at the end');
+  assert.deepEqual(back.hidden, ['info']);
+  // An old payload: the rain / UV / air cards are the metrics, where the first stood.
+  assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {}, cards: ['advice', 'uv', 'rain', 'air', 'days', 'info'] })).cards, ['advice', 'metrics', 'days', 'info']);
+  assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {} })).cards, ['metrics', 'advice', 'days', 'info']);
   const older = { ...emptyData(), t: 1 };
   assert.deepEqual(mergeData(older, back).cards, back.cards);
-  assert.deepEqual(mergeData(back, older).hidden, ['air']);
+  assert.deepEqual(mergeData(back, older).hidden, ['info']);
   // The page follows them.
   const html = pageHtml(forecast, { key: 'here', pin: null, place: { county: '臺北市', town: '信義區' } }, { now: NOW, cards: back.cards, hidden: back.hidden });
-  assert.ok(html.indexOf('10 天預報') < html.indexOf('wx-card wx-uv'), 'days before UV');
+  assert.ok(html.indexOf('10 天預報') < html.indexOf('wx-metrics'), 'days before the metrics');
   assert.ok(html.indexOf('wx-hero') < html.indexOf('10 天預報'), 'the top stays on top');
-  assert.ok(!html.includes('wx-card wx-air'), 'air hidden');
+  assert.ok(!html.includes('更多資訊'), 'info hidden');
 });
 
 test('the day sheet: a read-out the finger moves, the days either side', () => {
@@ -320,9 +323,9 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
   assert.match(html, /🗓️ 我的行程/);
   assert.match(html, /現在在 學校 · 東區/);
-  assert.match(html, /wx-card wx-rain/);
-  assert.match(html, /class="ch-place"[^>]*>家</, 'the graph names the city where you move');
-  assert.ok(!/wx-card wx-air|更多資訊/.test(html), 'not what doesn\'t matter on the move');
+  assert.match(html, /data-metric="rain"/);
+  assert.match(metricSheet('rain', f, { now: at10, key: 'plan', ranges: {} }), /class="ch-place"[^>]*>家</, 'the big graph names the city where you move');
+  assert.ok(!/更多資訊/.test(html), 'not what doesn\'t matter on the move');
   assert.match(html, /學校·家/, 'a day\'s places in the 10 days');
   assert.equal(routeForecast(pins, () => null, at10), null, 'nothing until the place you\'re in has loaded');
 });

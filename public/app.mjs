@@ -6,8 +6,8 @@
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
-import { pageHtml, daySheet, colsFor, rangeOf } from './lib/cards.mjs';
-import { readout, scrubHtml, colAt, colSpot } from './lib/graph.mjs';
+import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
+import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf } from './lib/format.mjs';
 import { routeForecast } from './lib/plan.mjs';
 
@@ -53,10 +53,28 @@ const forecastFor = key => {
   return page && !page.plan ? forecastOf(page) : null;
 };
 
+// The place chips: built when the places change, else only the pressed one
+// moves (rebuilding them under a finger loses the tap on a phone, and
+// throws the row back to its start).
 function renderDots() {
-  $('dots').innerHTML = state.pages
-    .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="${i === state.index}">${p.plan ? '🗓️ 行程' : `${p.pin?.home ? '🏠' : p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}`}</button>`)
-    .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">＋ 釘選</button>`;
+  const dots = $('dots');
+  const sig = state.pages.map(p => `${p.key}:${p.pin?.name || ''}:${p.pin?.home ? 1 : 0}`).join('|');
+  if (dots.dataset.sig !== sig) {
+    dots.dataset.sig = sig;
+    dots.innerHTML = state.pages
+      .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="false">${p.plan ? '🗓️ 行程' : `${p.pin?.home ? '🏠' : p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}`}</button>`)
+      .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">＋ 釘選</button>`;
+  }
+  for (const b of dots.querySelectorAll('[data-go]')) {
+    const on = Number(b.dataset.go) === state.index;
+    if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+  }
+  const on = dots.querySelector(`[data-go="${state.index}"]`);
+  if (on) {
+    // Into view inside the row only (scrollIntoView would move the page too).
+    const l = on.offsetLeft - dots.offsetLeft;
+    if (l < dots.scrollLeft || l + on.offsetWidth > dots.scrollLeft + dots.clientWidth) dots.scrollTo({ left: Math.max(0, l - 16), behavior: 'smooth' });
+  }
 }
 
 function renderPage(page) {
@@ -72,11 +90,16 @@ function renderPage(page) {
   const f = forecastOf(page);
   const top = el.scrollTop;
   el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
-  if (f) state.cols[page.key] = { uv: colsFor('uv', f, now, rangeOf('uv', state.ranges)), rain: colsFor('rain', f, now, rangeOf('rain', state.ranges)), air: colsFor('air', f, now), tz: f.tz };
   el.scrollTop = top;
+  page.drawn = drawnSig(page);
 }
 
 const planPage = () => state.pages.find(p => p.plan);
+// What a page was drawn from: drawn again only when it changes (or the hour turns).
+const drawnSig = page => {
+  const f = page.plan ? state.pages.filter(p => !p.plan).map(p => forecastOf(p)?.at || 0).join() : forecastOf(page)?.at || page.error || 0;
+  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.village || ''}`;
+};
 
 
 function renderAll() {
@@ -90,12 +113,19 @@ function renderAll() {
   renderDots();
 }
 
-function goTo(i, smooth = true) {
+// A chip tapped: straight there (a smooth scroll fights the pages' snapping
+// in Safari), the chips at once, the page's data after the frame.
+let jumping = false;
+function goTo(i) {
   state.index = Math.max(0, Math.min(state.pages.length - 1, i));
   const pager = $('pager');
-  pager.scrollTo({ left: state.index * pager.clientWidth, behavior: smooth ? 'smooth' : 'instant' });
+  jumping = true;
+  pager.scrollLeft = state.index * pager.clientWidth;
   renderDots();
-  loadPage(state.pages[state.index]);
+  requestAnimationFrame(() => {
+    jumping = false;
+    loadPage(state.pages[state.index]);
+  });
 }
 
 // ---- Loading a page's forecast -------------------------------------------------------------
@@ -104,12 +134,12 @@ async function loadPage(page, { force = false } = {}) {
   if (!page || page.loading) return;
   // The plan needs every place: each loaded in turn, the plan redrawn as they come.
   if (page.plan) {
-    renderPage(page);
+    if (page.drawn !== drawnSig(page)) renderPage(page);
     for (const p of state.pages.filter(x => !x.plan)) await loadPage(p, { force });
-    return renderPage(page);
+    return page.drawn === drawnSig(page) ? undefined : renderPage(page);
   }
   const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
-  if (!force && cell && isFresh(cachedForecast(state.local, cell))) return renderPage(page);
+  if (!force && cell && isFresh(cachedForecast(state.local, cell))) return page.drawn === drawnSig(page) ? undefined : renderPage(page);
   page.loading = true;
   try {
     const token = await q.ensureToken();
@@ -128,7 +158,8 @@ async function loadPage(page, { force = false } = {}) {
   } finally {
     page.loading = false;
     renderPage(page);
-    if (planPage()) renderPage(planPage());
+    const plan = planPage();
+    if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
   }
 }
 
@@ -271,7 +302,7 @@ async function pinSheet(pin = null) {
       state.data.gone[pin.id] = Date.now();
       d.close();
       await saveData();
-      goTo(0, false);
+      goTo(0);
     }
     if (act === 'save') {
       draft.name = d.querySelector('#pin-name').value;
@@ -292,7 +323,7 @@ async function pinSheet(pin = null) {
 }
 
 // The settings: the cards' order and which show, the morning brief's time.
-const CARD_ICONS = { uv: '☀️', rain: '☔', air: '🌫️', advice: '💡', days: '📆', info: '📋' };
+const CARD_ICONS = { metrics: '📊', advice: '💡', days: '📆', info: '📋' };
 function settingsSheet() {
   const rows = () =>
     state.data.cards
@@ -348,6 +379,21 @@ function settingsSheet() {
       saveData();
     }
   });
+}
+
+// A metric's sheet: its big graph, tabs and read-out.
+function openMetric(key, kind) {
+  const page = pageOf(key);
+  const f = page && forecastOf(page);
+  if (!f) return;
+  const d = sheet('', 'wx-metric-sheet');
+  d.dataset.key = key;
+  d.redraw = () => {
+    const now = Date.now();
+    d.innerHTML = metricSheet(kind, f, { now, key, ranges: state.ranges, page });
+    state.cols[key] = { ...(state.cols[key] || {}), [kind]: colsFor(kind, f, now, rangeOf(kind, state.ranges)), tz: f.tz };
+  };
+  d.redraw();
 }
 
 function openDay(key, date) {
@@ -412,8 +458,16 @@ function armScrub(d, f, date) {
     plot.setPointerCapture?.(ev.pointerId);
     put(at(ev));
   });
+  // Once a frame at most.
+  let want = null;
   plot.addEventListener('pointermove', ev => {
-    if (down || ev.pointerType === 'mouse') put(at(ev));
+    if (!down && ev.pointerType !== 'mouse') return;
+    const first = want == null;
+    want = at(ev);
+    if (first) requestAnimationFrame(() => {
+      put(want);
+      want = null;
+    });
   });
   for (const type of ['pointerup', 'pointercancel']) plot.addEventListener(type, () => (down = false));
   put(Number(plot.dataset.start) || 0);
@@ -436,10 +490,11 @@ document.addEventListener('click', ev => {
     try {
       localStorage.setItem('orbit-weather.ranges', JSON.stringify(state.ranges));
     } catch {}
-    return state.pages.forEach(renderPage);
+    return document.querySelectorAll('dialog[open]').forEach(d => d.redraw?.());
   }
-  const ch = ev.target.closest('.ch');
-  if (ch) return pick(ch, colAt(ch, ev.clientX));
+  const metric = ev.target.closest('[data-metric]');
+  if (metric) return openMetric(metric.dataset.page, metric.dataset.metric);
+  if (ev.target.closest('.ch')) return;
   const go = ev.target.closest('[data-go]');
   if (go) return goTo(Number(go.dataset.go));
   const stay = ev.target.closest('[data-go-key]');
@@ -457,23 +512,45 @@ document.addEventListener('click', ev => {
 function pick(svg, i) {
   if (svg.dataset.sel === String(i)) return;
   svg.dataset.sel = String(i);
-  const page = svg.closest('.wx-page');
-  const key = page?.dataset.key;
+  const host = svg.closest('[data-key]');
+  const key = host?.dataset.key;
   const kind = svg.dataset.graph;
   const col = state.cols[key]?.[kind]?.[i];
-  const out = page?.querySelector(`[data-read="${kind}"]`);
+  const out = host?.querySelector(`[data-read="${kind}"]`);
   if (out) {
     out.textContent = readout(kind, col, state.cols[key]?.tz);
     out.classList.add('is-on');
   }
+  // The crosshair is HTML over the graph, moved by transform (the GPU's
+  // work; redrawing the SVG on every move stutters on a phone).
+  const box = svg.parentElement;
+  const xh = box.querySelector('.ch-xh');
+  const dh = box.querySelector('.ch-dh');
+  if (!xh) return;
   const spot = colSpot(svg, i);
-  const x = svg.querySelector('.ch-x');
-  const d = svg.querySelector('.ch-d');
-  x.setAttribute('x1', spot.x);
-  x.setAttribute('x2', spot.x);
-  d.setAttribute('cx', spot.y == null ? -9 : spot.x);
-  d.setAttribute('cy', spot.y == null ? -9 : spot.y);
+  // (An SVG has no offsetLeft: placed against the box's rectangle.)
+  const r = svg.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  const scale = r.width / CHART_W;
+  const x = r.left - b.left + spot.x * scale;
+  const y0 = r.top - b.top;
+  xh.hidden = false;
+  xh.style.height = `${PLOT_BOTTOM * scale - 20 * scale}px`;
+  xh.style.transform = `translate(${x}px, ${y0 + 20 * scale}px)`;
+  dh.hidden = spot.y == null;
+  if (spot.y != null) dh.style.transform = `translate(${x}px, ${y0 + spot.y * scale}px)`;
 }
+// At most once a frame, however fast the finger moves.
+let pending = null;
+const pickSoon = (svg, x) => {
+  const first = !pending;
+  pending = { svg, x };
+  if (first) requestAnimationFrame(() => {
+    const p = pending;
+    pending = null;
+    if (p) pick(p.svg, colAt(p.svg, p.x));
+  });
+};
 
 // Dragging on a graph reads it (the graph only pans up and down, so a
 // sideways drag there isn't a page swipe); the mouse just hovers.
@@ -483,17 +560,18 @@ document.addEventListener('pointerdown', ev => {
   if (!svg) return;
   dragging = svg;
   svg.setPointerCapture?.(ev.pointerId);
-  pick(svg, colAt(svg, ev.clientX));
+  pickSoon(svg, ev.clientX);
 });
 document.addEventListener('pointermove', ev => {
   const svg = dragging || (ev.pointerType === 'mouse' ? ev.target.closest?.('svg.ch') : null);
-  if (svg) pick(svg, colAt(svg, ev.clientX));
+  if (svg) pickSoon(svg, ev.clientX);
 });
 for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, () => (dragging = null));
 
 // The page in view, once a swipe settles.
 let settle = 0;
 $('pager').addEventListener('scroll', () => {
+  if (jumping) return;
   clearTimeout(settle);
   settle = setTimeout(() => {
     const pager = $('pager');
@@ -502,11 +580,10 @@ $('pager').addEventListener('scroll', () => {
       state.index = i;
       renderDots();
       loadPage(state.pages[i]);
-      $('dots').querySelector(`[data-go="${i}"]`)?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
     }
   }, 120);
 });
-window.addEventListener('resize', () => goTo(state.index, false));
+window.addEventListener('resize', () => goTo(state.index));
 
 // Back on screen: fresh again, where the device is now.
 document.addEventListener('visibilitychange', () => {
@@ -559,7 +636,7 @@ async function boot() {
   const start = openFromHash() ?? 0;
   $('loading').hidden = true;
   state.started = true;
-  goTo(start, false);
+  goTo(start);
   if (changed && (merged.pins.length || theirs) && q.active) q.write({ payload: encodeData(merged) }).catch(() => {});
   locate();
   sendNotices();

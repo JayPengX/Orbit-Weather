@@ -16,6 +16,14 @@ export const placeIcon = pin => (pin?.home ? '🏠' : pin ? '📌' : '📍');
 
 // n hours from `from`: [{ t, key, pin, h }] (h: that place's forecast hour,
 // null while it isn't loaded).
+// (Each forecast's hours by time, made once.)
+const byTime = new WeakMap();
+const hourAt = (f, t) => {
+  if (!f?.hours) return null;
+  let m = byTime.get(f);
+  if (!m) byTime.set(f, (m = new Map(f.hours.map(h => [h.t, h]))));
+  return m.get(t) || null;
+};
 export function stitch(pins, forecastFor, from, n) {
   const start = Math.floor(from / HOUR) * HOUR;
   const out = [];
@@ -23,7 +31,7 @@ export function stitch(pins, forecastFor, from, n) {
     const t = start + i * HOUR;
     const pin = placeAt(pins, t + 30 * 60_000);
     const key = placeKey(pin);
-    const h = forecastFor(key)?.hours?.find(x => x.t === t) || null;
+    const h = hourAt(forecastFor(key), t);
     out.push({ t, key, pin, h });
   }
   return out;
@@ -117,8 +125,8 @@ export function planTips(pins, forecastFor, now) {
   const homeKey = placeKey(pins.find(p => p.home) || null);
   if (away && away.key !== homeKey) {
     const mid = away.from + Math.floor((away.to - away.from) / 2 / HOUR) * HOUR;
-    const there = forecastFor(away.key)?.hours?.find(x => x.t === mid);
-    const home = forecastFor(homeKey)?.hours?.find(x => x.t === mid);
+    const there = hourAt(forecastFor(away.key), mid);
+    const home = hourAt(forecastFor(homeKey), mid);
     if (there?.temp != null && home?.temp != null && Math.abs(there.temp - home.temp) >= 2) {
       tips.push({ kind: 'diff', icon: '↔️', title: '兩地溫差', text: `${hourOf(mid, TZ)}時 ${away.pin.name}比${placeName(pins.find(p => p.home) || null)}${there.temp > home.temp ? '熱' : '涼'} ${Math.round(Math.abs(there.temp - home.temp))}°`, level: 'none' });
     }

@@ -17,6 +17,7 @@ const HOUR = 3_600_000;
 const TOP = 26;
 const PH = 150;
 const BASE = TOP + PH;
+export const PLOT_BOTTOM = BASE;
 export const CHART_H = BASE + 42;
 const r1 = v => Math.round(v * 10) / 10;
 const yOf = (v, max) => r1(BASE - Math.max(0, Math.min(1, v / max)) * PH);
@@ -127,9 +128,34 @@ export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, grid = [
     if (bars && c.date) out.push(`<text class="ch-t ch-sub" x="${xOf(i)}" y="${BASE + 34}">${e(shortDate(c.date))}</text>`);
   });
   if (!bars && cols[0] && (firstChange < 0 || firstChange * w > 78)) out.push(`<text class="ch-date" x="2" y="${BASE + 36}">${e(`${shortDate(dateOfCol(cols[0]))} ${weekday(dateOfCol(cols[0]))}`)}</text>`);
-  // The crosshair, moved by the app.
-  out.push(`<line class="ch-x" x1="-9" x2="-9" y1="${TOP - 6}" y2="${BASE}"/><circle class="ch-d" cx="-9" cy="-9" r="6"/>`);
   return `<svg class="ch" data-graph="${id}" data-n="${n}" data-ys="${cols.map(c => (c.v == null ? '' : yOf(c.v, max))).join(',')}" viewBox="0 0 ${CHART_W} ${CHART_H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${e(label)}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
+}
+
+// A small card's line: the values as a smooth area, no labels (w × h).
+export function spark(values, { max, stops, w = 120, h = 40, bars = false }) {
+  const n = values.length;
+  if (!n) return '';
+  const gid = `s${++made}`;
+  const top = 3;
+  const base = h - 2;
+  const y = v => r1(base - Math.max(0, Math.min(1, v / max)) * (base - top));
+  const grad = `<defs><linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${base}" y2="${top}">${stops
+    .map(([v, c], i) => {
+      const a = Math.min(1, v / max);
+      const b = stops[i + 1] ? Math.min(1, stops[i + 1][0] / max) : 1;
+      return a < 1 ? `<stop offset="${r1(a * 100)}%" stop-color="${c}"/><stop offset="${r1(b * 100)}%" stop-color="${c}"/>` : '';
+    })
+    .join('')}</linearGradient></defs>`;
+  let body = '';
+  if (bars) {
+    const bw = Math.min(16, (w / n) * 0.6);
+    body = values.map((v, i) => (v == null ? '' : `<rect x="${r1((i + 0.5) * (w / n) - bw / 2)}" y="${y(v)}" width="${r1(bw)}" height="${r1(Math.max(2, base - y(v)))}" rx="3" fill="${[...stops].reverse().find(([s0]) => v >= s0)?.[1] || stops[0][1]}"/>`)).join('');
+  } else {
+    const pts = values.map((v, i) => (v == null ? null : [r1((i / Math.max(1, n - 1)) * w), y(v)])).filter(Boolean);
+    const line = smooth(pts, top, base);
+    if (pts.length) body = `<path d="${line}L${pts[pts.length - 1][0]},${base}L${pts[0][0]},${base}Z" fill="url(#${gid})" opacity=".3"/><path d="${line}" fill="none" stroke="url(#${gid})" stroke-width="2.5" stroke-linecap="round"/>`;
+  }
+  return `<svg class="wx-spark" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${grad}${body}</svg>`;
 }
 
 // The column under clientX, and where its crosshair goes (SVG units).

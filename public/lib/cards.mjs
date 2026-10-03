@@ -3,7 +3,7 @@
 // today and this week; the days; everything else). One truth: one value for each thing, no sources named.
 
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, conditionIcon, moonPhase, escapeHtml as e, ago } from './format.mjs';
-import { uvGraph, rainGraph, airGraph, dayGraph, scrubHtml } from './graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayGraph, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines } from './api.mjs';
 import { scheduleText } from './pins.mjs';
@@ -79,7 +79,7 @@ const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) =
     </header>
     ${tabs}
     <div class="wx-readout" data-read="${cls}" aria-live="polite">${foot}</div>
-    <div class="wx-graphbox" data-box="${cls}">${graph}</div>
+    <div class="wx-graphbox" data-box="${cls}">${graph}<i class="ch-xh" hidden></i><i class="ch-dh" hidden></i></div>
   </section>`;
 const tabsHtml = (kind, list, on) => `<div class="wx-tabs" role="tablist">${list.map(([k, name]) => `<button class="wx-tab" type="button" role="tab" data-range="${kind}:${k}" aria-pressed="${k === on}">${e(name)}</button>`).join('')}</div>`;
 export const dayText = (date, now, tz) => `${dayLabel(date, now, tz)} ${shortDate(date)}`;
@@ -343,13 +343,61 @@ export function infoCard(f, { now, lat, lon, page }) {
   </section>`;
 }
 
+// ---- The metrics: a small card each, the big graph in a sheet ------------------------------
+
+const tile = ({ kind, key, icon, title, value, color, sub, art }) => `
+  <button class="q-card wx-metric k-${kind}" type="button" data-metric="${kind}" data-page="${e(key)}">
+    <span class="wx-metric-head">${icon} ${title}</span>
+    <b class="wx-metric-val" style="--c:${color}">${value}</b>
+    <span class="wx-metric-sub">${sub}</span>
+    ${art}
+  </button>`;
+
+export function rainTile(f, { now, key }) {
+  const hours = hoursFrom(f, now);
+  if (!hours.length) return '';
+  const next = hours.slice(0, 24);
+  return tile({ kind: 'rain', key, icon: '☔', title: '降雨', value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now)), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
+}
+export function uvTile(f, { now, key }) {
+  const hours = hoursFrom(f, now);
+  if (!hours.some(h => h.uv != null)) return '';
+  const day = uvDays(f, now)[0];
+  const list = (day?.hours || []).filter(h => h.uv != null);
+  const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
+  const nowUv = f.now?.uv ?? hours[0]?.uv;
+  const sub = peak ? `${dayLabel(day.date, now, f.tz)}最高 ${peak.uv}（${hourOf(peak.t, f.tz)}時）` : '';
+  return tile({ kind: 'uv', key, icon: '☀️', title: '紫外線', value: `${nowUv ?? '–'}<small>${uvLevel(nowUv) || ''}</small>`, color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
+}
+export function airTile(f, { now, key }) {
+  const a = f.air;
+  if (!a) return '';
+  const cols = airCols(f, now);
+  return tile({ kind: 'air', key, icon: '🌫️', title: '空氣', value: `${a.aqi ?? '–'}<small>${e(a.level || '')}</small>`, color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'} · ${cols.length - 1} 天預報`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
+}
+export function metricTiles(f, opts) {
+  const tiles = [rainTile(f, opts), uvTile(f, opts), airTile(f, opts)].filter(Boolean);
+  if (!tiles.length) return '';
+  return `
+  <section class="wx-section">
+    <h3 class="wx-h">天氣指標 <small>點一下看圖</small></h3>
+    <div class="wx-metrics" style="--n:${tiles.length}">${tiles.join('')}</div>
+  </section>`;
+}
+// The sheet a metric opens: its big graph, tabs and read-out.
+export const METRIC_TITLES = { rain: '降雨機率', uv: '紫外線', air: '空氣品質' };
+export function metricSheet(kind, f, opts) {
+  const body = { rain: rainCard, uv: uvCard, air: airCard }[kind]?.(f, opts) || '';
+  return `<div class="q-sheet-head"><h2>${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>${body}`;
+}
+
 // A whole page.
-const SECTIONS = { uv: uvCard, rain: rainCard, air: airCard, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
+const SECTIONS = { metrics: metricTiles, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
 export function pageHtml(f, page, { now, cards = Object.keys(SECTIONS), hidden = [], ranges = {} }) {
   const top = topArea(f, { page, now });
   if (!f) return `${top}<section class="q-card wx-empty">${page.error ? `<p>${e(page.error)}</p><button class="q-btn" type="button" data-act="retry" data-page="${e(page.key)}">再試一次</button>` : '<div class="wx-spin"></div><p>正在取得天氣…</p>'}</section>`;
   const opts = { now, key: page.key, lat: page.lat, lon: page.lon, page, ranges };
   // 我的行程: what matters on the move, in this order.
-  if (page.plan) [cards, hidden] = [['advice', 'rain', 'uv', 'days'], []];
+  if (page.plan) [cards, hidden] = [['metrics', 'advice', 'days'], []];
   return [top, ...cards.filter(k => SECTIONS[k] && !hidden.includes(k)).map(k => SECTIONS[k](f, opts))].join('');
 }
