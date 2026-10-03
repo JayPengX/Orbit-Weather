@@ -4,8 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayGraph, readout, CHART_W } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet } from '../public/lib/cards.mjs';
-import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS } from '../public/lib/api.mjs';
+import { pageHtml, airCols, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
+import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
 
@@ -173,9 +173,21 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   // Advice: today, and the week with a mark a day.
   // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
   assert.match(html, /明天的建議/, 'in the evening, the advice is for tomorrow');
-  assert.match(html, /k-umbrella"><span class="wx-life-icon">☂️<\/span><div><b>雨傘<\/b><p>13:00 降雨機率 41%<\/p>/);
+  assert.match(html, /k-umbrella"><span class="wx-life-icon"><svg class="wx-g"[^]*?<\/svg><\/span><div><b>雨傘<\/b><p>13:00 降雨機率 41%<\/p>/);
+  const first = html.split('<div class="wx-lifegrid">')[1].split('</div></div>').length - 1;
+  assert.ok(first <= 4, 'four tiles at most, the rest behind 更多建議');
+  const many = adviceCards({ ...forecast, advice: Array.from({ length: 7 }, (_, i) => ({ kind: ['umbrella', 'wear', 'sun', 'run', 'laundry', 'sleep', 'thunder'][i], level: i === 6 ? 'yes' : 'none', text: `x：${i}` })) }, { now: NOW });
+  assert.match(many, /<details class="wx-more-advice"><summary>更多建議<span>3<\/span>/);
+  assert.ok(many.indexOf('k-thunder') < many.indexOf('k-umbrella'), 'a warning first');
   assert.ok(!/wx-weekgrid/.test(html), 'no week table: each day\'s advice is in its sheet');
-  assert.match(html, /點 10 天預報的任一天/);
+  // The top opens today; under it the next 24 hours, every 3.
+  assert.match(html, /<section class="wx-hero [^"]*" role="button" tabindex="0" data-day="2026-10-02" data-page="here"/);
+  assert.equal((html.match(/class="wx-hr[ "]/g) || []).length, 8);
+  assert.match(html, /<span class="wx-hr-t">現在<\/span>/);
+  assert.match(html, /is-newday"[^]*?<span class="wx-hr-t">明天1時<\/span>/, 'the new day named');
+  assert.match(html, /class="wx-age" data-at="\d+">更新於 /);
+  // The app's own pictures, never emoji.
+  assert.ok(!/\p{Extended_Pictographic}/u.test(html), 'no emoji: ' + (html.match(/\p{Extended_Pictographic}/u) || [])[0]);
   // The 10 days: each day's rain chance.
   assert.equal((html.match(/class="wx-dpop"/g) || []).length, 10);
   assert.match(html, /現在陰，22 點前後/);
@@ -183,7 +195,7 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   for (const w of ['Google', 'CWA', '氣象署', 'MOENV', '環境部', 'radar', '雷達']) assert.ok(!html.includes(w), w);
   // A pin's page: its name first, its hours.
   const pinPage = pageHtml(forecast, { key: 'pschool', pin: school, place: { county: '臺北市', town: '大安區', village: '龍泉里' } }, { now: NOW });
-  assert.match(pinPage, /📌 學校/);
+  assert.match(pinPage, /<h2 class="wx-place"><svg class="wx-g"[^]*?<\/svg><span>學校<\/span>/);
   assert.match(pinPage, /週一至週五 07:00–17:00/);
   // No forecast yet: the top and a spinner, or the error with a retry.
   assert.match(pageHtml(null, page, { now: NOW }), /正在取得天氣/);
@@ -228,6 +240,11 @@ test('proxy calls carry the session; the device keeps a few places', async () =>
   assert.deepEqual(loadLocal(st), { forecasts: {} });
   assert.equal(isFresh({ at: NOW }, NOW + FRESH_MS - 1), true);
   assert.equal(isFresh({ at: NOW }, NOW + FRESH_MS + 1), false);
+  // Freshness is the numbers' age: an old copy the proxy was refreshing isn't fresh…
+  assert.equal(dataAge({ at: NOW, f: { at: NOW - 2 * 3_600_000 } }, NOW), 2 * 3_600_000);
+  assert.equal(isFresh({ at: NOW, f: { at: NOW - 2 * 3_600_000 } }, NOW + RECHECK_MS + 1), false);
+  // …but isn't asked for again within RECHECK_MS.
+  assert.equal(isFresh({ at: NOW, f: { at: NOW - 2 * 3_600_000 } }, NOW + RECHECK_MS - 1), true);
   assert.equal(cellOf(25.0339, 121.5645), '25.03,121.56');
   assert.deepEqual(placeLines({ county: '臺北市', town: '信義區', village: '西村里' }), { main: '信義區 西村里', sub: '臺北市' });
   assert.deepEqual(placeLines(null), { main: '', sub: '' });
@@ -329,7 +346,7 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.equal(f.advice.find(a => a.kind === 'umbrella').week.days.length > 0, true);
   // The regular page draws it, the route's title on top, the places on the graphs.
   const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
-  assert.match(html, /🗓️ 我的行程/);
+  assert.match(html, /<span>我的行程<\/span>/);
   assert.match(html, /現在在 學校 · 東區/);
   assert.match(html, /data-metric="rain"/);
   assert.match(metricSheet('rain', f, { now: at10, key: 'plan', ranges: {} }), /class="ch-place"[^>]*>家</, 'the big graph names the city where you move');
@@ -348,4 +365,26 @@ test('notices follow the route: home outside the pins\' hours', () => {
   const monday = items.filter(x => x.kind === 'rain' && x.tag.startsWith('rain:2026-10-05'));
   assert.deepEqual(monday.map(x => x.tag.split(':')[2]), ['pschool2', 'phome'], 'school 07–17, then home');
   assert.ok(!items.some(x => x.check.weather.lat === 22.6), 'never the device\'s place when there\'s a home');
+});
+
+test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon as it is', async () => {
+  const { wxArt, conditionArt, glyph, moonArt, ICON_DEFS } = await import('../public/lib/icons.mjs');
+  const { conditionKind } = await import('../public/lib/format.mjs');
+  assert.equal(conditionKind('THUNDERSTORM'), 'storm');
+  assert.equal(conditionKind('', '陣雨'), 'rain');
+  assert.equal(conditionKind('LIGHT_RAIN', '', false), 'drizzle-night');
+  assert.equal(conditionKind('PARTLY_CLOUDY', '', true), 'part-day');
+  assert.equal(conditionKind('CLEAR', '', false), 'clear-night');
+  for (const k of ['clear-day', 'clear-night', 'part-day', 'part-night', 'cloud', 'drizzle-day', 'drizzle-night', 'rain', 'storm', 'snow', 'fog', 'wind']) {
+    const svg = wxArt(k);
+    assert.match(svg, /^<svg class="wx-art-i" viewBox="0 0 64 64"/, k);
+    // Every gradient a picture uses is defined once for the page.
+    for (const [, id] of svg.matchAll(/url\(#([\w-]+)\)/g)) assert.ok(ICON_DEFS.includes(`id="${id}"`), `${k}: ${id}`);
+  }
+  assert.match(conditionArt('THUNDERSTORM', ''), /wxi-bolt/);
+  assert.match(glyph('umbrella'), /stroke="currentColor"/);
+  assert.match(glyph('nope'), /<svg/, 'an unknown name still draws something');
+  assert.match(moonArt('FULL_MOON'), /<circle cx="12" cy="12" r="9" fill="#f6e3a8"/);
+  assert.ok(!/f6e3a8/.test(moonArt('NEW_MOON')), 'nothing lit at new moon');
+  assert.match(moonArt('FIRST_QUARTER'), /M12 3A9 9 0 0 1 12 21/, 'the right half lit, waxing');
 });

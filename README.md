@@ -15,7 +15,9 @@ real station measurements, and learns which to trust
 ## A page, top to bottom
 
 1. Where (to the village, 里, from the device's position), now, today's high
-   and low with 體感 beside each, one sentence.
+   and low with 體感 beside each, one sentence, when it was updated; a tap
+   anywhere on it opens today. Under it, the next 24 hours every 3 hours (a
+   column opens its day).
 2. 紫外線, 降雨機率, 空氣品質: a card each with its graph, hourly for as far
    as the forecast goes (10 days; air: the last 48 hours measured, then the
    coming days' forecast), swiped sideways, the time and date under it, a
@@ -24,6 +26,15 @@ real station measurements, and learns which to trust
 4. 10 天預報: tap a day for its own graph, everything on one.
 5. 更多資訊: wind, pressure, humidity, dew point, visibility, cloud, sun and
    moon, the nearest station's measurement, the place.
+
+## Fresh
+
+Asked again once the numbers are 15 minutes old (by when the proxy made
+them, `f.at`): on opening, on coming back to the app, on a swipe, and every
+minute's check while it's on screen. An old copy the proxy is still
+refreshing is asked again 20 s later. The proxy matches its sources: Google
+current every 15 minutes, its forecast every 30; stations and air hourly;
+CWA's township forecast every 6 hours.
 
 ## Pins
 
@@ -49,6 +60,7 @@ last); the rain watch 07:00–21:00 each day, split by the pins' hours.
 | `public/lib/graph.mjs` | The graphs (SVG): UV, rain, air, a day's |
 | `public/lib/pins.mjs` | Pins: hours, the pass's copy, where each notice is for |
 | `public/lib/format.mjs`, `sun.mjs` | Labels and colours; sunrise / sunset worked out |
+| `public/lib/icons.mjs` | The app's own pictures (no emoji): weather by kind, line glyphs, the moon |
 | `#kit/quadra.mjs` (the page's `kit:head`, `kit:boot`) | The kit, loaded from Shared-Proxy's Pages (`Shared-Proxy/kit/loader.html`) |
 | `public/sw.js` | Offline, like the other Quadra apps; shows notices |
 

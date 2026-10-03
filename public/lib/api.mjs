@@ -2,7 +2,15 @@
 // Pass session), and where the device is.
 
 export const PROXY = 'https://orbit-workers-proxy.pengzjay.workers.dev';
+// How often the forecast is asked again, after what its sources do: Google's
+// current conditions change every 15 minutes and its forecast every 30, the
+// stations' and the air's readings every hour, CWA's township forecast every
+// 6 hours (the proxy keeps a place 15 minutes, its Google forecast 30).
 export const FRESH_MS = 15 * 60_000;
+// An answer the proxy is still refreshing (an old copy, `refreshing`) is
+// asked again this much later, once; nothing is asked twice within RECHECK_MS.
+export const RETRY_MS = 20_000;
+export const RECHECK_MS = 2 * 60_000;
 const STORE = 'orbit-weather.v2';
 
 // The proxy caches by 0.01° (about 1 km).
@@ -34,7 +42,10 @@ export function saveLocal(local, storage = globalThis.localStorage) {
   }
 }
 export const cachedForecast = (local, cell) => local.forecasts?.[cell] || null;
-export const isFresh = (entry, now = Date.now()) => !!(entry && now - entry.at < FRESH_MS);
+// How old a copy's numbers are: when the proxy made them (`f.at`), not
+// when this device got them (a copy the proxy was still refreshing is old).
+export const dataAge = (entry, now = Date.now()) => (entry ? now - Math.min(entry.at, entry.f?.at || entry.at) : Infinity);
+export const isFresh = (entry, now = Date.now()) => !!(entry && (dataAge(entry, now) < FRESH_MS || now - entry.at < RECHECK_MS));
 
 // 'granted' | 'prompt' | 'denied' | 'unknown'.
 export async function permissionState(nav = globalThis.navigator) {

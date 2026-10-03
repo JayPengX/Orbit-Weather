@@ -62,21 +62,26 @@ export function beaufort(kmh) {
   return i === -1 ? 12 : i;
 }
 
-// An icon for a condition (Google's codes; CWA's text when that's all there is).
-export function conditionIcon(code, text = '', day = true) {
+// The kind of weather for a condition (Google's codes; CWA's text when
+// that's all there is): the app's pictures (icons.mjs) are drawn by kind.
+export function conditionKind(code, text = '', day = true) {
   const c = String(code || '').toUpperCase();
   const t = String(text || '');
-  if (/THUNDER/.test(c) || /雷/.test(t)) return '⛈️';
-  if (/SNOW|HAIL|SLEET/.test(c) || /雪|冰雹/.test(t)) return '🌨️';
-  if (/HEAVY_RAIN|RAIN_SHOWERS|SHOWERS/.test(c) || /大雨|豪雨|陣雨/.test(t)) return '🌧️';
-  if (/RAIN|DRIZZLE/.test(c) || /雨/.test(t)) return '🌦️';
-  if (/FOG|HAZE|MIST/.test(c) || /霧|霾/.test(t)) return '🌫️';
-  if (/WIND/.test(c)) return '💨';
-  if (/^CLOUDY|OVERCAST|MOSTLY_CLOUDY/.test(c) || /^陰/.test(t)) return '☁️';
-  if (/PARTLY|MOSTLY_CLEAR|MOSTLY_SUNNY/.test(c) || /多雲/.test(t)) return day ? '⛅' : '☁️';
-  if (/CLEAR|SUNNY/.test(c) || /晴/.test(t)) return day ? '☀️' : '🌙';
-  return day ? '🌤️' : '🌙';
+  const dn = day ? 'day' : 'night';
+  if (/THUNDER/.test(c) || /雷/.test(t)) return 'storm';
+  if (/SNOW|HAIL|SLEET/.test(c) || /雪|冰雹/.test(t)) return 'snow';
+  if (/HEAVY_RAIN|RAIN_SHOWERS|SHOWERS/.test(c) || /大雨|豪雨|陣雨/.test(t)) return 'rain';
+  if (/RAIN|DRIZZLE/.test(c) || /雨/.test(t)) return `drizzle-${dn}`;
+  if (/FOG|HAZE|MIST/.test(c) || /霧|霾/.test(t)) return 'fog';
+  if (/WIND/.test(c)) return 'wind';
+  if (/^CLOUDY|OVERCAST|MOSTLY_CLOUDY/.test(c) || /^陰/.test(t)) return 'cloud';
+  if (/PARTLY|MOSTLY_CLEAR|MOSTLY_SUNNY/.test(c) || /多雲/.test(t)) return `part-${dn}`;
+  if (/CLEAR|SUNNY/.test(c) || /晴/.test(t)) return `clear-${dn}`;
+  return `part-${dn}`;
 }
+// The same as an emoji (for notices, which are plain text).
+const EMOJI = { storm: '⛈️', snow: '🌨️', rain: '🌧️', 'drizzle-day': '🌦️', 'drizzle-night': '🌧️', fog: '🌫️', wind: '💨', cloud: '☁️', 'part-day': '⛅', 'part-night': '☁️', 'clear-day': '☀️', 'clear-night': '🌙' };
+export const conditionIcon = (code, text = '', day = true) => EMOJI[conditionKind(code, text, day)];
 
 const MOON = {
   NEW_MOON: ['新月', '🌑'], WAXING_CRESCENT: ['眉月', '🌒'], FIRST_QUARTER: ['上弦月', '🌓'], WAXING_GIBBOUS: ['盈凸月', '🌔'],

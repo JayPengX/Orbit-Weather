@@ -10,6 +10,7 @@
 // a finger or the mouse (`colAt`), dragging on the graph (it only pans up
 // and down) — and shows the column's numbers above.
 
+import { glyph } from './icons.mjs';
 import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e } from './format.mjs';
 
 export const CHART_W = 340;
@@ -253,9 +254,9 @@ export function dayCharts(hours, { tz } = {}) {
   const under = h => (hourOf(h.t, tz) % 3 === 0 ? `${hourOf(h.t, tz)}時` : '');
   const rain = chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: '這一天的降雨機率', grid: [50], minLabel: 20, fmt: v => `${Math.round(v)}%`, height: 84, dates: false });
   const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: 11, stops: UV_STOPS, tz, label: '這一天的紫外線', grid: [3, 6, 8], minLabel: 1, height: 64, dates: false }) : '';
-  return `<div class="wx-dch"><p class="wx-dch-h">🌡️ 溫度 <span class="l-temp">溫度</span><span class="l-feels">體感</span></p>${temp}</div>
-    <div class="wx-dch"><p class="wx-dch-h">☔ 降雨機率 <span class="l-mm">深色＝雨量</span></p>${rain}</div>
-    ${uv ? `<div class="wx-dch"><p class="wx-dch-h">☀️ 紫外線</p>${uv}</div>` : ''}
+  return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}溫度 <span class="l-temp">溫度</span><span class="l-feels">體感</span></p>${temp}</div>
+    <div class="wx-dch"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}降雨機率 <span class="l-mm">深色＝雨量</span></p>${rain}</div>
+    ${uv ? `<div class="wx-dch"><p class="wx-dch-h">${glyph('sun', { size: 16 })}紫外線</p>${uv}</div>` : ''}
     <i class="ch-xh" hidden></i><i class="ch-dh" hidden></i>`;
 }
 // (The old name, for anything still asking for it.)
