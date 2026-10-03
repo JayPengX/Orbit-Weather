@@ -4,11 +4,12 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, RETRY_MS } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
-import { escapeHtml as e, dateOf } from './lib/format.mjs';
+import { escapeHtml as e, dateOf, ago } from './lib/format.mjs';
+import { ICON_DEFS, glyph, placeGlyph } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
 
 const $ = id => document.getElementById(id);
@@ -62,8 +63,8 @@ function renderDots() {
   if (dots.dataset.sig !== sig) {
     dots.dataset.sig = sig;
     dots.innerHTML = state.pages
-      .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="false">${p.plan ? '🗓️ 行程' : `${p.pin?.home ? '🏠' : p.pin ? '📌' : '📍'} ${e(p.pin ? p.pin.name : '目前位置')}`}</button>`)
-      .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">＋ 釘選</button>`;
+      .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="false">${placeGlyph(p, { size: 15 })}${p.plan ? '行程' : e(p.pin ? p.pin.name : '目前位置')}</button>`)
+      .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="新增釘選地點">${glyph('plus', { size: 15 })}釘選</button>`;
   }
   for (const b of dots.querySelectorAll('[data-go]')) {
     const on = Number(b.dataset.go) === state.index;
@@ -77,8 +78,9 @@ function renderDots() {
   }
 }
 
+const pageEl = page => document.querySelector(`.wx-page[data-key="${page.key}"]`);
 function renderPage(page) {
-  const el = document.querySelector(`.wx-page[data-key="${page.key}"]`);
+  const el = pageEl(page);
   if (!el) return;
   const now = Date.now();
   if (page.plan) {
@@ -139,8 +141,9 @@ async function loadPage(page, { force = false } = {}) {
     return page.drawn === drawnSig(page) ? undefined : renderPage(page);
   }
   const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
-  if (!force && cell && isFresh(cachedForecast(state.local, cell))) return page.drawn === drawnSig(page) ? undefined : renderPage(page);
+  if (!force && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return page.drawn === drawnSig(page) ? undefined : renderPage(page);
   page.loading = true;
+  pageEl(page)?.classList.add('is-loading');
   try {
     const token = await q.ensureToken();
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
@@ -149,14 +152,22 @@ async function loadPage(page, { force = false } = {}) {
     else {
       // Where the network said: the page takes the forecast's own place.
       page.ipForecast = f;
+      page.ipAt = Date.now();
       page.place = page.place || f.place;
     }
     page.error = '';
     saveLocal(state.local);
+    // An old copy the proxy is refreshing behind it: the new one shortly (once).
+    clearTimeout(page.retry);
+    if (f.refreshing && !page.retried) {
+      page.retried = true;
+      page.retry = setTimeout(() => loadPage(page, { force: true }), RETRY_MS);
+    } else page.retried = false;
   } catch (err) {
     page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
   } finally {
     page.loading = false;
+    pageEl(page)?.classList.remove('is-loading');
     renderPage(page);
     const plan = planPage();
     if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
@@ -224,15 +235,60 @@ function sendNotices() {
 
 // ---- Sheets: a pin, the settings, a day --------------------------------------------------
 
+// A sheet slides up; it goes back down on ×, a tap outside it, Esc, or a
+// pull down on its top.
 function sheet(html, cls = '') {
   const d = document.createElement('dialog');
   d.className = `q-sheet wx-sheet ${cls}`;
   d.innerHTML = html;
-  d.addEventListener('click', ev => (ev.target === d || ev.target.closest('[data-act="close"]')) && d.close());
+  d.addEventListener('click', ev => (ev.target === d || ev.target.closest('[data-act="close"]')) && shut(d));
+  d.addEventListener('cancel', ev => {
+    ev.preventDefault();
+    shut(d);
+  });
   d.addEventListener('close', () => d.remove());
+  pullToClose(d);
   document.body.append(d);
   d.showModal();
   return d;
+}
+function shut(d) {
+  if (!d.open || d.classList.contains('is-closing')) return;
+  d.classList.add('is-closing');
+  setTimeout(() => d.close(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
+}
+// Dragging the sheet's top down follows the finger; far or fast enough, it closes.
+function pullToClose(d) {
+  let y0 = null;
+  let t0 = 0;
+  let dy = 0;
+  d.addEventListener('pointerdown', ev => {
+    if (!ev.target.closest('.q-sheet-head') || ev.target.closest('button, input') || d.scrollTop > 0) return;
+    y0 = ev.clientY;
+    t0 = ev.timeStamp;
+    dy = 0;
+    try {
+      d.setPointerCapture?.(ev.pointerId);
+    } catch {}
+  });
+  d.addEventListener('pointermove', ev => {
+    if (y0 == null) return;
+    dy = Math.max(0, ev.clientY - y0);
+    d.style.transition = 'none';
+    d.style.transform = dy ? `translateY(${dy}px)` : '';
+  });
+  const end = ev => {
+    if (y0 == null) return;
+    y0 = null;
+    d.style.transition = '';
+    const fast = dy > 30 && dy / Math.max(1, ev.timeStamp - t0) > 0.6;
+    if (dy > 110 || fast) {
+      d.style.transform = '';
+      shut(d);
+    } else d.style.transform = '';
+  };
+  d.addEventListener('pointerup', end);
+  d.addEventListener('pointercancel', end);
 }
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -246,11 +302,11 @@ async function pinSheet(pin = null) {
     <label class="wx-field"><span>名稱</span><input id="pin-name" maxlength="20" placeholder="例如：學校、家" value="${e(draft.name)}"></label>
     <div class="wx-field"><span>地點</span><b id="pin-where">${e(where())}</b></div>
     <div class="wx-row">
-      ${here ? `<button class="q-btn" type="button" data-pin-act="here">📍 用目前位置${here.place?.village ? `（${e(here.place.village)}）` : ''}</button>` : ''}
+      ${here ? `<button class="q-btn" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}用目前位置${here.place?.village ? `（${e(here.place.village)}）` : ''}</button>` : ''}
     </div>
     <label class="wx-field"><span>或搜尋鄉鎮市區</span><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off"></label>
     <div id="pin-list" class="wx-list"></div>
-    <div class="wx-row wx-home-row"><span>🏠 這是我的家<small>沒有其他行程的時間，就當作在這裡</small></span><button class="wx-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="這是我的家"><i></i></button></div>
+    <div class="wx-row wx-home-row"><span><b>${glyph('home', { size: 16 })}這是我的家</b><small>沒有其他行程的時間，就當作在這裡</small></span><button class="wx-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="這是我的家"><i></i></button></div>
     <div class="wx-field"><span>我在這裡的時間（行程用；這時打開 App 也直接顯示這裡）</span>
       <div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div>
       <div class="wx-row"><input id="pin-from" type="time" value="${draft.from}"> 到 <input id="pin-to" type="time" value="${draft.to}"></div>
@@ -323,14 +379,14 @@ async function pinSheet(pin = null) {
 }
 
 // The settings: the cards' order and which show, the morning brief's time.
-const CARD_ICONS = { metrics: '📊', advice: '💡', days: '📆', info: '📋' };
+const CARD_ICONS = { metrics: 'chart', advice: 'bulb', days: 'calendar', info: 'list' };
 function settingsSheet() {
   const rows = () =>
     state.data.cards
       .map((k, i, all) => {
         const on = !state.data.hidden.includes(k);
         return `<div class="wx-order-row${on ? '' : ' is-off'}">
-          <span class="wx-order-name">${CARD_ICONS[k]} ${e(CARDS[k])}</span>
+          <span class="wx-order-name">${glyph(CARD_ICONS[k], { size: 18 })}${e(CARDS[k])}</span>
           <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="上移${e(CARDS[k])}" ${i ? '' : 'disabled'}>↑</button>
           <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="1" aria-label="下移${e(CARDS[k])}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
           <button class="wx-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="顯示${e(CARDS[k])}"><i></i></button>
@@ -406,10 +462,36 @@ function openDay(key, date) {
     d.scrollTop = 0;
     armScrub(d, f, when);
   };
+  let shown = date;
+  const step = by => {
+    const b = d.querySelector(`.wx-nav[aria-label="${by < 0 ? '前一天' : '後一天'}"]`);
+    if (!b?.dataset.dayn) return;
+    shown = b.dataset.dayn;
+    show(shown);
+    d.classList.remove('slide-l', 'slide-r');
+    void d.offsetWidth;
+    d.classList.add(by < 0 ? 'slide-r' : 'slide-l');
+  };
   d.addEventListener('click', ev => {
-    const step = ev.target.closest('[data-dayn]');
-    if (step?.dataset.dayn) show(step.dataset.dayn);
+    const b = ev.target.closest('[data-dayn]');
+    if (b?.dataset.dayn) step(b.getAttribute('aria-label') === '前一天' ? -1 : 1);
   });
+  // A sideways swipe (not on the charts, which read the hours): the next or previous day.
+  let sx = null;
+  let sy = 0;
+  d.addEventListener('pointerdown', ev => {
+    if (ev.pointerType === 'mouse' || ev.target.closest('.wx-dayg-plot, .q-sheet-head')) return;
+    sx = ev.clientX;
+    sy = ev.clientY;
+  });
+  d.addEventListener('pointerup', ev => {
+    if (sx == null) return;
+    const dx = ev.clientX - sx;
+    const dy = ev.clientY - sy;
+    sx = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
+  });
+  d.addEventListener('pointercancel', () => (sx = null));
   show(date);
 }
 
@@ -485,7 +567,7 @@ const help = () =>
   tell({
     title: 'Orbit Weather',
     body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換我的行程、目前位置和各地點。', '圖上點一下或手指拖曳，看每小時（或每天）的數字；上方的分頁切換 24 小時、48 小時、10 天。', '點「10 天預報」的任一天，看當天的圖；‹ › 換一天。', '把地點設成「家」並設定學校等地點的星期和時間：「我的行程」每小時取你在的城市。', '⚙︎ 設定：調整卡片順序、關掉不需要的卡片。']
+    points: ['左右滑動整頁，切換我的行程、目前位置和各地點。', '點最上面的天氣，看今天每小時的溫度、降雨和建議；點「10 天預報」的任一天看那一天，左右滑動換一天。', '按住圖表滑動，看每小時（或每天）的數字；上方的分頁切換 24 小時、48 小時、10 天。', 'App 開著時每 15 分鐘自動更新（資料來源最快每 15 分鐘更新一次）。', '把地點設成「家」並設定學校等地點的星期和時間：「我的行程」每小時取你在的城市。', '⚙︎ 設定：調整卡片順序、關掉不需要的卡片。']
   });
 
 // ---- Taps and swipes --------------------------------------------------------------------
@@ -514,6 +596,27 @@ document.addEventListener('click', ev => {
   if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
 });
+
+// The top (a role="button"): Enter or space opens today too.
+document.addEventListener('keydown', ev => {
+  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day]')) return;
+  ev.preventDefault();
+  openDay(ev.target.dataset.page, ev.target.dataset.day);
+});
+
+// While the app is on screen: every minute the 「更新於」 times move on, a
+// page is redrawn when the hour turns, and the page in view is asked again
+// once its forecast is FRESH_MS old (loadPage does nothing before).
+function tick() {
+  if (document.visibilityState !== 'visible' || !state.started) return;
+  const now = Date.now();
+  for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = `更新於 ${ago(Number(el.dataset.at), now)}`;
+  const page = state.pages[state.index];
+  if (!page) return;
+  if (page.drawn !== drawnSig(page)) renderPage(page);
+  loadPage(page);
+}
+setInterval(tick, 60_000);
 
 // A column picked (a tap, a finger dragging, the mouse): the crosshair and
 // the dot on it, its numbers above the graph.
@@ -628,6 +731,7 @@ window.addEventListener('hashchange', () => {
 // ---- Start --------------------------------------------------------------------------------
 
 window.__fxStarted = true;
+document.body.insertAdjacentHTML('afterbegin', ICON_DEFS);
 const gated = installGate('weather', 'zh');
 watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-', busy: () => Boolean(document.querySelector('dialog[open]')) });
 topActions(q, { help, refresh: () => loadPage(state.pages[state.index], { force: true }) });
