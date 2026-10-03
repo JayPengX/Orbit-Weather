@@ -3,7 +3,7 @@
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from './lib/quadra.mjs';
+import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeLines } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
