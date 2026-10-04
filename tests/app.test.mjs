@@ -168,7 +168,9 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
   assert.match(html, /信義區 西村里&lt;b&gt;/);
-  assert.match(html, /最高<\/span><b>30°<\/b><small>體感 33°/);
+  assert.match(html, /最高 30°<i><\/i>最低 23°/);
+  assert.match(html, /體感 27° · 降雨 10% · 濕度 94%/);
+  assert.match(html, /wx-say">現在陰/, "today’s sentence heads the hours");
   assert.match(html, /大雨特報/);
   // Advice: today, and the week with a mark a day.
   // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
