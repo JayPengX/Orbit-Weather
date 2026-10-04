@@ -70,6 +70,7 @@ function renderDots() {
     const on = Number(b.dataset.go) === state.index;
     if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
   }
+  paintSky();
   const on = dots.querySelector(`[data-go="${state.index}"]`);
   if (on) {
     // Into view inside the row only (scrollIntoView would move the page too).
@@ -79,6 +80,22 @@ function renderDots() {
 }
 
 const pageEl = page => document.querySelector(`.wx-page[data-key="${page.key}"]`);
+// The sky of the place in view fills the screen, as iOS's Weather does: the
+// body takes the page's sky classes, Safari's bar its top colour.
+const SKY_TOP = { 'clear day': '#1d64d8', 'part day': '#2f5fae', 'cloud day': '#414d64', 'rain day': '#172235', 'rain night': '#172235', 'storm day': '#161126', 'storm night': '#161126', 'clear night': '#060a22', 'part night': '#060a22', 'cloud night': '#0f1218' };
+function paintSky() {
+  const page = state.pages[state.index];
+  const hero = page && pageEl(page)?.querySelector('.wx-hero');
+  const m = /sky-(\w+) sky-(day|night)/.exec(hero?.className || '');
+  const want = m ? `sky-${m[1]} sky-${m[2]}` : '';
+  const body = document.body;
+  if (body.dataset.sky === want) return;
+  for (const c of [...body.classList]) if (c.startsWith('sky-')) body.classList.remove(c);
+  if (want) body.classList.add(...want.split(' '));
+  body.dataset.sky = want;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.content = (m && SKY_TOP[`${m[1]} ${m[2]}`]) || '#0a0b0f';
+}
 function renderPage(page) {
   const el = pageEl(page);
   if (!el) return;
@@ -94,6 +111,7 @@ function renderPage(page) {
   el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
   el.scrollTop = top;
   page.drawn = drawnSig(page);
+  paintSky();
 }
 
 const planPage = () => state.pages.find(p => p.plan);

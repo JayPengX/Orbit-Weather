@@ -2173,3 +2173,200 @@ svg.ch {
 .wx-scrub-vals {
   grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
 }
+
+/* ---- The sky fills the screen (2026-10-04) ----
+   As iOS's Weather: the weather in view is the whole background (app.mjs
+   paintSky puts its sky classes on the body), the top is words on the sky,
+   and every card is a tint of glass over it. The sheets keep the kit's own
+   colours; only the bar and the pages take the glass ones. */
+body[data-sky]:not([data-sky='']) {
+  background: var(--sky) fixed;
+  background-color: #0a0b0f;
+}
+body[data-sky]:not([data-sky='']) .q-appbar {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+}
+.wx-pager,
+.q-appbar {
+  --q-surface: rgba(12, 18, 32, 0.24);
+  --q-surface-2: rgba(12, 18, 32, 0.3);
+  --q-sunken: rgba(255, 255, 255, 0.1);
+  --q-border: rgba(255, 255, 255, 0.1);
+  --q-divider: rgba(255, 255, 255, 0.12);
+  --q-text: #fff;
+  --q-text-2: rgba(255, 255, 255, 0.82);
+  --q-muted: rgba(255, 255, 255, 0.62);
+  --q-shadow-sm: none;
+}
+/* Rain and storm skies are dark already: a lighter glass reads better. */
+.sky-rain .wx-pager,
+.sky-storm .wx-pager,
+.sky-night .wx-pager {
+  --q-surface: rgba(255, 255, 255, 0.08);
+  --q-surface-2: rgba(255, 255, 255, 0.1);
+}
+.wx-pager .q-card,
+.wx-pager .wx-life,
+.wx-pager .wx-tile {
+  border: 0;
+  border-radius: 16px;
+  background: var(--q-surface);
+  box-shadow: none;
+}
+.wx-pager .wx-life.lv-good,
+.wx-pager .wx-life.lv-yes,
+.wx-pager .wx-life.lv-hot,
+.wx-pager .wx-life.lv-bad,
+.wx-pager .wx-life.k-mask:not(.lv-none),
+.wx-pager .wx-life.k-heat:not(.lv-none) {
+  border: 0;
+  background: var(--q-surface);
+}
+.wx-pager .wx-life.lv-yes .wx-life-icon,
+.wx-pager .wx-life.lv-hot .wx-life-icon,
+.wx-pager .wx-life.lv-bad .wx-life-icon,
+.wx-pager .wx-life.k-heat:not(.lv-none) .wx-life-icon {
+  background: rgba(255, 181, 71, 0.22);
+  color: #ffc56b;
+}
+.wx-pager .wx-life.lv-good .wx-life-icon {
+  background: rgba(61, 213, 152, 0.2);
+  color: #5eead4;
+}
+/* A section's name: small, quiet, in the glass's colour. */
+.wx-pager .wx-h {
+  margin: 6px 4px 8px;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.wx-pager .wx-h .wx-g {
+  width: 14px;
+  height: 14px;
+}
+
+/* Places: glass chips, the one in view white. */
+.wx-dot,
+.wx-add {
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.wx-dot[aria-pressed='true'] {
+  background: #fff;
+  border-color: #fff;
+  color: #0b1220;
+}
+.q-appbar .q-icon-btn,
+.q-appbar .q-actions button {
+  border: 0;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+/* The top: words on the sky, centred. */
+.wx-hero {
+  padding: 22px 8px 6px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  text-align: center;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.18);
+}
+.wx-hero[data-day]:active {
+  transform: none;
+  opacity: 0.8;
+}
+.wx-hero .wx-fx {
+  inset: -120px -24px -40px;
+}
+.wx-where {
+  display: grid;
+  justify-items: center;
+}
+.wx-place {
+  justify-content: center;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+.wx-place .wx-g {
+  width: 16px;
+  height: 16px;
+}
+.wx-sub {
+  font-size: 13px;
+}
+.wx-temp {
+  margin: 2px 0 0 18px;
+  font: 200 104px/1 var(--q-font);
+  letter-spacing: -4px;
+  text-shadow: none;
+}
+.wx-cond {
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+.wx-cond b {
+  font-size: 20px;
+  font-weight: 600;
+}
+.wx-icon {
+  margin: 0;
+  line-height: 0;
+}
+.wx-icon .wx-art-i {
+  animation: none;
+  filter: none;
+}
+.wx-hl {
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wx-hl i {
+  display: inline-block;
+  width: 14px;
+}
+.wx-feel {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+}
+.wx-hero-foot {
+  justify-content: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 0;
+  border: 0;
+  font-size: 12.5px;
+}
+.wx-more {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* The next hours, today's sentence on top of them (as iOS's Weather). */
+.wx-say {
+  grid-column: 1 / -1;
+  margin: 2px 8px 8px;
+  padding-bottom: 10px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.18);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.wx-hours {
+  padding: 12px 6px 8px;
+}

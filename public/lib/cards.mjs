@@ -61,20 +61,11 @@ export function topArea(f, { page, now }) {
     </div>
     ${
       f
-        ? `<div class="wx-now">
-      <div class="wx-now-l">
-        <div class="wx-temp">${deg(n.temp)}</div>
-        <p class="wx-cond"><b>${e(n.condition?.text || '')}</b><span>體感 ${deg(n.feels)}</span></p>
-      </div>
-      <span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 112 })}</span>
-    </div>
-    <div class="wx-hilo">
-      <div><span>最高</span><b>${deg(d?.hi)}</b><small>體感 ${deg(d?.feelsHi)}</small></div>
-      <div><span>最低</span><b>${deg(d?.lo)}</b><small>體感 ${deg(d?.feelsLo)}</small></div>
-      <div><span>降雨</span><b>${pct(h0?.pop)}</b><small>濕度 ${pct(n.humidity)}</small></div>
-    </div>
-    ${f.headline ? `<p class="wx-headline">${e(f.headline)}</p>` : ''}
-    <div class="wx-hero-foot"><span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? `更新於 ${e(ago(f.at, now))}` : ''}</span><span class="wx-more">今天詳情${glyph('chevR', { size: 16 })}</span></div>`
+        ? `<div class="wx-temp">${deg(n.temp)}</div>
+    <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(n.condition?.text || '')}</b></p>
+    <p class="wx-hl">最高 ${deg(d?.hi)}<i></i>最低 ${deg(d?.lo)}</p>
+    <p class="wx-feel">體感 ${deg(n.feels)} · 降雨 ${pct(h0?.pop)} · 濕度 ${pct(n.humidity)}</p>
+    <div class="wx-hero-foot"><span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? `更新於 ${e(ago(f.at, now))}` : ''}</span><span class="wx-more">今天詳情${glyph('chevR', { size: 14 })}</span></div>`
         : ''
     }
   </section>${alerts}${f ? hourStrip(f, { now, key: page.key }) : ''}`;
@@ -92,6 +83,7 @@ export function hourStrip(f, { now, key }) {
   const span = Math.max(1, Math.max(...temps) - lo);
   return `
   <section class="q-card wx-hours" aria-label="接下來 24 小時">
+    ${f.headline ? `<p class="wx-say">${e(f.headline)}</p>` : ''}
     ${cols
       .map((h, i) => {
         const date = dateOf(h.t, f.tz);
