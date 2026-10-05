@@ -82,7 +82,6 @@ function renderDots() {
 const pageEl = page => document.querySelector(`.wx-page[data-key="${page.key}"]`);
 // The sky of the place in view fills the screen, as iOS's Weather does: the
 // body takes the page's sky classes, Safari's bar its top colour.
-const SKY_TOP = { 'clear day': '#1d64d8', 'part day': '#2f5fae', 'cloud day': '#414d64', 'rain day': '#172235', 'rain night': '#172235', 'storm day': '#161126', 'storm night': '#161126', 'clear night': '#060a22', 'part night': '#060a22', 'cloud night': '#0f1218' };
 function paintSky() {
   const page = state.pages[state.index];
   const hero = page && pageEl(page)?.querySelector('.wx-hero');
@@ -94,7 +93,8 @@ function paintSky() {
   if (want) body.classList.add(...want.split(' '));
   body.dataset.sky = want;
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.content = (m && SKY_TOP[`${m[1]} ${m[2]}`]) || '#0a0b0f';
+  // (Dark whatever the weather: Safari's bar the page's own colour.)
+  if (meta) meta.content = '#0a0b0f';
 }
 function renderPage(page) {
   const el = pageEl(page);

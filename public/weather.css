@@ -1679,15 +1679,14 @@ svg.ch {
   font-size: 12px;
   font-weight: 700;
 }
+/* One line, never a second row (the words are kept short to fit). */
 .wx-metric-sub {
-  min-height: 30px;
   color: var(--q-muted);
   font-size: 11px;
   line-height: 1.35;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .wx-spark {
   display: block;
@@ -2179,9 +2178,10 @@ svg.ch {
    paintSky puts its sky classes on the body), the top is words on the sky,
    and every card is a tint of glass over it. The sheets keep the kit's own
    colours; only the bar and the pages take the glass ones. */
+/* (Since 2026-10-05: dark, the owner's wish; the sky's colours fill no
+   longer the screen, only its moving layer, rain, stars, cloud, stays.) */
 body[data-sky]:not([data-sky='']) {
-  background: var(--sky) fixed;
-  background-color: #0a0b0f;
+  background: #0a0b0f;
 }
 body[data-sky]:not([data-sky='']) .q-appbar {
   background: transparent;
@@ -2190,8 +2190,8 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 }
 .wx-pager,
 .q-appbar {
-  --q-surface: rgba(12, 18, 32, 0.24);
-  --q-surface-2: rgba(12, 18, 32, 0.3);
+  --q-surface: rgba(255, 255, 255, 0.06);
+  --q-surface-2: rgba(255, 255, 255, 0.09);
   --q-sunken: rgba(255, 255, 255, 0.1);
   --q-border: rgba(255, 255, 255, 0.1);
   --q-divider: rgba(255, 255, 255, 0.12);
@@ -2200,13 +2200,7 @@ body[data-sky]:not([data-sky='']) .q-appbar {
   --q-muted: rgba(255, 255, 255, 0.62);
   --q-shadow-sm: none;
 }
-/* Rain and storm skies are dark already: a lighter glass reads better. */
-.sky-rain .wx-pager,
-.sky-storm .wx-pager,
-.sky-night .wx-pager {
-  --q-surface: rgba(255, 255, 255, 0.08);
-  --q-surface-2: rgba(255, 255, 255, 0.1);
-}
+
 .wx-pager .q-card,
 .wx-pager .wx-life,
 .wx-pager .wx-tile {

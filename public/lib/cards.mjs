@@ -130,10 +130,15 @@ export const dayText = (date, now, tz) => `${dayLabel(date, now, tz)} ${shortDat
 
 // The 10 days, a column each (for the bars).
 export function daysCols(f, now) {
+  // Today: the highest chance of the hours still ahead, where you'll be then
+  // (the hourly graph's), not the forecast's whole day (its gone hours, and
+  // every place's at once), so the two say the same.
+  const today = dateOf(now, f.tz);
+  const ahead = hoursFrom(f, now).filter(h => dateOf(h.t, f.tz) === today && h.pop != null);
   return (f.days || [])
-    .filter(d => d.date >= dateOf(now, f.tz))
+    .filter(d => d.date >= today)
     .slice(0, 10)
-    .map(d => ({ date: d.date, label: dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: d.pop, mm: d.mm, uvMax: d.uvMax, daily: true }));
+    .map(d => ({ date: d.date, label: dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: d.date === today && ahead.length ? Math.max(...ahead.map(h => h.pop)) : d.pop, mm: d.mm, uvMax: d.uvMax, daily: true }));
 }
 // The daylight days ahead: [{ date, hours (6–18時, from now on) }].
 export function uvDays(f, now) {
@@ -178,13 +183,22 @@ export function uvCard(f, { now, ranges }) {
 }
 
 // The next rain, said once.
-export function rainSummary(hours, tz, now) {
-  const next = hours.find(h => h.pop >= 50);
+// When it starts and how high it gets, from the hours the graph shows
+// (`hours`), so the line and the graph's peak are the same number.
+// `short`: for a small tile (one line): when it starts, today without saying so.
+export function rainSummary(hours, tz, now, { short = false } = {}) {
+  const list = hours.slice(0, 48).filter(h => h.pop != null);
+  const peakFrom = from => list.filter(h => h.t >= from.t && dateOf(h.t, tz) === dateOf(from.t, tz)).reduce((a, h) => (h.pop > a.pop ? h : a), from);
+  const next = list.find(h => h.pop >= 50);
   if (!next) {
-    const top = hours.slice(0, 48).reduce((a, h) => (h.pop > (a?.pop ?? -1) ? h : a), null);
-    return top && top.pop >= 30 ? `${dayLabel(dateOf(top.t, tz), now, tz)} ${hourOf(top.t, tz)}時 ${top.pop}%` : '兩天內不太會下雨';
+    const top = list.reduce((a, h) => (h.pop > (a?.pop ?? -1) ? h : a), null);
+    if (short) return top && top.pop >= 30 ? `${hourOf(top.t, tz)}時最高 ${top.pop}%` : '兩天內不太會下';
+    return top && top.pop >= 30 ? `${dayLabel(dateOf(top.t, tz), now, tz)} ${hourOf(top.t, tz)}時最高 ${top.pop}%` : '兩天內不太會下雨';
   }
-  return next.t <= now ? `正在下或快下（${next.pop}%）` : `${dayLabel(dateOf(next.t, tz), now, tz)} ${hourOf(next.t, tz)}時起 ${next.pop}%`;
+  const top = peakFrom(next);
+  if (short) return next.t <= now ? `正在下 ${next.pop}%` : `${dateOf(next.t, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.t, tz), now, tz)}${hourOf(next.t, tz)}時起 ${next.pop}%`;
+  const peak = top !== next && top.pop > next.pop ? `，${hourOf(top.t, tz)}時最高 ${top.pop}%` : '';
+  return next.t <= now ? `正在下或快下（${next.pop}%${peak}）` : `${dayLabel(dateOf(next.t, tz), now, tz)} ${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`;
 }
 
 export function rainCard(f, { now, ranges }) {
@@ -435,7 +449,7 @@ export function rainTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
   if (!hours.length) return '';
   const next = hours.slice(0, 24);
-  return tile({ kind: 'rain', key, icon: glyph('umbrella', { size: 16 }), title: '降雨', value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now)), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
+  return tile({ kind: 'rain', key, icon: glyph('umbrella', { size: 16 }), title: '降雨', value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
 }
 export function uvTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
@@ -444,14 +458,14 @@ export function uvTile(f, { now, key }) {
   const list = (day?.hours || []).filter(h => h.uv != null);
   const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
   const nowUv = f.now?.uv ?? hours[0]?.uv;
-  const sub = peak ? `${dayLabel(day.date, now, f.tz)}最高 ${peak.uv}（${hourOf(peak.t, f.tz)}時）` : '';
+  const sub = peak ? `${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時` : '';
   return tile({ kind: 'uv', key, icon: glyph('sun', { size: 16 }), title: '紫外線', value: `${nowUv ?? '–'}<small>${uvLevel(nowUv) || ''}</small>`, color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
 }
 export function airTile(f, { now, key }) {
   const a = f.air;
   if (!a) return '';
   const cols = airCols(f, now);
-  return tile({ kind: 'air', key, icon: glyph('air', { size: 16 }), title: '空氣', value: `${a.aqi ?? '–'}<small>${e(a.level || '')}</small>`, color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'} · ${cols.length - 1} 天預報`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
+  return tile({ kind: 'air', key, icon: glyph('air', { size: 16 }), title: '空氣', value: `${a.aqi ?? '–'}<small>${e(a.level || '')}</small>`, color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
 }
 export function metricTiles(f, opts) {
   const tiles = [rainTile(f, opts), uvTile(f, opts), airTile(f, opts)].filter(Boolean);
