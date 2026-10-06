@@ -2082,20 +2082,9 @@ svg.ch {
 .wx-sheet.is-closing::backdrop {
   animation: wx-fade 0.2s ease reverse forwards;
 }
+/* (The grabber is the kit's, .q-sheet::before: one, not two.) */
 .wx-sheet .q-sheet-head {
-  padding-top: 22px;
   touch-action: none;
-}
-.wx-sheet .q-sheet-head::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  width: 38px;
-  height: 4px;
-  margin-left: -19px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--q-text) 24%, transparent);
 }
 .wx-day-sheet {
   touch-action: pan-y;
