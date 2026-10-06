@@ -938,7 +938,6 @@ body {
 /* Sheets: a pin, the settings, a day. */
 .wx-sheet {
   width: min(560px, 100vw);
-  border-top: 1px solid var(--q-border);
   background: var(--q-surface);
 }
 .wx-sheet .q-sheet-head {
@@ -960,9 +959,9 @@ body {
   min-height: 44px;
   box-sizing: border-box;
   padding: 0 12px;
-  border: 1px solid var(--q-border);
+  border: 1px solid transparent;
   border-radius: var(--q-radius-sm);
-  background: var(--q-sunken);
+  background: var(--q-fill, var(--q-sunken));
   color: var(--q-text);
   font: 16px var(--q-font);
 }
@@ -1209,8 +1208,8 @@ body {
   gap: 8px;
   align-items: center;
   padding: 10px 10px 10px 8px;
-  border: 1px solid var(--q-border);
-  border-radius: 16px;
+  border: 1px solid transparent;
+  border-radius: 18px;
   background: var(--q-surface);
 }
 .wx-life-icon {
