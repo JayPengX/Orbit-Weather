@@ -14,7 +14,7 @@ real station measurements, and learns which to trust
 
 ## A page, top to bottom
 
-1. Where (to the village, 里, from the device's position), now, today's high
+1. Where (the township, 鄉鎮市區, from the device's position), now, today's high
    and low with 體感 beside each, one sentence, when it was updated; a tap
    anywhere on it opens today. Under it, the next 24 hours every 3 hours (a
    column opens its day).

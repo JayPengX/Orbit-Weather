@@ -43,12 +43,28 @@ function buildPages() {
     // 我的行程 first, once there's a pin: the weather where you'll be.
     ...(state.data.pins.length ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
     { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
-    ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town, village: pin.village } }))
+    ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town } }))
   ];
 }
 const pageOf = key => state.pages.find(p => p.key === key);
 // A page's forecast: its cell's; 我的行程's, the places' made one.
-const forecastOf = page => (page.plan ? routeForecast(state.data.pins, forecastFor, Date.now()) : page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
+// The device off the plan: its place is fresh (half an hour) and over 2 km
+// from the pin the plan has you at now. Then the plan takes here for this
+// hour and the next (where you actually are), its pins after that.
+const OFF_PLAN_KM = 2;
+const kmBetween = (a, b) => {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return 6371 * Math.hypot(x, y);
+};
+function liveRoute(now = Date.now()) {
+  const here = state.local.here;
+  const pin = placeAt(state.data.pins, now);
+  if (!here || here.lat == null || now - (here.at || 0) > 30 * 60_000 || !pin) return null;
+  return kmBetween(here, pin) > OFF_PLAN_KM ? { until: Math.floor(now / 3_600_000) * 3_600_000 + 2 * 3_600_000 } : null;
+}
+const forecastOf = page => (page.plan ? routeForecast(state.data.pins, forecastFor, Date.now(), liveRoute()) : page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
 const forecastFor = key => {
   const page = pageOf(key);
   return page && !page.plan ? forecastOf(page) : null;
@@ -102,9 +118,9 @@ function renderPage(page) {
   const now = Date.now();
   if (page.plan) {
     // Where the route has you now, for the top.
-    const cur = placeAt(state.data.pins, now);
+    const cur = liveRoute(now) ? null : placeAt(state.data.pins, now);
     page.pin = cur;
-    page.place = cur ? { county: cur.county, town: cur.town, village: cur.village } : pageOf('here')?.place || null;
+    page.place = cur ? { county: cur.county, town: cur.town } : pageOf('here')?.place || null;
   }
   const f = forecastOf(page);
   const top = el.scrollTop;
@@ -117,8 +133,8 @@ function renderPage(page) {
 const planPage = () => state.pages.find(p => p.plan);
 // What a page was drawn from: drawn again only when it changes (or the hour turns).
 const drawnSig = page => {
-  const f = page.plan ? state.pages.filter(p => !p.plan).map(p => forecastOf(p)?.at || 0).join() : forecastOf(page)?.at || page.error || 0;
-  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.village || ''}`;
+  const f = page.plan ? `${state.pages.filter(p => !p.plan).map(p => forecastOf(p)?.at || 0).join()}|${liveRoute() ? 'here' : ''}` : `${forecastOf(page)?.at || page.error || 0}|${page.lat ?? ''},${page.lon ?? ''}`;
+  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}`;
 };
 
 
@@ -151,7 +167,9 @@ function goTo(i) {
 // ---- Loading a page's forecast -------------------------------------------------------------
 
 async function loadPage(page, { force = false } = {}) {
-  if (!page || page.loading) return;
+  if (!page) return;
+  // Asked while it's loading (a new position as the old one loads): once more after.
+  if (page.loading) return void (page.again = true);
   // The plan needs every place: each loaded in turn, the plan redrawn as they come.
   if (page.plan) {
     if (page.drawn !== drawnSig(page)) renderPage(page);
@@ -169,9 +187,10 @@ async function loadPage(page, { force = false } = {}) {
     if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
     else {
       // Where the network said: the page takes the forecast's own place.
+      // (Each answer's own place: the network's guess moves as you do.)
       page.ipForecast = f;
       page.ipAt = Date.now();
-      page.place = page.place || f.place;
+      page.place = f.place || page.place;
     }
     page.error = '';
     saveLocal(state.local);
@@ -186,13 +205,17 @@ async function loadPage(page, { force = false } = {}) {
   } finally {
     page.loading = false;
     pageEl(page)?.classList.remove('is-loading');
+    if (page.again) {
+      page.again = false;
+      setTimeout(() => loadPage(page), 0);
+    }
     renderPage(page);
     const plan = planPage();
     if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
   }
 }
 
-// Where the device is: as precise as it gives, to the village. Asked each
+// Where the device is: as precise as it gives, to the township. Asked each
 // time the app opens (the phone remembers the permission).
 async function locate() {
   state.permission = await permissionState();
@@ -205,8 +228,10 @@ async function locate() {
     }
     return loadPage(here);
   }
+  state.locatedAt = Date.now();
   let pos = await getPosition(navigator, { high: true, timeout: 8000 });
-  if (pos.error === 'timeout') pos = await getPosition(navigator, { high: false, timeout: 5000, maximumAge: 30 * 60_000 });
+  // (No fix in time: a coarser one, but never one from long ago, which is where you were.)
+  if (pos.error === 'timeout') pos = await getPosition(navigator, { high: false, timeout: 6000, maximumAge: 2 * 60_000 });
   if (pos.error) {
     if (pos.error === 'denied') state.permission = 'denied';
     here.note = state.local.here ? '無法定位，顯示上次的位置' : '無法定位，顯示大約位置';
@@ -216,7 +241,10 @@ async function locate() {
   here.note = pos.acc > 1000 ? '大約位置' : '';
   const moved = !state.local.here || Math.abs(state.local.here.lat - pos.lat) > 0.001 || Math.abs(state.local.here.lon - pos.lon) > 0.001;
   let place = state.local.here?.place || null;
-  if (moved || !place?.village) {
+  if (moved || !place?.town) {
+    // A failed lookup keeps the last place's name only if it's still where you are (within 1 km).
+    const was = state.local.here;
+    if (moved && (!was || kmBetween(was, pos) > 1)) place = null;
     try {
       const token = await q.ensureToken();
       const w = await fetchWhere(pos.lat, pos.lon, token);
@@ -314,13 +342,13 @@ async function pinSheet(pin = null) {
   if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: `最多 ${MAX_PINS} 個釘選地點`, body: '先刪掉一個再新增。' });
   const here = state.local.here;
   const draft = pin ? { ...pin } : { id: newPinId(), name: '', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00', lat: here?.lat, lon: here?.lon, ...(here?.place || {}) };
-  const where = () => [draft.county, draft.town, draft.village].filter(Boolean).join(' ') || '尚未選擇';
+  const where = () => [draft.county, draft.town].filter(Boolean).join(' ') || '尚未選擇';
   const d = sheet(`
     <div class="q-sheet-head"><h2>${pin ? '編輯釘選地點' : '釘選地點'}</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
     <label class="wx-field"><span>名稱</span><input id="pin-name" maxlength="20" placeholder="例如：學校、家" value="${e(draft.name)}"></label>
     <div class="wx-field"><span>地點</span><b id="pin-where">${e(where())}</b></div>
     <div class="wx-row">
-      ${here ? `<button class="q-btn" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}用目前位置${here.place?.village ? `（${e(here.place.village)}）` : ''}</button>` : ''}
+      ${here ? `<button class="q-btn" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}用目前位置${here.place?.town ? `（${e(here.place.town)}）` : ''}</button>` : ''}
     </div>
     <label class="wx-field"><span>或搜尋鄉鎮市區</span><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off"></label>
     <div id="pin-list" class="wx-list"></div>
@@ -354,7 +382,7 @@ async function pinSheet(pin = null) {
     const place = ev.target.closest('[data-place]');
     if (place) {
       const [c, t, la, lo] = place.dataset.place.split('|');
-      Object.assign(draft, { county: c, town: t, village: '', lat: Number(la), lon: Number(lo) });
+      Object.assign(draft, { county: c, town: t, lat: Number(la), lon: Number(lo) });
       d.querySelector('#pin-where').textContent = where();
       list.innerHTML = '';
       qInput.value = '';
@@ -367,7 +395,7 @@ async function pinSheet(pin = null) {
       return;
     }
     if (act === 'here' && here) {
-      Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '', village: here.place?.village || '' });
+      Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '' });
       d.querySelector('#pin-where').textContent = where();
     }
     if (act === 'delete') {
@@ -633,6 +661,8 @@ function tick() {
   if (!page) return;
   if (page.drawn !== drawnSig(page)) renderPage(page);
   loadPage(page);
+  // Left open for hours, carried about: where you are, again every 10 minutes.
+  if (now - (state.locatedAt || 0) > 10 * 60_000) locate();
 }
 setInterval(tick, 60_000);
 

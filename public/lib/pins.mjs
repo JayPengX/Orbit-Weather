@@ -1,4 +1,4 @@
-// Pinned places: a name, a point in Taiwan (to the village), and when it's
+// Pinned places: a name, a point in Taiwan (its township), and when it's
 // "the" place: the days of the week and the hours. Opening the app inside a
 // pin's hours shows that pin; any other time, the current location.
 // Saved on the Quadra Pass (the app's payload), newest wins.
@@ -33,7 +33,6 @@ export function cleanPin(p) {
     lon: Math.round(lon * 1e5) / 1e5,
     county: String(p.county || '').slice(0, 10),
     town: String(p.town || '').slice(0, 10),
-    village: String(p.village || '').slice(0, 10),
     days,
     from: clockOk(p.from) ? p.from : '07:00',
     to: clockOk(p.to) ? p.to : '17:00',

@@ -160,14 +160,15 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
 });
 
 test('the page, top to bottom, one truth, nothing unescaped', () => {
-  const page = { key: 'here', pin: null, place: { county: '臺北市', town: '信義區', village: '西村里<b>' }, lat: 25.034, lon: 121.565 };
+  const page = { key: 'here', pin: null, place: { county: '臺北市', town: '信義區<b>', village: '西村里' }, lat: 25.034, lon: 121.565 };
   const html = pageHtml(forecast, page, { now: NOW });
   const order = ['wx-hero', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '建議', '10 天預報', '更多資訊'].map(k => html.indexOf(k));
   assert.ok(!html.includes('<svg class="ch"'), 'no big graphs on the page: small cards, the graph in a sheet');
   assert.equal((html.match(/class="wx-spark"/g) || []).length, 3);
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
-  assert.match(html, /信義區 西村里&lt;b&gt;/);
+  assert.match(html, /信義區&lt;b&gt;/);
+  assert.ok(!html.includes('西村里'), 'no 村里 anywhere');
   assert.match(html, /最高 30°<i><\/i>最低 23°/);
   assert.match(html, /體感 27° · 降雨 10% · 濕度 94%/);
   assert.match(html, /wx-say">現在陰/, "today’s sentence heads the hours");
@@ -248,7 +249,7 @@ test('proxy calls carry the session; the device keeps a few places', async () =>
   // …but isn't asked for again within RECHECK_MS.
   assert.equal(isFresh({ at: NOW, f: { at: NOW - 2 * 3_600_000 } }, NOW + RECHECK_MS - 1), true);
   assert.equal(cellOf(25.0339, 121.5645), '25.03,121.56');
-  assert.deepEqual(placeLines({ county: '臺北市', town: '信義區', village: '西村里' }), { main: '信義區 西村里', sub: '臺北市' });
+  assert.deepEqual(placeLines({ county: '臺北市', town: '信義區', village: '西村里' }), { main: '信義區', sub: '臺北市' }, 'no 村里, even from an old copy');
   assert.deepEqual(placeLines(null), { main: '', sub: '' });
 });
 
@@ -355,6 +356,23 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.ok(!/更多資訊/.test(html), 'not what doesn\'t matter on the move');
   assert.match(html, /學校·家/, 'a day\'s places in the 10 days');
   assert.equal(routeForecast(pins, () => null, at10), null, 'nothing until the place you\'re in has loaded');
+});
+
+test("my route follows the phone when it's elsewhere: here for now, the pins after", () => {
+  const home = cleanPin({ id: 'phome', name: '家', lat: 25.03, lon: 121.56, county: '臺北市', town: '信義區', days: [], home: true });
+  const sch = cleanPin({ id: 'pschool3', name: '學校', lat: 24.8, lon: 120.97, county: '新竹市', town: '東區', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' });
+  const pins = [home, sch];
+  const mk = base => ({ tz: 'Asia/Taipei', now: { temp: base }, hours: Array.from({ length: 48 }, (_, i) => ({ t: tpe('2026-10-05T00:00:00') + i * H, temp: base })), days: [] });
+  const fc = { phome: mk(22), pschool3: mk(25), here: mk(30) };
+  const at10 = tpe('2026-10-05T10:00:00');
+  // The plan says school; the phone says somewhere else until noon.
+  const f = routeForecast(pins, k => fc[k] || null, at10, { until: tpe('2026-10-05T12:00:00') });
+  assert.equal(f.hours[0].place, '目前位置');
+  assert.equal(f.hours[0].temp, 30);
+  assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T13:00:00')).place, '學校', 'the plan again after');
+  assert.match(f.headline, /^現在在目前位置/);
+  // Without it, the plan as before.
+  assert.equal(routeForecast(pins, k => fc[k] || null, at10).hours[0].place, '學校');
 });
 
 test('notices follow the route: home outside the pins\' hours', () => {

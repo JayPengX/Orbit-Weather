@@ -11,6 +11,10 @@ const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';
 
 export const placeKey = pin => (pin ? pin.id : 'here');
+// Where you are at `t`: the pins' plan, except while the device says you're
+// somewhere else (`live.until`: the hours it's taken as true), then here.
+// A plan says where you usually are; the phone says where you are.
+const at = (pins, t, live) => (live?.until && t < live.until ? null : placeAt(pins, t));
 export const placeName = pin => (pin ? pin.name : '目前位置');
 export const placeIcon = pin => (pin?.home ? '🏠' : pin ? '📌' : '📍');
 
@@ -24,12 +28,12 @@ const hourAt = (f, t) => {
   if (!m) byTime.set(f, (m = new Map(f.hours.map(h => [h.t, h]))));
   return m.get(t) || null;
 };
-export function stitch(pins, forecastFor, from, n) {
+export function stitch(pins, forecastFor, from, n, live = null) {
   const start = Math.floor(from / HOUR) * HOUR;
   const out = [];
   for (let i = 0; i < n; i++) {
     const t = start + i * HOUR;
-    const pin = placeAt(pins, t + 30 * 60_000);
+    const pin = at(pins, t + 30 * 60_000, live);
     const key = placeKey(pin);
     const h = hourAt(forecastFor(key), t);
     out.push({ t, key, pin, h });
@@ -81,9 +85,9 @@ export function adviceSpan(now) {
 }
 
 // What to bring and wear for the whole route: [{ kind, icon, title, text, level }].
-export function planTips(pins, forecastFor, now) {
+export function planTips(pins, forecastFor, now, live = null) {
   const span = adviceSpan(now);
-  const list = stitch(pins, forecastFor, span.from, Math.max(1, Math.ceil((span.to - span.from) / HOUR)));
+  const list = stitch(pins, forecastFor, span.from, Math.max(1, Math.ceil((span.to - span.from) / HOUR)), live);
   const at = x => `${placeName(x.pin)} ${hourOf(x.t, TZ)}時`;
   const tips = [];
   const withH = list.filter(x => x.h);
@@ -143,8 +147,8 @@ const wd = date => '週' + '日一二三四五六'[new Date(date + 'T12:00:00Z')
 // The places' forecasts made one: { tz, now, hours (each with its place),
 // days, air, alerts, advice, headline, at, partial, places } — or null until
 // the place you're in now has loaded.
-export function routeForecast(pins, forecastFor, now) {
-  const cur = placeAt(pins, now);
+export function routeForecast(pins, forecastFor, now, live = null) {
+  const cur = at(pins, now, live);
   const fNow = forecastFor(placeKey(cur));
   if (!fNow) return null;
   const tz = fNow.tz || TZ;
@@ -152,7 +156,7 @@ export function routeForecast(pins, forecastFor, now) {
   const ends = [...new Set([...pins.map(p => p.id), 'here'])].map(k => forecastFor(k)?.hours?.at(-1)?.t || 0);
   const last = Math.max(...ends);
   const span = Math.max(1, Math.floor((last - Math.floor(now / HOUR) * HOUR) / HOUR) + 1);
-  const list = stitch(pins, forecastFor, now, Math.min(span, 240));
+  const list = stitch(pins, forecastFor, now, Math.min(span, 240), live);
   const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: placeName(x.pin) }));
   // The days: the hours where you are make a day's high and low; its rain
   // chance is the highest of the places you're in 7–22時; its words and sun
@@ -160,8 +164,8 @@ export function routeForecast(pins, forecastFor, now) {
   const dates = [...new Set((fNow.days || []).map(d => d.date))];
   const days = dates.map(date => {
     const noonT = Date.parse(`${date}T12:00:00+08:00`);
-    const main = forecastFor(placeKey(placeAt(pins, noonT)))?.days?.find(d => d.date === date) || fNow.days.find(d => d.date === date);
-    const dayList = stitch(pins, forecastFor, Date.parse(`${date}T00:00:00+08:00`), 24);
+    const main = forecastFor(placeKey(at(pins, noonT, live)))?.days?.find(d => d.date === date) || fNow.days.find(d => d.date === date);
+    const dayList = stitch(pins, forecastFor, Date.parse(`${date}T00:00:00+08:00`), 24, live);
     const hs = dayList.map(x => x.h).filter(Boolean);
     const awake = dayList.filter(x => hourOf(x.t, tz) >= 7 && hourOf(x.t, tz) < 22);
     const keys = [...new Set(awake.map(x => x.key))];
@@ -182,8 +186,8 @@ export function routeForecast(pins, forecastFor, now) {
   // Advice: the route's own (rain, clothes, sun, the moves, the places'
   // difference), then the place's for the rest (outdoors, mask, heat where
   // you are by day; laundry, the window at night, sleep, the car at home).
-  const { span: aSpan, tips } = planTips(pins, forecastFor, now);
-  const dayKey = placeKey(placeAt(pins, aSpan.from + Math.floor((aSpan.to - aSpan.from) / 2 / HOUR) * HOUR));
+  const { span: aSpan, tips } = planTips(pins, forecastFor, now, live);
+  const dayKey = placeKey(at(pins, aSpan.from + Math.floor((aSpan.to - aSpan.from) / 2 / HOUR) * HOUR, live));
   const take = (k, kinds) => (forecastFor(k)?.advice || []).filter(a => kinds.includes(a.kind));
   const advice = [
     ...tips.map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}` })),
@@ -211,7 +215,7 @@ export function routeForecast(pins, forecastFor, now) {
     advice.push({ kind: 'week', level: 'info', text: `本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: null } });
   }
   // One sentence: where you are, and the next move.
-  const segs = segments(stitch(pins, forecastFor, now, 36));
+  const segs = segments(stitch(pins, forecastFor, now, 36, live));
   const next = segs[1];
   const nf = next && stayFacts(next);
   const when = next ? `${dayLabel(dateOf(next.from, tz), now, tz) === '今天' ? '' : dayLabel(dateOf(next.from, tz), now, tz)}${clock(next.from, tz)}` : '';

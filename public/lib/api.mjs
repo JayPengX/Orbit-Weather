@@ -17,7 +17,7 @@ const STORE = 'orbit-weather.v2';
 export const cellOf = (lat, lon) => `${(Math.round(lat * 100) / 100).toFixed(2)},${(Math.round(lon * 100) / 100).toFixed(2)}`;
 
 // What this device keeps (signing out wipes it with everything else):
-// { here: { lat, lon, county, town, village, at }, forecasts: { cell: { at,
+// { here: { lat, lon, county, town, at }, forecasts: { cell: { at,
 // f } }, data (the pass's copy, encoded) }.
 export function loadLocal(storage = globalThis.localStorage) {
   try {
@@ -57,7 +57,7 @@ export async function permissionState(nav = globalThis.navigator) {
 }
 
 // The device's position, as precise as it gives within the time (to the
-// village needs ~100 m: Wi-Fi or GPS). { lat, lon, acc } or { error }.
+// township is enough, but Wi-Fi or GPS tells the cell). { lat, lon, acc } or { error }.
 export function getPosition(nav = globalThis.navigator, { timeout = 8000, maximumAge = 5 * 60_000, high = true } = {}) {
   return new Promise(resolve => {
     if (!nav?.geolocation) return resolve({ error: 'unsupported' });
@@ -80,7 +80,7 @@ async function get(path, token, fetchFn) {
 }
 // The forecast for a point, or where the network says (`auto`).
 export const fetchForecast = (where, token, fetchFn = fetch) => get(where.auto ? '/weather?auto=1' : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`, token, fetchFn);
-// The place to the village: { county, town, village }.
+// The place: { county, town }.
 export const fetchWhere = (lat, lon, token, fetchFn = fetch) => get(`/weather/where?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`, token, fetchFn);
 // Taiwan's townships [[county, town, lat, lon]…] for the pin picker.
 export async function fetchPlaces(fetchFn = fetch) {
@@ -89,9 +89,9 @@ export async function fetchPlaces(fetchFn = fetch) {
   return res.json();
 }
 
-// 「信義區 西村里」 and 「臺北市」 for the top of a page.
+// 「信義區」 and 「臺北市」 for the top of a page.
 export function placeLines(place) {
   if (!place) return { main: '', sub: '' };
-  const main = [place.town, place.village].filter(Boolean).join(' ');
+  const main = place.town || '';
   return { main: main || place.county || '', sub: main ? place.county || '' : '' };
 }

@@ -423,7 +423,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [moon ? moonArt(d?.moon?.phase) : glyph('moon'), '月相', moon ? moon[0] : '–', d?.moon?.rise ? `月出 ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · 月落 ${clock(d.moon.set, f.tz)}` : ''}` : ''],
     [glyph('air'), 'PM10 / 臭氧', `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb'],
     [glyph('station'), '附近測站', n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? `${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測` : ''],
-    [glyph('pin'), '位置', page.place?.village ? e(page.place.village) : '–', page.place ? e([page.place.county, page.place.town].filter(Boolean).join(' ')) : '']
+    [glyph('pin'), '位置', page.place?.town ? e(page.place.town) : '–', page.place?.county ? e(page.place.county) : '']
   ];
   return `
   <section class="wx-section">
