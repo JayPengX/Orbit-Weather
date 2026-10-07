@@ -220,7 +220,7 @@ test('a day\'s sheet: its numbers, its charts, its own advice', () => {
   // The day's advice from its own hours.
   const tips = Object.fromEntries(dayTips(forecast, '2026-10-03', NOW).map(t => [t.k, t]));
   assert.equal(tips.umbrella.text, '不用帶', 'the 70% is at midnight, not in the day');
-  assert.match(tips.run.text, /^\d+–\d+時(最好|還可以)（\d+°）$/);
+  assert.match(tips.run.text, /^\d+–\d+時 \d+°$/);
   assert.match(tips.sun.text, /UV 7$/);
   assert.equal(tips.laundry.text, '適合', '10%, partly cloudy');
 });
@@ -326,11 +326,11 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   const { tips, span } = planTips(pins, forecastFor, monday7);
   assert.equal(span.word, '今天');
   const k = Object.fromEntries(tips.map(t => [t.kind, t]));
-  assert.equal(k.umbrella.text, '要帶：學校 15時 70%');
-  assert.match(k.wear.text, /帶件外套（家 \d+時 22°，學校 \d+時 3[12]°）/);
-  assert.equal(k.sun.text, '學校 10時 UV 6');
-  assert.deepEqual(tips.filter(t => t.kind === 'move').map(t => t.text.slice(0, 10)), ['07:00 家→學校', '17:00 學校→家']);
-  assert.match(k.diff.text, /學校比家熱 \d°/);
+  assert.equal(k.umbrella.text, '要帶，15時 70%');
+  assert.match(k.wear.text, /，帶件外套$/);
+  assert.equal(k.sun.text, '10時 UV 6');
+  assert.deepEqual(tips.filter(t => t.kind === 'move').map(t => t.text.split('，')[0]), ['07:00 到學校', '17:00 到家']);
+  assert.match(k.diff.text, /^\d+時學校熱 \d°$/);
   // After 21時: tomorrow's.
   assert.equal(adviceSpan(tpe('2026-10-05T21:30:00')).word, '明天');
   // One forecast for the route, the same shape as a city's: each hour the
@@ -341,11 +341,11 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.equal(f.hours[5].pop, 70, '15時 at school');
   assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).place, '家');
   assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).temp, 22);
-  assert.match(f.headline, /^現在在學校，17:00 到家/);
+  assert.match(f.headline, /^現在在學校；17:00 到家/);
   const monday = f.days.find(d => d.date === '2026-10-05');
   assert.deepEqual(monday.places, ['學校', '家']);
   assert.equal(monday.hi, 31, 'the high from the hours where you are');
-  assert.equal(f.advice.find(a => a.kind === 'umbrella').text, '雨傘：要帶：學校 15時 70%');
+  assert.equal(f.advice.find(a => a.kind === 'umbrella').text, '雨傘：要帶，15時 70%');
   assert.equal(f.advice.find(a => a.kind === 'umbrella').week.days.length > 0, true);
   // The regular page draws it, the route's title on top, the places on the graphs.
   const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });

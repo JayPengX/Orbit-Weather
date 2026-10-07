@@ -78,9 +78,6 @@ export function hourStrip(f, { now, key }) {
   const cols = [];
   for (let i = 0; i < 24 && i < hours.length; i += 3) cols.push(hours[i]);
   if (cols.length < 4) return '';
-  const temps = cols.map(h => h.temp).filter(v => v != null);
-  const lo = Math.min(...temps);
-  const span = Math.max(1, Math.max(...temps) - lo);
   return `
   <section class="q-card wx-hours" aria-label="接下來 24 小時">
     ${f.headline ? `<p class="wx-say">${e(f.headline)}</p>` : ''}
@@ -91,11 +88,10 @@ export function hourStrip(f, { now, key }) {
         // A new day: a line before it, and its name.
         const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
         const label = i === 0 ? '現在' : newDay ? `${dayLabel(date, now, f.tz)}${hr}時` : `${hr}時`;
-        const lift = h.temp == null ? 0 : Math.round(((h.temp - lo) / span) * 14);
         return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hr}時 ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}
-          <b class="wx-hr-v" style="--lift:${lift}px">${deg(h.temp)}</b>
+          <b class="wx-hr-v">${deg(h.temp)}</b>
           <span class="wx-hr-p">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
         </button>`;
       })
@@ -311,7 +307,7 @@ export function dayTips(f, date, now) {
   const hours = (f.hours || []).filter(h => dateOf(h.t, tz) === date);
   const awake = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) < 22);
   const tips = [];
-  const at = h => `${hourOf(h.t, tz)}時${h.place ? `（${h.place}）` : ''}`;
+  const at = h => `${hourOf(h.t, tz)}時`;
   // Rain.
   const wet = awake.reduce((a, h) => ((h.pop ?? -1) > (a?.pop ?? -1) ? h : a), null);
   const pop = wet?.pop ?? d?.pop ?? null;
@@ -320,7 +316,7 @@ export function dayTips(f, date, now) {
   const fl = awake.map(h => h.feels ?? h.temp).filter(v => v != null);
   const lo = fl.length ? Math.min(...fl) : d?.feelsLo ?? d?.lo;
   const hi = fl.length ? Math.max(...fl) : d?.feelsHi ?? d?.hi;
-  if (lo != null && hi != null) tips.push({ k: 'wear', title: '穿著', text: `${WEAR.find(([m]) => lo + (hi - lo) / 3 < m)[1]}${hi - lo >= 7 ? '，早晚加件' : ''}（${Math.round(lo)}–${Math.round(hi)}°）`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
+  if (lo != null && hi != null) tips.push({ k: 'wear', title: '穿著', text: `${WEAR.find(([m]) => lo + (hi - lo) / 3 < m)[1]}${hi - lo >= 7 ? '，早晚加件' : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
   // Running: the best 2 hours, 6–20時.
   const cost = h => {
     const v = h.feels ?? h.temp;
@@ -333,11 +329,11 @@ export function dayTips(f, date, now) {
     const c = (cost(runH[i]) + cost(runH[i + 1])) / 2;
     if (!best || c < best.c) best = { c, h: runH[i] };
   }
-  if (best) tips.push({ k: 'run', title: '跑步', text: `${hourOf(best.h.t, tz)}–${hourOf(best.h.t, tz) + 2}時${best.c < 45 ? '最好' : '還可以'}（${Math.round(best.h.feels ?? best.h.temp)}°）`, lv: best.c < 45 ? 'good' : 'none' });
+  if (best) tips.push({ k: 'run', title: '跑步', text: `${hourOf(best.h.t, tz)}–${hourOf(best.h.t, tz) + 2}時 ${Math.round(best.h.feels ?? best.h.temp)}°`, lv: best.c < 45 ? 'good' : 'none' });
   // Laundry: dry and not overcast.
   if (d) {
     const dry = d.pop != null && d.pop < 20 && !/^CLOUDY|RAIN|SHOWER|THUNDER|DRIZZLE/.test(d.day?.condition?.code || '');
-    tips.push({ k: 'laundry', title: '曬衣', text: dry ? '適合' : d.pop != null && d.pop < 40 ? '可以，但乾得慢' : '不適合，用烘乾', lv: dry ? 'good' : d.pop >= 40 ? 'bad' : 'none' });
+    tips.push({ k: 'laundry', title: '曬衣', text: dry ? '適合' : d.pop != null && d.pop < 40 ? '乾得慢' : '用烘乾', lv: dry ? 'good' : d.pop >= 40 ? 'bad' : 'none' });
   }
   // Sun.
   const sunny = hours.filter(h => h.uv >= 3);
@@ -348,7 +344,7 @@ export function dayTips(f, date, now) {
   // Heat, air, storms, wind (only when they matter).
   if (hi >= 34) tips.push({ k: 'heat', title: '炎熱', text: `體感 ${Math.round(hi)}°，多喝水`, lv: 'yes' });
   const air = f.air?.forecast?.days?.find(x => x.date === date);
-  if (air?.aqi > 100) tips.push({ k: 'mask', title: '口罩', text: `空氣${air.level || '不佳'}（${air.aqi}）`, lv: 'yes' });
+  if (air?.aqi > 100) tips.push({ k: 'mask', title: '口罩', text: `空氣${air.aqi > 150 ? '很差' : '不佳'}，AQI ${air.aqi}`, lv: 'yes' });
   const storm = hours.filter(h => h.thunder >= 40);
   if (storm.length) tips.push({ k: 'thunder', title: '雷雨', text: `${hourOf(storm[0].t, tz)}–${hourOf(storm[storm.length - 1].t, tz) + 1}時可能打雷`, lv: 'yes' });
   const gust = hours.reduce((a, h) => ((h.wind?.gust ?? 0) > (a?.wind?.gust ?? 0) ? h : a), null);
