@@ -7,12 +7,11 @@ export const PROXY = 'https://orbit-workers-proxy.pengzjay.workers.dev';
 // stations' and the air's readings every hour, CWA's township forecast every
 // 6 hours (the proxy keeps a place 15 minutes, its Google forecast 30).
 export const FRESH_MS = 15 * 60_000;
-// An answer the proxy is still refreshing (an old copy, `refreshing`) is
-// asked again this much later, once; nothing is asked twice within RECHECK_MS.
-export const RETRY_MS = 20_000;
+// Nothing is asked twice within RECHECK_MS (but the asks below).
 export const RECHECK_MS = 2 * 60_000;
-// A quick answer (`more`: the proxy is still getting the hours to day 10 and
-// the air forecast): asked again this much later, up to MORE_TRIES times.
+// An answer that isn't the last word (`more`: the proxy is still getting the
+// hours to day 10 and the air forecast; `refreshing`: an old copy, its
+// refresh still going): asked again this much later, up to MORE_TRIES times.
 export const MORE_MS = 4000;
 export const MORE_TRIES = 5;
 const STORE = 'orbit-weather.v2';

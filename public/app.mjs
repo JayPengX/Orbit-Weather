@@ -4,7 +4,7 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, RETRY_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
@@ -194,17 +194,14 @@ async function loadPage(page, { force = false } = {}) {
     }
     page.error = '';
     saveLocal(state.local);
-    // The proxy's quick answer (now, the next two days, the week; `more`):
-    // the hours to day 10 and the air forecast a few seconds behind it,
-    // asked for again then (a few times at most). An old copy the proxy is
-    // refreshing behind it: the new one shortly (once).
+    // Not the last word yet: the proxy's quick answer (now, two days, the
+    // week; `more`: the hours to day 10 and the air forecast follow), or an
+    // old copy whose refresh took longer than the proxy waited
+    // (`refreshing`). Asked again every MORE_MS, MORE_TRIES times at most,
+    // until it's the new one.
     clearTimeout(page.retry);
-    if (f.more && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), MORE_MS);
-    else if (f.refreshing && !f.more && !page.retried) {
-      page.retried = true;
-      page.retry = setTimeout(() => loadPage(page, { force: true }), RETRY_MS);
-    } else page.retried = false;
-    if (!f.more) page.mores = 0;
+    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), MORE_MS);
+    else if (!f.more && !f.refreshing) page.mores = 0;
   } catch (err) {
     page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
   } finally {
