@@ -11,6 +11,10 @@ export const FRESH_MS = 15 * 60_000;
 // asked again this much later, once; nothing is asked twice within RECHECK_MS.
 export const RETRY_MS = 20_000;
 export const RECHECK_MS = 2 * 60_000;
+// A quick answer (`more`: the proxy is still getting the hours to day 10 and
+// the air forecast): asked again this much later, up to MORE_TRIES times.
+export const MORE_MS = 4000;
+export const MORE_TRIES = 5;
 const STORE = 'orbit-weather.v2';
 
 // The proxy caches by 0.01° (about 1 km).
