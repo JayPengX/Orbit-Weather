@@ -158,7 +158,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       const pin = activePin(pins, t) || homePin;
       const p = pin || here;
       if (p && t > now && items.filter(x => x.kind === 'brief').length < days) {
-        items.push({ at: t, kind: 'brief', title: pin ? `${pin.name} 今天天氣` : '今天天氣', tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
+        items.push({ at: t, kind: 'brief', title: pin ? `${pin.name} 今天天氣` : '{place}今天天氣', tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
       }
     }
     if (rainOn && i < days) {
@@ -182,7 +182,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: homePin });
       for (const s of all) {
         if (s.to <= now) continue;
-        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? `${s.pin.name}快下雨了` : '快下雨了', tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
+        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? `${s.pin.name} 快下雨了` : '{place}快下雨了', tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
       }
     }
   }

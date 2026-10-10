@@ -239,11 +239,31 @@ async function loadPage(page, { force = false } = {}) {
   }
 }
 
-// Where the device is: as precise as it gives, to the township. Asked each
-// time the app opens (the phone remembers the permission).
-async function locate() {
+// Where the device is: as precise as it gives, to the township, each time
+// the app opens and every 10 minutes while it's open. Asked of the phone
+// unprompted once: a phone that would ask again (iOS's 「允許一次」, or
+// 「下次詢問」) isn't asked on every open, return and tick (Weather asked again
+// and again where Transit asked once); the last place stands, and 定位 on
+// the page asks.
+const ASKED_KEY = 'orbit-weather.geo.asked';
+async function locate({ force = false } = {}) {
   state.permission = await permissionState();
   const here = pageOf('here');
+  let asked = false;
+  try {
+    asked = localStorage.getItem(ASKED_KEY) === '1';
+  } catch {}
+  here.askable = false;
+  if (!force && state.permission === 'prompt' && asked) {
+    here.askable = true;
+    here.note = state.local.here ? '上次的位置' : '大約位置';
+    if (!state.local.here) here.lat = here.lon = null;
+    renderPage(here);
+    return loadPage(here);
+  }
+  try {
+    localStorage.setItem(ASKED_KEY, '1');
+  } catch {}
   if (state.permission === 'denied') {
     here.note = state.local.here ? '定位已關閉，顯示上次的位置' : '定位已關閉，顯示大約位置';
     if (!state.local.here) {
@@ -652,6 +672,8 @@ document.addEventListener('click', ev => {
     } catch {}
     return document.querySelectorAll('dialog[open]').forEach(d => d.redraw?.());
   }
+  // 定位: where the phone is, asked now (it was left on the last place).
+  if (ev.target.closest('[data-locate]')) return void (ev.stopPropagation(), locate({ force: true }));
   const metric = ev.target.closest('[data-metric]');
   if (metric) return openMetric(metric.dataset.page, metric.dataset.metric);
   if (ev.target.closest('.ch')) return;

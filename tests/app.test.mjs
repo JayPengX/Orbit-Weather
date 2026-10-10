@@ -427,3 +427,11 @@ test("a weekday pin (school) is off on a national holiday: no 到學校 hours or
   useHolidays(null);
   assert.equal(pinActiveAt(school, fri), true);
 });
+
+test('a phone that would ask for its place again is left on the last one, 定位 on the page to ask', async () => {
+  const { topArea } = await import('../public/lib/cards.mjs');
+  const html = topArea(null, { page: { key: 'here', place: { county: '臺北市', town: '信義區' }, note: '上次的位置', askable: true }, now: Date.now() });
+  assert.match(html, /上次的位置/);
+  assert.match(html, /data-locate/);
+  assert.doesNotMatch(topArea(null, { page: { key: 'here', place: { county: '臺北市', town: '信義區' } }, now: Date.now() }), /data-locate/);
+});

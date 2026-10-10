@@ -58,7 +58,7 @@ export function topArea(f, { page, now }) {
     ${fxHtml(sky)}
     <div class="wx-where">
       <h2 class="wx-place">${placeGlyph(page, { size: 18 })}<span>${e(title)}</span></h2>
-      <p class="wx-sub">${e(sub)}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}</p>
+      <p class="wx-sub">${e(sub)}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}${page.askable && !page.pin && !page.plan ? ` <button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}定位</button>` : ''}</p>
     </div>
     ${
       f

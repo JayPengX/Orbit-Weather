@@ -2391,3 +2391,6 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-in-hero .wx-hl, .wx-in-hero .wx-feel { animation-delay: 120ms; }
 @keyframes wx-in-num { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
 @media (prefers-reduced-motion: reduce) { .sk, .wx-in, .wx-in-hero * { animation: none !important; } }
+/* 定位: the phone asked where it is now (left on the last place). */
+.wx-relocate { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 9px; border: 1px solid transparent; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: inherit; font: inherit; font-size: 12px; font-weight: 650; vertical-align: 1px; }
+.wx-relocate:active { transform: scale(0.97); }
