@@ -172,7 +172,8 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.match(html, /最高 30°<i><\/i>最低 23°/);
   assert.match(html, /體感 27° · 降雨 10% · 濕度 94%/);
   assert.match(html, /wx-say">現在陰/, "today’s sentence heads the hours");
-  assert.match(html, /大雨特報/);
+  // No warning banner (the owner, 2026-10-10: rarely useful, and in the way).
+  assert.doesNotMatch(html, /大雨特報|wx-alert/);
   // Advice: today, and the week with a mark a day.
   // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
   assert.match(html, /明天的建議/, 'in the evening, the advice is for tomorrow');
@@ -407,4 +408,22 @@ test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon
   assert.match(moonArt('FULL_MOON'), /<circle cx="12" cy="12" r="9" fill="#f6e3a8"/);
   assert.ok(!/f6e3a8/.test(moonArt('NEW_MOON')), 'nothing lit at new moon');
   assert.match(moonArt('FIRST_QUARTER'), /M12 3A9 9 0 0 1 12 21/, 'the right half lit, waxing');
+});
+
+test("a weekday pin (school) is off on a national holiday: no 到學校 hours or rain watch there; an every-day pin stays", async () => {
+  const { cleanPin, pinActiveAt, placeAt, planNotices, useHolidays } = await import('../public/lib/pins.mjs');
+  const { twHoliday } = await import('#kit/holidays.mjs');
+  const school = cleanPin({ id: 'pschool', name: '學校', lat: 24.8, lon: 121.0, days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00', t: 1 });
+  const gym = cleanPin({ id: 'pgym', name: '健身房', lat: 24.81, lon: 121.01, days: [0, 1, 2, 3, 4, 5, 6], from: '07:00', to: '17:00', t: 1 });
+  const fri = Date.parse('2026-10-09T10:00:00+08:00'); // 國慶日補假
+  const mon = Date.parse('2026-10-12T10:00:00+08:00');
+  useHolidays(date => Boolean(twHoliday(date)));
+  assert.equal(pinActiveAt(school, fri), false);
+  assert.equal(pinActiveAt(school, mon), true);
+  assert.equal(pinActiveAt(gym, fri), true);
+  assert.equal(placeAt([school], fri), null);
+  const rain = planNotices({ pins: [school], now: Date.parse('2026-10-09T05:00:00+08:00'), days: 1, briefOn: false, here: { lat: 25, lon: 121.5 } }).filter(x => x.kind === 'rain');
+  assert.ok(rain.every(x => !x.tag.includes('pschool')));
+  useHolidays(null);
+  assert.equal(pinActiveAt(school, fri), true);
 });

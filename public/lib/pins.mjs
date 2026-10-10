@@ -42,15 +42,25 @@ export function cleanPin(p) {
   };
 }
 
+// Taiwan's national holidays (the kit's holidays.mjs, set by the app once
+// loaded): a pin for weekdays only (school, work) keeps the work calendar,
+// so on 國慶日補假 it isn't where you are and its 到學校 advice and rain
+// watch don't come. A pin for weekends too is kept every day it says.
+let holidayOn = () => false;
+export const useHolidays = fn => (holidayOn = typeof fn === 'function' ? fn : () => false);
+const workPin = pin => !pin.days.includes(0) && !pin.days.includes(6);
+const pinDay = (pin, day, date) => pin.days.includes(day) && !(workPin(pin) && holidayOn(date));
+const dayBefore = date => new Date(Date.parse(`${date}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
+
 // Inside its hours now? (A window past midnight, 22:00–06:00, counts the
 // morning after as the same day's.)
 export function pinActiveAt(pin, t) {
   if (!pin?.days?.length) return false;
-  const { day, min } = taipeiClock(t);
+  const { day, min, date } = taipeiClock(t);
   const from = minutes(pin.from);
   const to = minutes(pin.to);
-  if (from <= to) return pin.days.includes(day) && min >= from && min < to;
-  return (pin.days.includes(day) && min >= from) || (pin.days.includes((day + 6) % 7) && min < to);
+  if (from <= to) return pinDay(pin, day, date) && min >= from && min < to;
+  return (pinDay(pin, day, date) && min >= from) || (pinDay(pin, (day + 6) % 7, dayBefore(date)) && min < to);
 }
 
 // The pin to open on now, or null (the current location).
@@ -157,7 +167,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       // The pins' windows that day, clipped to 07–21, in time order.
       const { day } = taipeiClock(dayStart);
       const segs = pins
-        .filter(p => p.days.includes(day) && minutes(p.from) < minutes(p.to))
+        .filter(p => pinDay(p, day, date) && minutes(p.from) < minutes(p.to))
         .map(p => ({ pin: p, from: Math.max(dayStart, at(date, p.from)), to: Math.min(dayEnd, at(date, p.to)) }))
         .filter(s => s.to > s.from)
         .sort((a, b) => a.from - b.from);

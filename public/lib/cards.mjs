@@ -47,7 +47,8 @@ export function topArea(f, { page, now }) {
   // 我的行程: the route's title, where you are now under it.
   const title = page.plan ? '我的行程' : page.pin ? page.pin.name : place.main || '目前位置';
   const sub = page.plan ? `現在在 ${page.pin ? page.pin.name : '目前位置'}${place.main ? ` · ${place.main}` : ''}` : page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || '目前位置'].filter(Boolean).join(' · ');
-  const alerts = (f?.alerts || []).map(a => `<div class="wx-alert">${glyph('warn', { size: 18 })}<b>${e(a.title)}</b>${a.to ? `<span>至 ${e(clock(a.to, f.tz))}</span>` : ''}</div>`).join('');
+  // (No warning banner under the hero: 陸上強風特報 and the like sat there
+  // most days and said little; the advice tiles speak of wind and rain.)
   const h0 = f ? hoursFrom(f, now)[0] : null;
   const sky = f ? skyOf(n) : 'sky-cloud sky-day';
   const date = f ? d?.date || dateOf(now, f.tz) : null;
@@ -66,9 +67,11 @@ export function topArea(f, { page, now }) {
     <p class="wx-hl">最高 ${deg(d?.hi)}<i></i>最低 ${deg(d?.lo)}</p>
     <p class="wx-feel">體感 ${deg(n.feels)} · 降雨 ${pct(h0?.pop)} · 濕度 ${pct(n.humidity)}</p>
     <div class="wx-hero-foot"><span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? `更新於 ${e(ago(f.at, now))}` : ''}</span><span class="wx-more">今天詳情${glyph('chevR', { size: 14 })}</span></div>`
-        : ''
+        : page.error
+          ? ''
+          : '<div class="wx-temp wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><p class="wx-hl wx-skel-hero" aria-hidden="true"><i class="sk sk-hl"></i></p>'
     }
-  </section>${alerts}${f ? hourStrip(f, { now, key: page.key }) : ''}`;
+  </section>${f ? hourStrip(f, { now, key: page.key }) : ''}`;
 }
 
 // The next 24 hours at a glance, every 3 hours, fitted to the width (the
@@ -481,9 +484,17 @@ export function metricSheet(kind, f, opts) {
 
 // A whole page.
 const SECTIONS = { metrics: metricTiles, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
+// The page before its forecast: the hours strip and two cards, as grey shapes.
+const skeleton = () => `
+  <section class="q-card wx-hours wx-skel" aria-label="正在取得天氣">${Array.from({ length: 8 }, () => '<span class="wx-hr"><i class="sk sk-t"></i><i class="sk sk-ic"></i><i class="sk sk-v"></i></span>').join('')}</section>
+  <section class="q-card wx-skel wx-skel-card" aria-hidden="true"><i class="sk sk-h"></i><i class="sk sk-line"></i><i class="sk sk-line short"></i></section>
+  <section class="q-card wx-skel wx-skel-card" aria-hidden="true"><i class="sk sk-h"></i><i class="sk sk-line"></i><i class="sk sk-line"></i><i class="sk sk-line short"></i></section>`;
+
 export function pageHtml(f, page, { now, cards = Object.keys(SECTIONS), hidden = [], ranges = {} }) {
   const top = topArea(f, { page, now });
-  if (!f) return `${top}<section class="q-card wx-empty">${page.error ? `<p>${e(page.error)}</p><button class="q-btn" type="button" data-act="retry" data-page="${e(page.key)}">再試一次</button>` : '<div class="wx-spin"></div><p>正在取得天氣…</p>'}</section>`;
+  // Not here yet: the page's own shape, shimmering (the numbers take their
+  // places as they come, nothing moves); a failure says so.
+  if (!f) return page.error ? `${top}<section class="q-card wx-empty"><p>${e(page.error)}</p><button class="q-btn" type="button" data-act="retry" data-page="${e(page.key)}">再試一次</button></section>` : `${top}${skeleton()}`;
   const opts = { now, key: page.key, lat: page.lat, lon: page.lon, page, ranges };
   // 我的行程: what matters on the move, in this order.
   if (page.plan) [cards, hidden] = [['metrics', 'advice', 'days'], []];

@@ -5,7 +5,11 @@
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
+// Taiwan's holidays (the kit's), before anything is drawn, so a school pin
+// is off on a holiday from the first screen (an older kit: none, at once).
+const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => null), new Promise(r => setTimeout(r, 1500, null))]);
+if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf, ago } from './lib/format.mjs';
@@ -124,11 +128,29 @@ function renderPage(page) {
   }
   const f = forecastOf(page);
   const top = el.scrollTop;
+  // What was on the page: its sections by kind, and whether it had a forecast.
+  const before = new Set([...el.querySelectorAll(':scope > section')].map(sectionKind));
+  const had = el.dataset.has === '1';
   el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
   el.scrollTop = top;
+  el.dataset.has = f ? '1' : '';
+  // The forecast's first answer in: the page comes in, top to bottom. Then
+  // each part as it follows (the 10 days, the air): only that part comes in.
+  if (f && (!had || before.size)) {
+    let k = 0;
+    for (const sec of el.querySelectorAll(':scope > section')) {
+      if (had && before.has(sectionKind(sec))) continue;
+      sec.style.setProperty('--in', k++);
+      sec.classList.add('wx-in');
+    }
+    if (!had) el.querySelector('.wx-hero')?.classList.add('wx-in-hero');
+  }
   page.drawn = drawnSig(page);
   paintSky();
 }
+
+// A section's kind (its first class past q-card), to tell a new one from one already shown.
+const sectionKind = sec => [...sec.classList].filter(c => c !== 'q-card' && !c.startsWith('wx-in') && !c.startsWith('sky-')).join(' ');
 
 const planPage = () => state.pages.find(p => p.plan);
 // What a page was drawn from: drawn again only when it changes (or the hour turns).

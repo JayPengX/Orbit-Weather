@@ -366,24 +366,6 @@ body {
   color: #fff;
   font-weight: 650;
 }
-.wx-alert {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--q-bad) 60%, transparent);
-  border-radius: var(--q-radius-sm);
-  background: color-mix(in srgb, var(--q-bad) 18%, transparent);
-}
-.wx-alert .wx-g {
-  color: var(--q-bad);
-}
-.wx-alert span {
-  font-size: 13px;
-  color: var(--q-muted);
-}
-
 /* The cards with graphs. */
 .wx-card {
   padding: 14px 16px 10px;
@@ -2386,3 +2368,26 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-hours {
   padding: 12px 6px 8px;
 }
+
+/* ---- Before the forecast: the page's shape, shimmering; then it comes in ---- */
+.sk { display: block; border-radius: 8px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.07) 100%); background-size: 200% 100%; animation: wx-sk 1.4s ease-in-out infinite; }
+@keyframes wx-sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.sk-temp { width: 132px; height: 72px; margin: 6px auto 4px; border-radius: 18px; }
+.sk-cond { width: 92px; height: 20px; margin: 0 auto; }
+.sk-hl { width: 140px; height: 16px; margin: 4px auto 0; }
+.wx-skel .wx-hr { display: grid; justify-items: center; gap: 8px; padding: 6px 0; }
+.sk-t { width: 26px; height: 12px; }
+.sk-ic { width: 30px; height: 30px; border-radius: 50%; }
+.sk-v { width: 24px; height: 14px; }
+.wx-skel-card { display: grid; gap: 12px; padding: 18px 16px; }
+.sk-h { width: 38%; height: 14px; }
+.sk-line { width: 100%; height: 12px; }
+.sk-line.short { width: 62%; }
+/* In: rising into place one after another, the hero's numbers settling. */
+.wx-in { animation: wx-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--in, 0) * 70ms); }
+@keyframes wx-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } }
+.wx-in-hero .wx-temp, .wx-in-hero .wx-cond, .wx-in-hero .wx-hl, .wx-in-hero .wx-feel, .wx-in-hero .wx-hero-foot { animation: wx-in-num 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.wx-in-hero .wx-cond { animation-delay: 60ms; }
+.wx-in-hero .wx-hl, .wx-in-hero .wx-feel { animation-delay: 120ms; }
+@keyframes wx-in-num { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
+@media (prefers-reduced-motion: reduce) { .sk, .wx-in, .wx-in-hero * { animation: none !important; } }
