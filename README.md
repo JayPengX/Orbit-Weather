@@ -18,6 +18,19 @@ real station measurements, and learns which to trust
    and low with 體感 beside each, one sentence, when it was updated; a tap
    anywhere on it opens today. Under it, the next 24 hours every 3 hours (a
    column opens its day).
+
+   **How the position is found, fast** (`locate` → `locateNow` in
+   `app.mjs`): Wi-Fi's or the cell network's fix first (`getPosition` with
+   `high: false`, 3 s at most, or the phone's own from the last two
+   minutes), and the forecast is asked for it at once; GPS's fix follows
+   (seconds outdoors, many more inside), and the page is asked again only
+   when it lands in another ~1 km cell (`cellOf`). The township's name
+   (`/weather/where`) is asked together with the forecast and drawn with it
+   (`loadPage`'s `naming`), never before it. One locate at a time
+   (`state.locating`). The proxy's quick answer (`more`) is asked again
+   2.5 s later, then every `MORE_MS`. The kit's `holidays.mjs` is fetched
+   with the first files (a `modulepreload` in `index.html`), since
+   `app.mjs` waits for it before its first screen.
 2. 紫外線, 降雨機率, 空氣品質: a card each with its graph, hourly for as far
    as the forecast goes (10 days; air: the last 48 hours measured, then the
    coming days' forecast), swiped sideways, the time and date under it, a
