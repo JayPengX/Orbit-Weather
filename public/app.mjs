@@ -194,7 +194,8 @@ function goTo(i) {
 
 // ---- Loading a page's forecast -------------------------------------------------------------
 
-async function loadPage(page, { force = false } = {}) {
+// `naming`: the place's name on its way, drawn with the forecast.
+async function loadPage(page, { force = false, naming = null } = {}) {
   if (!page) return;
   // Asked while it's loading (a new position as the old one loads): once more after.
   if (page.loading) return void (page.again = true);
@@ -212,6 +213,7 @@ async function loadPage(page, { force = false } = {}) {
     const token = await q.ensureToken();
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
     const f = await fetchForecast(page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true }, token);
+    await naming;
     if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
     else {
       // Where the network said: the page takes the forecast's own place.
@@ -225,10 +227,11 @@ async function loadPage(page, { force = false } = {}) {
     // Not the last word yet: the proxy's quick answer (now, two days, the
     // week; `more`: the hours to day 10 and the air forecast follow), or an
     // old copy whose refresh took longer than the proxy waited
-    // (`refreshing`). Asked again every MORE_MS, MORE_TRIES times at most,
+    // (`refreshing`). Asked again 2.5 s later (the proxy's rest is often in
+    // by then), then every MORE_MS, MORE_TRIES times at most,
     // until it's the new one.
     clearTimeout(page.retry);
-    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), MORE_MS);
+    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? 2500 : MORE_MS);
     else if (!f.more && !f.refreshing) page.mores = 0;
   } catch (err) {
     page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
@@ -279,34 +282,69 @@ async function locate({ force = false } = {}) {
     return loadPage(here);
   }
   state.locatedAt = Date.now();
-  let pos = await getPosition(navigator, { high: true, timeout: 8000 });
-  // (No fix in time: a coarser one, but never one from long ago, which is where you were.)
-  if (pos.error === 'timeout') pos = await getPosition(navigator, { high: false, timeout: 6000, maximumAge: 2 * 60_000 });
-  if (pos.error) {
+  // One at a time (an open, a return and the tick can ask together).
+  if (state.locating) return state.locating;
+  state.locating = locateNow(here).finally(() => (state.locating = null));
+  return state.locating;
+}
+// Wi-Fi's or the cell network's fix first (under a second, or the phone's
+// own from the last two minutes), the forecast asked for it at once; GPS's
+// after it, which takes seconds outdoors and many more inside, the page
+// again only when it's another cell. (GPS's alone, the forecast waited for
+// it: up to 8 s, 14 s with the coarser try after.)
+async function locateNow(here) {
+  const quick = await getPosition(navigator, { high: false, timeout: 3000, maximumAge: 2 * 60_000 });
+  if (quick.error === 'denied') state.permission = 'denied';
+  const fine = quick.error === 'denied' ? null : getPosition(navigator, { high: true, timeout: quick.error ? 10_000 : 15_000, maximumAge: 30_000 });
+  if (!quick.error) await placeHere(here, quick);
+  const pos = fine ? await fine : quick;
+  if (!pos.error) {
+    // (Within the quick one's cell: only its accuracy is news.)
+    if (!quick.error && cellOf(pos.lat, pos.lon) === cellOf(quick.lat, quick.lon)) {
+      const note = pos.acc > 1000 ? '大約位置' : '';
+      state.local.here = { ...state.local.here, lat: pos.lat, lon: pos.lon, at: Date.now() };
+      saveLocal(state.local);
+      Object.assign(here, { lat: pos.lat, lon: pos.lon });
+      if (here.note !== note) ((here.note = note), renderPage(here));
+    } else await placeHere(here, pos);
+  } else if (quick.error) {
     if (pos.error === 'denied') state.permission = 'denied';
     here.note = state.local.here ? '無法定位，顯示上次的位置' : '無法定位，顯示大約位置';
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
   }
+  sendNotices();
+}
+// The page at a fix: its forecast and its township's name asked together,
+// drawn together (the name used to be waited for before the forecast was asked).
+async function placeHere(here, pos) {
   here.note = pos.acc > 1000 ? '大約位置' : '';
-  const moved = !state.local.here || Math.abs(state.local.here.lat - pos.lat) > 0.001 || Math.abs(state.local.here.lon - pos.lon) > 0.001;
-  let place = state.local.here?.place || null;
-  if (moved || !place?.town) {
-    // A failed lookup keeps the last place's name only if it's still where you are (within 1 km).
-    const was = state.local.here;
-    if (moved && (!was || kmBetween(was, pos) > 1)) place = null;
-    try {
-      const token = await q.ensureToken();
-      const w = await fetchWhere(pos.lat, pos.lon, token);
-      if (w?.county) place = w;
-    } catch {}
-  }
+  const was = state.local.here;
+  const moved = !was || Math.abs(was.lat - pos.lat) > 0.001 || Math.abs(was.lon - pos.lon) > 0.001;
+  let place = was?.place || null;
+  // A failed lookup keeps the last place's name only if it's still where you are (within 1 km).
+  if (moved && (!was || kmBetween(was, pos) > 1)) place = null;
   state.local.here = { lat: pos.lat, lon: pos.lon, place, at: Date.now() };
   saveLocal(state.local);
   Object.assign(here, { lat: pos.lat, lon: pos.lon, place });
-  renderPage(here);
-  await loadPage(here);
-  sendNotices();
+  const naming =
+    moved || !place?.town
+      ? q
+          .ensureToken()
+          .then(token => fetchWhere(pos.lat, pos.lon, token))
+          .then(w => {
+            if (!w?.county || state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
+            state.local.here.place = here.place = w;
+            saveLocal(state.local);
+          })
+          .catch(() => {})
+      : null;
+  await loadPage(here, { naming });
+  // (A forecast already kept for the cell: the name, once it's in.)
+  if (naming) {
+    await naming;
+    if (here.drawn !== drawnSig(here)) renderPage(here);
+  }
 }
 
 // ---- The pins on the pass ---------------------------------------------------------------

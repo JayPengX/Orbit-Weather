@@ -48,6 +48,9 @@
      Shared-Proxy and every app has it the next time it's opened. -->
 <script>!function(b,v,q,m,f,i){try{v=localStorage.getItem('quadra.kit')||''}catch(e){v=''}q=v?'?v='+encodeURIComponent(v):'';m={'#kit/':b};f=['quadra.mjs','logos.mjs','names.mjs','photos.mjs','catalog.mjs'];for(i=0;i<f.length;i++)m['#kit/'+f[i]]=b+f[i]+q;window.QUADRA_KIT={base:b,version:v,url:function(x){return b+x+q}};document.write('<script type="import'+'map">'+JSON.stringify({imports:m})+'<\/script><link rel="stylesheet" href="'+b+'quadra.css'+q+'"><link rel="modulepreload" href="'+b+'quadra.mjs'+q+'"><link rel="modulepreload" href="'+b+'brand.mjs'+q+'">')}('../Shared-Proxy/kit/')</script>
 <!-- /kit:head -->
+<!-- The kit's holidays (app.mjs waits for them before its first screen),
+     asked with everything else, not a round trip after app.mjs runs. -->
+<script>document.write('<link rel="modulepreload" href="'+QUADRA_KIT.base+'holidays.mjs">')</script>
 <link rel="stylesheet" href="./weather.css" />
 </head>
 <body>
