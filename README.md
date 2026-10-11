@@ -44,6 +44,27 @@ township) and days and hours: opening the app inside them shows that pin,
 any other time the current location. Saved on the Quadra Pass
 (`lib/pins.mjs`, payload `w1:`), newest wins per pin.
 
+## 我的行程
+
+`lib/plan.mjs`: a page like any other, but each hour is the forecast of
+the place you're in then.
+- **Where you are when**: the pins say it (school on weekdays 07–17…), and
+  home (a pin marked so, else the device's place) the rest of the time.
+- **The phone wins**: while the device says you're somewhere else
+  (`live.until`), that place is taken instead. A plan says where you
+  usually are; the phone says where you are.
+- **Drawing**: `routeForecast` stitches the places' forecasts into one, in
+  the same shape, so the same cards draw it.
+- **Holidays** (the kit's `holidays.mjs`, read before the first screen): a
+  school pin is off on Taiwan's days off, so there is no 到學校 advice.
+
+## One number, one meaning
+
+The line, the graph and the 10-day row read the same hours (TRUTH §7,
+Weather). The proxy gives one value per quantity, the blend, and never
+which source said what. That is kept only in the cell's KV entry for the
+scoring, which moves the blend's weights (Shared-Proxy README §3.2).
+
 ## Notices
 
 The kit's (switches in the account sheet: 早晨天氣, 降雨提醒). The brief at
@@ -59,14 +80,54 @@ last); the rain watch 07:00–21:00 each day, split by the pins' hours.
 | `public/lib/cards.mjs` | A page's sections, as HTML |
 | `public/lib/graph.mjs` | The graphs (SVG): UV, rain, air, a day's |
 | `public/lib/pins.mjs` | Pins: hours, the pass's copy, where each notice is for |
+| `public/lib/plan.mjs` | 我的行程: where you are each hour, the forecasts stitched |
 | `public/lib/format.mjs`, `sun.mjs` | Labels and colours; sunrise / sunset worked out |
 | `public/lib/icons.mjs` | The app's own pictures (no emoji): weather by kind, line glyphs, the moon |
 | `#kit/quadra.mjs` (the page's `kit:head`, `kit:boot`) | The kit, loaded from Shared-Proxy's Pages (`Shared-Proxy/kit/loader.html`) |
 | `public/sw.js` | Offline, like the other Quadra apps; shows notices |
 
-## Develop
+## Where the data comes from
 
-- `npm test` (Node 22, no dependencies).
-- See it signed in, with data: `node tools/preview.mjs weather` in
-  Shared-Proxy (screenshots; `--store`, `--click`, `--eval`).
-- Push to `main` deploys (tests, `scripts/stamp-version.mjs`, Pages).
+All of it comes from `/weather` on Shared-Proxy's `orbit-workers-proxy`
+(`weather.js`), signed in with the pass, 30 a minute a session:
+
+| Read | What |
+| --- | --- |
+| `GET /weather?lat=&lon=` (`?auto=1` by IP until the position is known) | The blended forecast for the ~1 km cell: hourly and daily for 10 days, now, air, UV, the nearest station's measurement, `at` (when made), `partial` (a source missing) |
+| `GET /weather/where` | The township (縣市 / 鄉鎮市區), NLSC's point query |
+| `GET /weather/places` | Every township, for the pin picker |
+
+The Worker keeps each cell 15 minutes in KV, answers one under 3 hours at
+once while it refreshes, and stays inside Google's daily budget. A source
+that fails is covered by its last good copy (under 6 hours).
+
+The app keeps this device's copies (`api.mjs`) and opens on them at once,
+then refreshes behind (§Fresh). Weather has no dev door: tests and the
+preview tool use the saved fixtures (`weather.js`'s `?sample=`).
+
+## Develop, test, deploy
+
+```bash
+npm test
+```
+
+```bash
+node ../Shared-Proxy/tools/preview.mjs weather --webkit
+```
+
+- **Tests**: `npm test` (Node 22, no dependencies), `tests/app.test.mjs`.
+- **The preview tool**: Taipei 101 by default, the forecast from
+  `weather.js` on the saved fixtures (`--no-geo` refuses the position;
+  `--store`, `--click`, `--eval`).
+- **Deploy**: a push to `main` runs the tests, stamps versions
+  (`scripts/stamp-version.mjs`) and deploys to Pages; the kit puts a new
+  deploy in place at once.
+
+## What depends on what
+
+| If you change… | Also check |
+| --- | --- |
+| A field the page reads | Shared-Proxy's `weather.js` (the answer's shape) and its tests' fixtures |
+| What a graph or the 10-day row shows | Every place that reads the same hours (one number, one meaning) |
+| A notice | The kit's `weather:brief` / `weather:rain` kinds and the Worker's `weather` check in `push.js` (`weatherCheck`) |
+| Pins' shape (`w1:`) | Older copies opening; `plan.mjs`'s routing; each notice's place |
