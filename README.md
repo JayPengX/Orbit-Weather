@@ -73,7 +73,7 @@ the place you're in then.
 
 ## One number, one meaning
 
-The line, the graph and the 10-day row read the same hours (TRUTH §7,
+The line, the graph and the 10-day row read the same hours (TRUTH §14,
 Weather). The proxy gives one value per quantity, the blend, and never
 which source said what. That is kept only in the cell's KV entry for the
 scoring, which moves the blend's weights (Shared-Proxy README §3.2).
