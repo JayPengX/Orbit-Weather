@@ -7,6 +7,11 @@ export const PROXY = 'https://orbit-workers-proxy.pengzjay.workers.dev';
 // stations' and the air's readings every hour, CWA's township forecast every
 // 6 hours (the proxy keeps a place 15 minutes, its Google forecast 30).
 export const FRESH_MS = 15 * 60_000;
+// Older than this, a saved forecast is shown as old (faded now, 更新中 at
+// the top) until the new one comes; older than HIDE_MS it isn't shown at
+// all while the new one is asked for (only when that fails, marked old).
+export const OLD_MS = 30 * 60_000;
+export const HIDE_MS = 6 * 3_600_000;
 // Nothing is asked twice within RECHECK_MS (but the asks below).
 export const RECHECK_MS = 2 * 60_000;
 // An answer that isn't the last word (`more`: the proxy is still getting the

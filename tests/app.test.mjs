@@ -435,3 +435,16 @@ test('a phone that would ask for its place again is left on the last one, 定位
   assert.match(html, /data-locate/);
   assert.doesNotMatch(topArea(null, { page: { key: 'here', place: { county: '臺北市', town: '信義區' } }, now: Date.now() }), /data-locate/);
 });
+
+test('an old forecast says so at the top: its now faded, 更新中 or 無法更新 in the 更新於 line', async () => {
+  const { topArea } = await import('../public/lib/cards.mjs');
+  const now = Date.parse(forecast.now?.time || '2026-10-08T12:00:00+08:00') || Date.now();
+  const page = { key: 'here', place: { county: '臺北市', town: '信義區' } };
+  const fresh = topArea({ ...forecast, at: now - 5 * 60_000 }, { page, now });
+  assert.doesNotMatch(fresh, /wx-stale/);
+  const old = topArea({ ...forecast, at: now - 2 * 3_600_000 }, { page, now });
+  assert.match(old, /wx-hero[^"]*wx-old/);
+  assert.match(old, /2 小時前的資料/);
+  assert.doesNotMatch(old, /class="wx-age"/);
+  assert.match(topArea({ ...forecast, at: now - 2 * 3_600_000 }, { page: { ...page, error: 'x' }, now }), /無法更新/);
+});

@@ -4,7 +4,7 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen (an older kit: none, at once).
@@ -68,7 +68,13 @@ function liveRoute(now = Date.now()) {
   if (!here || here.lat == null || now - (here.at || 0) > 30 * 60_000 || !pin) return null;
   return kmBetween(here, pin) > OFF_PLAN_KM ? { until: Math.floor(now / 3_600_000) * 3_600_000 + 2 * 3_600_000 } : null;
 }
-const forecastOf = page => (page.plan ? routeForecast(state.data.pins, forecastFor, Date.now(), liveRoute()) : page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null);
+// (A copy hours old isn't shown while the new one is on its way: it read
+// as today's. Kept for when the read fails, marked old.)
+const forecastOf = page => {
+  if (page.plan) return routeForecast(state.data.pins, forecastFor, Date.now(), liveRoute());
+  const f = page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null;
+  return f && !page.error && Date.now() - (Number(f.at) || 0) > HIDE_MS ? null : f;
+};
 const forecastFor = key => {
   const page = pageOf(key);
   return page && !page.plan ? forecastOf(page) : null;
@@ -681,6 +687,9 @@ document.addEventListener('click', ev => {
   if (go) return goTo(Number(go.dataset.go));
   const stay = ev.target.closest('[data-go-key]');
   if (stay) return goTo(state.pages.findIndex(p => p.key === stay.dataset.goKey));
+  // The old-copy chip on the top: asked again now (not today's sheet).
+  const stale = ev.target.closest('.wx-stale');
+  if (stale) return void (ev.stopPropagation(), loadPage(pageOf(stale.dataset.page), { force: true }));
   const day = ev.target.closest('[data-day][data-page]');
   if (day) return openDay(day.dataset.page, day.dataset.day);
   const act = ev.target.closest('[data-act]')?.dataset.act;
@@ -703,6 +712,7 @@ function tick() {
   if (document.visibilityState !== 'visible' || !state.started) return;
   const now = Date.now();
   for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = `更新於 ${ago(Number(el.dataset.at), now)}`;
+  for (const el of document.querySelectorAll('.wx-stale-age[data-at]')) el.textContent = `${ago(Number(el.dataset.at), now)}的資料`;
   const page = state.pages[state.index];
   if (!page) return;
   if (page.drawn !== drawnSig(page)) renderPage(page);

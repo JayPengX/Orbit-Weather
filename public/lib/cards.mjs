@@ -6,7 +6,7 @@ import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel,
 import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
-import { placeLines } from './api.mjs';
+import { placeLines, OLD_MS } from './api.mjs';
 import { scheduleText } from './pins.mjs';
 
 const HOUR = 3_600_000;
@@ -53,8 +53,15 @@ export function topArea(f, { page, now }) {
   const sky = f ? skyOf(n) : 'sky-cloud sky-day';
   const date = f ? d?.date || dateOf(now, f.tz) : null;
   const open = f ? ` role="button" tabindex="0" data-day="${e(date)}" data-page="${e(page.key)}" aria-label="今天的詳細預報"` : '';
+  // An old copy (OLD_MS) says so at the top and fades its "now" until the
+  // new one is in: 更新中 while asked (the page's .is-loading), 無法更新
+  // when the read failed, tap to try again.
+  const old = f && f.at && now - f.at > OLD_MS;
+  const stale = old
+    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">更新中</b><b class="wx-stale-failed">${page.error ? '無法更新' : '等待更新'}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(ago(f.at, now))}的資料</span></button>`
+    : '';
   return `
-  <section class="wx-hero ${sky}"${open}>
+  <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
     ${fxHtml(sky)}
     <div class="wx-where">
       <h2 class="wx-place">${placeGlyph(page, { size: 18 })}<span>${e(title)}</span></h2>
@@ -66,7 +73,7 @@ export function topArea(f, { page, now }) {
     <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(n.condition?.text || '')}</b></p>
     <p class="wx-hl">最高 ${deg(d?.hi)}<i></i>最低 ${deg(d?.lo)}</p>
     <p class="wx-feel">體感 ${deg(n.feels)} · 降雨 ${pct(h0?.pop)} · 濕度 ${pct(n.humidity)}</p>
-    <div class="wx-hero-foot"><span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? `更新於 ${e(ago(f.at, now))}` : ''}</span><span class="wx-more">今天詳情${glyph('chevR', { size: 14 })}</span></div>`
+    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? `更新於 ${e(ago(f.at, now))}` : ''}</span>`}<span class="wx-more">今天詳情${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
           : '<div class="wx-temp wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><p class="wx-hl wx-skel-hero" aria-hidden="true"><i class="sk sk-hl"></i></p>'

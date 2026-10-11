@@ -359,6 +359,52 @@ body {
   border-radius: 50%;
   animation: wx-spin 0.8s linear infinite;
 }
+/* An old copy on the top (cards.mjs topArea): what it is, said plainly,
+   and its "now" faded so it isn't read as now. */
+.wx-stale {
+  /* In the 更新於 line's place: nothing moves when it goes. */
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: -4px 0;
+  padding: 4px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.wx-stale b { font-weight: 700; }
+.wx-stale .wx-stale-age { color: rgba(255, 255, 255, 0.78); }
+.wx-stale .wx-spin {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: wx-spin 0.8s linear infinite;
+}
+.wx-stale .wx-stale-busy { display: none; }
+.is-loading .wx-stale .wx-stale-busy { display: inline; }
+.is-loading .wx-stale .wx-stale-failed { display: none; }
+.wx-stale:not(.failed) .wx-spin { display: none; }
+.is-loading .wx-stale .wx-spin { display: inline-block; }
+.wx-stale.failed { background: rgba(160, 30, 30, 0.55); }
+.is-loading .wx-stale.failed { background: rgba(0, 0, 0, 0.32); }
+.wx-stale.failed .wx-spin { display: none; }
+.is-loading .wx-stale.failed .wx-spin { display: inline-block; }
+.wx-old .wx-temp,
+.wx-old .wx-cond,
+.wx-old .wx-hl,
+.wx-old .wx-feel { opacity: 0.42; transition: opacity 0.3s; }
+.wx-old .wx-hero-foot .wx-age::before { display: none; }
 .wx-more {
   display: inline-flex;
   align-items: center;
