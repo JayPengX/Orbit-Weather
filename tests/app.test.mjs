@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
-import { uvGraph, rainGraph, airGraph, dayGraph, readout, CHART_W } from '../public/lib/graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { pageHtml, airCols, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
@@ -152,11 +152,20 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   assert.equal(readout('air', cols[2], 'Asia/Taipei'), '明天 10/3 · AQI 55 普通');
   assert.equal(readout('uv', daysCols(forecast, NOW)[1], 'Asia/Taipei'), '明天 10/3 · 最高 UV 7');
   assert.equal(readout('uv', null), '');
-  const day = dayGraph(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
+  const day = dayCharts(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
   assert.match(day, /class="ch-tline"/);
   assert.match(day, /最高 \d+°/, 'the day\'s high and low marked');
   assert.equal((day.match(/<svg class="ch/g) || []).length, 3, 'temperature, rain, UV');
   assert.match(day, /<i class="ch-xh" hidden>/, 'no crosshair until a finger is on it');
+  // One frame: the scale in a gutter on the right, the lines never under it.
+  assert.match(day, /data-pw="310"/);
+  for (const [, x] of day.matchAll(/class="ch-val ch-big" x="([\d.]+)"/g)) assert.ok(Number(x) <= 310, 'the high and low inside the plot, never under the scale');
+  // A dry day: no rain chart, the header says so.
+  const dryHours = shown.filter(h => dateOf(h.t) === '2026-10-04').map(h => ({ ...h, pop: 0, mm: 0 }));
+  const dry = dayCharts(dryHours, { tz: 'Asia/Taipei' });
+  assert.ok(!dry.includes('ch-dayrain'), 'no flat line at 0%');
+  assert.match(dry, /不會下雨/);
+  assert.match(dayCharts(dryHours.map((h, i) => ({ ...h, pop: i === 3 ? 5 : 0 })), { tz: 'Asia/Taipei' }), /最高 5%/);
 });
 
 test('the page, top to bottom, one truth, nothing unescaped', () => {

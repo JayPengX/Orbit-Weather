@@ -16,9 +16,11 @@ export const HIDE_MS = 6 * 3_600_000;
 export const RECHECK_MS = 2 * 60_000;
 // An answer that isn't the last word (`more`: the proxy is still getting the
 // hours to day 10 and the air forecast; `refreshing`: an old copy, its
-// refresh still going): asked again this much later, up to MORE_TRIES times.
-export const MORE_MS = 4000;
-export const MORE_TRIES = 5;
+// refresh still going): asked again MORE_FIRST_MS later (the proxy's rest is
+// usually in by then), then every MORE_MS, up to MORE_TRIES times.
+export const MORE_FIRST_MS = 1200;
+export const MORE_MS = 2000;
+export const MORE_TRIES = 7;
 const STORE = 'orbit-weather.v2';
 
 // The proxy caches by 0.01° (about 1 km).

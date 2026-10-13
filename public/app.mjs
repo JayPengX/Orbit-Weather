@@ -4,7 +4,7 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen (an older kit: none, at once).
@@ -227,11 +227,10 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     // Not the last word yet: the proxy's quick answer (now, two days, the
     // week; `more`: the hours to day 10 and the air forecast follow), or an
     // old copy whose refresh took longer than the proxy waited
-    // (`refreshing`). Asked again 2.5 s later (the proxy's rest is often in
-    // by then), then every MORE_MS, MORE_TRIES times at most,
-    // until it's the new one.
+    // (`refreshing`). Asked again MORE_FIRST_MS later, then every MORE_MS,
+    // MORE_TRIES times at most, until it's the new one.
     clearTimeout(page.retry);
-    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? 2500 : MORE_MS);
+    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? MORE_FIRST_MS : MORE_MS);
     else if (!f.more && !f.refreshing) page.mores = 0;
   } catch (err) {
     page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';

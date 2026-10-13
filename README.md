@@ -27,8 +27,9 @@ real station measurements, and learns which to trust
    when it lands in another ~1 km cell (`cellOf`). The township's name
    (`/weather/where`) is asked together with the forecast and drawn with it
    (`loadPage`'s `naming`), never before it. One locate at a time
-   (`state.locating`). The proxy's quick answer (`more`) is asked again
-   2.5 s later, then every `MORE_MS`. The kit's `holidays.mjs` is fetched
+   (`state.locating`). The proxy's quick answer (`more`) or an old copy it's
+   still refreshing (`refreshing`) is asked again 1.2 s later
+   (`MORE_FIRST_MS`), then every 2 s (`MORE_MS`), 7 times at most. The kit's `holidays.mjs` is fetched
    with the first files (a `modulepreload` in `index.html`), since
    `app.mjs` waits for it before its first screen.
 2. 紫外線, 降雨機率, 空氣品質: a card each with its graph, hourly for as far
@@ -36,7 +37,11 @@ real station measurements, and learns which to trust
    coming days' forecast), swiped sideways, the time and date under it, a
    tap reads an hour out.
 3. 建議: umbrella, sunscreen, what to wear, mask, heat, the week.
-4. 10 天預報: tap a day for its own graph, everything on one.
+4. 10 天預報: tap a day (or the top) for its sheet: the day's numbers, then
+   temperature (feels-like dashed, the high and low marked), rain (a bar an
+   hour, the amount darker; a dry day says 不會下雨 instead of a chart) and
+   UV on the same hours, the scale in a gutter on the right
+   (`dayCharts`); a finger on them reads each hour.
 5. 更多資訊: wind, pressure, humidity, dew point, visibility, cloud, sun and
    moon, the nearest station's measurement, the place.
 
@@ -45,7 +50,8 @@ real station measurements, and learns which to trust
 Asked again once the numbers are 15 minutes old (by when the proxy made
 them, `f.at`): on opening, on coming back to the app, on a swipe, and every
 minute's check while it's on screen. An old copy the proxy is still
-refreshing is asked again 20 s later. The proxy matches its sources: Google
+refreshing is asked again 1.2 s later, then every 2 s (the proxy waits up
+to 4 s for a refresh before answering with the old copy). The proxy matches its sources: Google
 current every 15 minutes, its forecast every 30; stations and air hourly;
 CWA's township forecast every 6 hours.
 

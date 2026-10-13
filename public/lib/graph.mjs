@@ -168,12 +168,13 @@ export function spark(values, { max, stops, w = 120, h = 40, bars = false }) {
 export function colAt(svg, clientX) {
   const r = svg.getBoundingClientRect();
   const n = Number(svg.dataset.n);
-  return Math.max(0, Math.min(n - 1, Math.floor(((clientX - r.left) / r.width) * n)));
+  const pw = Number(svg.dataset.pw) || CHART_W;
+  return Math.max(0, Math.min(n - 1, Math.floor(((clientX - r.left) / r.width) * (CHART_W / pw) * n)));
 }
 export function colSpot(svg, i) {
   const n = Number(svg.dataset.n);
   const y = svg.dataset.ys.split(',')[i];
-  return { x: r1((i + 0.5) * (CHART_W / n)), y: y === '' || y == null ? null : Number(y) };
+  return { x: r1((i + 0.5) * ((Number(svg.dataset.pw) || CHART_W) / n)), y: y === '' || y == null ? null : Number(y) };
 }
 
 const hourText = (t, tz, every) => {
@@ -211,56 +212,139 @@ export function airGraph(cols, { tz } = {}) {
 
 export { uvColor, aqiColor, rainColor };
 
-// One day (the 10 days' sheet): a big temperature chart (temperature and
-// feels-like, the high and low marked), then rain and UV under it on the
-// same hours, each fitted to the width. The crosshair over all three is the
-// app's, shown only while a finger is on them.
+// One day (the 10 days' sheet): temperature (and feels-like, the high and
+// low marked), then rain and UV under it on the same hours. All three share
+// one frame: the plot DAY_PW wide, the scale in the gutter on its right (so
+// no number sits on a line), the hours under each. Rain is a bar an hour
+// (the amount darker inside it); a dry day has no rain chart, its header
+// says so. The crosshair over all three is the app's, shown only while a
+// finger is on them.
+export const DAY_PW = CHART_W - 30;
+const DAY_TOP = 20;
+const DAY_UNDER = 24;
+// Temperature's colours, cold to hot (the line and its fill).
+const TEMP_STOPS = [[8, '#5ac8fa'], [16, '#4fd1c5'], [21, '#9be15d'], [25, '#ffd43b'], [29, '#ff9f0a'], [33, '#ff453a'], [37, '#d0367a']];
+const mix = (a, b, t) => `#${[0, 2, 4].map(k => Math.round(parseInt(a.slice(1 + k, 3 + k), 16) * (1 - t) + parseInt(b.slice(1 + k, 3 + k), 16) * t).toString(16).padStart(2, '0')).join('')}`;
+const colourAt = (stops, v) => {
+  if (v <= stops[0][0]) return stops[0][1];
+  const j = stops.findIndex(([s]) => s >= v);
+  if (j < 0) return stops[stops.length - 1][1];
+  const [s0, c0] = stops[j - 1];
+  const [s1, c1] = stops[j];
+  return mix(c0, c1, (v - s0) / (s1 - s0));
+};
+
 export function dayCharts(hours, { tz } = {}) {
   const n = hours.length;
   if (!n) return '';
-  const w = CHART_W / n;
+  const w = DAY_PW / n;
   const x = i => r1((i + 0.5) * w);
-  const top = 28;
-  const ph = 160;
-  const base = top + ph;
-  const H = base + 26;
+  const id = ++made;
+  const under = h => (hourOf(h.t, tz) % 3 === 0 ? `${hourOf(h.t, tz)}時` : '');
+  // A panel: the grid and its scale, the base, the hours; `body` draws on it.
+  const panel = ({ cls, graph, label, ph, ticks, yOf, body, ys }) => {
+    const base = DAY_TOP + ph;
+    const out = [];
+    for (const [v, text] of ticks) out.push(`<line class="ch-grid" x1="0" x2="${DAY_PW}" y1="${yOf(v)}" y2="${yOf(v)}"/><text class="ch-ax" x="${CHART_W}" y="${r1(yOf(v) + 3.5)}">${text}</text>`);
+    out.push(`<line class="ch-base" x1="0" x2="${DAY_PW}" y1="${base}" y2="${base}"/>`, ...body);
+    let last = -99;
+    hours.forEach((h, i) => {
+      const t = under(h);
+      if (!t || x(i) - last < 30) return;
+      last = x(i);
+      out.push(`<text class="ch-t" x="${r1(Math.min(DAY_PW - 12, Math.max(12, x(i))))}" y="${base + 17}">${t}</text>`);
+    });
+    return `<svg class="ch ${cls}" data-graph="${graph}" data-n="${n}" data-pw="${DAY_PW}" data-ys="${ys || ''}" viewBox="0 0 ${CHART_W} ${base + DAY_UNDER}" role="img" aria-label="${label}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
+  };
+  // A smooth line coloured by its value, a fill under it fading to nothing.
+  const line = (key, { lo, hi, ph, stops, cls = 'ch-dl', fill = true }) => {
+    const base = DAY_TOP + ph;
+    const y = v => r1(base - ((v - lo) / (hi - lo)) * ph);
+    const pts = hours.map((h, i) => (h[key] == null ? null : [x(i), y(h[key])])).filter(Boolean);
+    if (!pts.length) return { y, body: [] };
+    const gid = `dl${id}-${key}`;
+    const steps = 6;
+    const grad = `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${base}" y2="${DAY_TOP}">${Array.from({ length: steps + 1 }, (_, k) => `<stop offset="${r1((k / steps) * 100)}%" stop-color="${colourAt(stops, lo + ((hi - lo) * k) / steps)}"/>`).join('')}</linearGradient>`;
+    const fade = `<linearGradient id="${gid}f" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="${gid}m" maskContentUnits="userSpaceOnUse"><rect x="0" y="${DAY_TOP - 12}" width="${DAY_PW}" height="${base - DAY_TOP + 12}" fill="url(#${gid}f)"/></mask>`;
+    const d = smooth(pts, DAY_TOP - 12, base);
+    const a = pts[0];
+    const z = pts[pts.length - 1];
+    return { y, body: [`<defs>${grad}${fill ? fade : ''}</defs>`, fill && pts.length > 1 ? `<path d="${d}L${z[0]},${base}L${a[0]},${base}Z" fill="url(#${gid})" mask="url(#${gid}m)"/>` : '', `<path class="${cls}" d="${d}" stroke="url(#${gid})"/>`] };
+  };
+  // A marked value: a dot on the line, its words just above it (the high)
+  // or under it (the low), the other way when there's no room; kept inside
+  // the plot, a halo of the sheet's colour where they cross a line.
+  const mark = (i, yDot, text, { above, base }) => {
+    const up = above ? yDot - 11 >= 12 : yDot + 21 > base - 2;
+    const tx = x(i);
+    const anchor = tx < 34 ? 'start' : tx > DAY_PW - 34 ? 'end' : 'middle';
+    const ax = anchor === 'start' ? Math.max(2, tx - 6) : anchor === 'end' ? Math.min(DAY_PW, tx + 6) : tx;
+    return `<circle class="ch-hl" cx="${tx}" cy="${yDot}" r="4.5"/><text class="ch-val ch-big" x="${r1(ax)}" y="${r1(up ? yDot - 11 : yDot + 21)}" style="text-anchor:${anchor}">${text}</text>`;
+  };
+
+  // Temperature and feels-like on one scale, whole 2 or 5 degrees marked.
   const vals = hours.flatMap(h => [h.temp, h.feels]).filter(v => v != null);
   let lo = Math.floor(Math.min(...vals)) - 1;
   let hi = Math.ceil(Math.max(...vals)) + 1;
-  if (hi - lo < 8) [lo, hi] = [(hi + lo) / 2 - 4, (hi + lo) / 2 + 4];
-  const y = v => r1(base - ((v - lo) / (hi - lo)) * ph);
-  const pts = key => hours.map((h, i) => (h[key] == null ? null : [x(i), y(h[key])])).filter(Boolean);
-  const out = [`<defs><linearGradient id="dt${++made}" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#fb923c" stop-opacity=".45"/><stop offset="100%" stop-color="#fb923c" stop-opacity="0"/></linearGradient></defs>`];
-  const gid = `dt${made}`;
-  // Faint lines at whole 2 or 5 degrees.
+  if (hi - lo < 8) [lo, hi] = [Math.floor((hi + lo) / 2 - 4), Math.ceil((hi + lo) / 2 + 4)];
+  const tph = 136;
+  const tbase = DAY_TOP + tph;
+  const tLine = line('temp', { lo, hi, ph: tph, stops: TEMP_STOPS, cls: 'ch-tline' });
+  const fLine = line('feels', { lo, hi, ph: tph, stops: TEMP_STOPS, cls: 'ch-fline', fill: false });
+  const ty = tLine.y;
   const stepT = hi - lo > 14 ? 5 : 2;
-  for (let v = Math.ceil(lo / stepT) * stepT; v < hi; v += stepT) out.push(`<line class="ch-grid" x1="0" x2="${CHART_W}" y1="${y(v)}" y2="${y(v)}"/><text class="ch-ax" x="${CHART_W - 2}" y="${r1(y(v) - 3)}">${v}°</text>`);
-  const tp = pts('temp');
-  const tl = smooth(tp, top - 12, base);
-  if (tp.length > 1) out.push(`<path d="${tl}L${tp[tp.length - 1][0]},${base}L${tp[0][0]},${base}Z" fill="url(#${gid})"/>`);
-  out.push(`<path class="ch-fline" d="${smooth(pts('feels'), top - 12, base)}"/><path class="ch-tline" d="${tl}"/>`);
+  const tTicks = [];
+  for (let v = Math.ceil(lo / stepT) * stepT; v < hi; v += stepT) tTicks.push([v, `${v}°`]);
   const iHi = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp > hours[a].temp) ? i : a), -1);
   const iLo = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp < hours[a].temp) ? i : a), -1);
-  for (const [i, up] of [[iHi, true], [iLo, false]]) {
-    if (i < 0) continue;
-    out.push(`<circle class="ch-hl" cx="${x(i)}" cy="${y(hours[i].temp)}" r="4.5"/><text class="ch-val ch-big" x="${Math.min(CHART_W - 16, Math.max(16, x(i)))}" y="${r1(up || y(hours[i].temp) + 22 > base - 4 ? y(hours[i].temp) - 12 : y(hours[i].temp) + 22)}">${up ? '最高 ' : '最低 '}${Math.round(hours[i].temp)}°</text>`);
+  const marks = [];
+  if (iHi >= 0) marks.push(mark(iHi, ty(hours[iHi].temp), `最高 ${Math.round(hours[iHi].temp)}°`, { above: true, base: tbase }));
+  if (iLo >= 0 && iLo !== iHi) marks.push(mark(iLo, ty(hours[iLo].temp), `最低 ${Math.round(hours[iLo].temp)}°`, { above: false, base: tbase }));
+  const temp = panel({ cls: 'ch-daytemp', graph: 'day', label: '這一天的溫度與體感', ph: tph, ticks: tTicks, yOf: ty, body: [fLine.body[0], ...tLine.body.slice(0, 2), fLine.body[2], tLine.body[2], ...marks], ys: hours.map(h => (h.temp == null ? '' : ty(h.temp))).join(',') });
+
+  // Rain: a bar an hour, its chance; the amount darker inside (10 mm = 40%).
+  const maxPop = Math.max(0, ...hours.map(h => h.pop ?? 0));
+  const wet = hours.some(h => h.mm >= 0.1);
+  const dry = maxPop < 10 && !wet;
+  let rain = '';
+  if (!dry) {
+    const rph = 70;
+    const rbase = DAY_TOP + rph;
+    const ry = v => r1(rbase - (Math.max(0, Math.min(100, v)) / 100) * rph);
+    const bw = r1(Math.max(2, Math.min(9, w * 0.62)));
+    const body = [];
+    hours.forEach((h, i) => {
+      if (!(h.pop > 0)) return;
+      body.push(`<rect class="ch-rbar" x="${r1(x(i) - bw / 2)}" y="${ry(h.pop)}" width="${bw}" height="${r1(Math.max(2, rbase - ry(h.pop)))}" rx="${r1(Math.min(3, bw / 2))}" fill="${[...RAIN_STOPS].reverse().find(([v]) => h.pop >= v)[1]}"/>`);
+      if (h.mm >= 0.1) {
+        const mh = r1(Math.max(2, Math.min(1, h.mm / 10) * rph * 0.4));
+        body.push(`<rect class="ch-inner" x="${r1(x(i) - bw / 2)}" y="${r1(rbase - mh)}" width="${bw}" height="${mh}" rx="${r1(Math.min(3, bw / 2))}"/>`);
+      }
+    });
+    const iMax = hours.findIndex(h => h.pop === maxPop);
+    const lx = x(iMax);
+    const anchor = lx < 20 ? 'start' : lx > DAY_PW - 20 ? 'end' : 'middle';
+    body.push(`<text class="ch-val" x="${r1(anchor === 'start' ? Math.max(2, lx - bw / 2) : anchor === 'end' ? lx + bw / 2 : lx)}" y="${r1(Math.max(12, ry(maxPop) - 6))}" style="text-anchor:${anchor}">${maxPop}%</text>`);
+    rain = panel({ cls: 'ch-dayrain', graph: 'day-rain', label: '這一天的降雨機率', ph: rph, ticks: [[50, '50%'], [100, '100%']], yOf: ry, body });
   }
-  out.push(`<line class="ch-base" x1="0" x2="${CHART_W}" y1="${base}" y2="${base}"/>`);
-  hours.forEach((h, i) => {
-    const hr = hourOf(h.t, tz);
-    if (hr % 3 === 0) out.push(`<text class="ch-t" x="${Math.min(CHART_W - 12, Math.max(12, x(i)))}" y="${base + 18}">${hr}時</text>`);
-  });
-  const temp = `<svg class="ch ch-daytemp" data-graph="day" data-n="${n}" data-ys="${hours.map(h => (h.temp == null ? '' : y(h.temp))).join(',')}" viewBox="0 0 ${CHART_W} ${H}" role="img" aria-label="這一天的溫度與體感" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
-  const under = h => (hourOf(h.t, tz) % 3 === 0 ? `${hourOf(h.t, tz)}時` : '');
-  const rain = chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: '這一天的降雨機率', grid: [50], minLabel: 20, fmt: v => `${Math.round(v)}%`, height: 84, dates: false });
-  const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: 11, stops: UV_STOPS, tz, label: '這一天的紫外線', grid: [3, 6, 8], minLabel: 1, height: 64, dates: false }) : '';
+
+  // UV: its line coloured by the level, the peak marked.
+  let uv = '';
+  if (hours.some(h => h.uv > 0)) {
+    const uph = 56;
+    const umax = Math.max(11, ...hours.map(h => h.uv ?? 0));
+    const uLine = line('uv', { lo: 0, hi: umax, ph: uph, stops: UV_STOPS, cls: 'ch-uline' });
+    const iMax = hours.reduce((a, h, i) => (h.uv != null && (a < 0 || h.uv > hours[a].uv) ? i : a), -1);
+    const yv = uLine.y(hours[iMax].uv);
+    uv = panel({ cls: 'ch-dayuv', graph: 'day-uv', label: '這一天的紫外線', ph: uph, ticks: [[3, '3'], [6, '6'], [11, '11']], yOf: uLine.y, body: [...uLine.body, mark(iMax, yv, String(hours[iMax].uv), { above: true, base: DAY_TOP + uph })] });
+  }
+
+  const rainNote = dry ? `<span class="wx-dch-note">${maxPop ? `最高 ${maxPop}%` : '不會下雨'}</span>` : wet ? '<span class="l-mm">深色＝雨量</span>' : '';
   return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}溫度 <span class="l-temp">溫度</span><span class="l-feels">體感</span></p>${temp}</div>
-    <div class="wx-dch"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}降雨機率 <span class="l-mm">深色＝雨量</span></p>${rain}</div>
+    <div class="wx-dch${dry ? ' is-dry' : ''}"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}降雨機率 ${rainNote}</p>${rain}</div>
     ${uv ? `<div class="wx-dch"><p class="wx-dch-h">${glyph('sun', { size: 16 })}紫外線</p>${uv}</div>` : ''}
     <i class="ch-xh" hidden></i><i class="ch-dh" hidden></i>`;
 }
-// (The old name, for anything still asking for it.)
-export const dayGraph = dayCharts;
 
 // What the crosshair reads at one hour of the day sheet: the time, then
 // every number for it.

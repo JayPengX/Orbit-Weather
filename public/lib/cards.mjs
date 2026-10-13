@@ -377,7 +377,7 @@ export function daySheet(f, date, { now, lat, lon }) {
   const tips = dayTips(f, date, now);
   const places = d?.places?.length ? d.places.join(' → ') : '';
   const sum = `<div class="wx-scrub-time"><b>全天</b><span>${e(places || c.text || '')}</span></div>
-    <div class="wx-scrub-vals">
+    <div class="wx-scrub-vals is-sum">
       <div><span>最高 / 最低</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>體感 ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
       <div><span>降雨</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `約 ${d.mm} mm` : ''}</small></div>
       <div><span>紫外線</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>

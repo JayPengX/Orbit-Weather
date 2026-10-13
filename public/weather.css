@@ -1805,26 +1805,45 @@ svg.ch {
   border-radius: 2px;
 }
 .wx-dch-h .l-temp::before {
-  background: #fff;
+  background: linear-gradient(90deg, #4fd1c5, #ffd43b, #ff9f0a);
 }
 .wx-dch-h .l-feels::before {
-  background: repeating-linear-gradient(90deg, #fbbf24 0 4px, transparent 4px 7px);
+  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.6) 0 4px, transparent 4px 7px);
 }
 .wx-dch-h .l-mm::before {
   height: 8px;
   background: #1d4ed8;
 }
-.ch-tline {
+.wx-dch-h .wx-dch-note {
+  margin-left: auto;
+  color: var(--q-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+.wx-dch-h .wx-dch-note::before {
+  display: none;
+}
+.wx-dch.is-dry {
+  margin-top: 10px;
+  padding: 10px 2px 2px;
+  border-top: 1px solid var(--q-border);
+}
+.wx-dch.is-dry .wx-dch-h {
+  margin: 0;
+}
+.ch-tline,
+.ch-uline {
   fill: none;
-  stroke: #fff;
   stroke-width: 3;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .ch-fline {
   fill: none;
-  stroke: #fbbf24;
-  stroke-width: 2;
-  stroke-dasharray: 5 4;
+  stroke: rgb(255 255 255 / 0.55);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
 }
 .ch-hl {
   fill: #fff;
@@ -1832,13 +1851,17 @@ svg.ch {
   stroke-width: 2.5;
 }
 .ch-big {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 800;
 }
 .ch-ax {
   fill: var(--q-muted);
-  font-size: 10px;
+  font-size: 10.5px;
   text-anchor: end;
+  font-variant-numeric: tabular-nums;
+}
+.ch-rbar {
+  opacity: 0.9;
 }
 .wx-hint {
   margin: 4px 2px 0;
@@ -2440,3 +2463,11 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 /* 定位: the phone asked where it is now (left on the last place). */
 .wx-relocate { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 9px; border: 1px solid transparent; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: inherit; font: inherit; font-size: 12px; font-weight: 650; vertical-align: 1px; }
 .wx-relocate:active { transform: scale(0.97); }
+.wx-dayg .ch-val {
+  stroke: var(--q-sunken);
+}
+/* The day's summary: each column as wide as its words (the air's level is long). */
+.wx-scrub-vals.is-sum {
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
+}
