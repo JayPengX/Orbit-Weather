@@ -114,11 +114,26 @@ export function hourStrip(f, { now, key }) {
 // Each graph fits the card (no sideways scrolling inside a page that swipes
 // sideways); tabs pick the range. The app keeps the choice (`ranges`).
 
+// Every sheet's tabs are days, the way a day is thought of: 今天 (now to
+// midnight; from 18:00 it's 今晚, on to 07:00: the night and the way out in
+// the morning), 明天 (all of it), then the days ahead. UV's are the
+// daylight days ahead, named by their day.
 export const RANGES = {
   uv: [['d0', ''], ['d1', ''], ['10d', '10 天']],
-  rain: [['24', '24 小時'], ['48', '48 小時'], ['10d', '10 天']]
+  rain: [['d0', ''], ['d1', '明天'], ['10d', '10 天']],
+  air: [['d0', ''], ['d1', '明天'], ['days', '每天']]
 };
 export const rangeOf = (kind, ranges) => (RANGES[kind]?.some(([k]) => k === ranges?.[kind]) ? ranges[kind] : RANGES[kind]?.[0][0]);
+const evening = (now, tz) => hourOf(now, tz) >= 18;
+export const tonightName = (now, tz) => (evening(now, tz) ? '今晚' : '今天');
+// The hours of a day tab (`d0`, `d1`) out of a list of hours from now on.
+export function dayHours(list, range, tz, now) {
+  const today = dateOf(now, tz);
+  const tomorrow = dateOf(now + 86_400_000, tz);
+  if (range === 'd1') return list.filter(h => dateOf(h.t, tz) === tomorrow);
+  return list.filter(h => h.t + HOUR > now && (dateOf(h.t, tz) === today || (evening(now, tz) && dateOf(h.t, tz) === tomorrow && hourOf(h.t, tz) < 7)));
+}
+const dayTabs = (kind, now, tz) => RANGES[kind].map(([k, name]) => [k, name || tonightName(now, tz)]);
 
 const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) => `
   <section class="q-card wx-card wx-${cls}">
@@ -159,9 +174,9 @@ export function uvDays(f, now) {
 // A card's columns for its range (the graph's, and the read-out's).
 export function colsFor(kind, f, now, range) {
   if (!f) return [];
-  if (kind === 'air') return airCols(f, now);
+  if (kind === 'air') return range === 'days' || !airHours(f, now).length ? airCols(f, now) : dayHours(airHours(f, now), range, f.tz, now);
   if (range === '10d') return daysCols(f, now);
-  if (kind === 'rain') return hoursFrom(f, now).slice(0, range === '48' ? 48 : 24);
+  if (kind === 'rain') return dayHours(hoursFrom(f, now), range, f.tz, now);
   if (kind === 'uv') return uvDays(f, now)[range === 'd1' ? 1 : 0]?.hours || [];
   return [];
 }
@@ -216,7 +231,7 @@ export function rainCard(f, { now, ranges }) {
   const range = rangeOf('rain', ranges);
   const extra = [n.rainToday != null ? `今日 ${n.rainToday} mm` : '', n.rain1h ? `過去 1 小時 ${n.rain1h} mm` : ''].filter(Boolean).join(' · ');
   const cols = colsFor('rain', f, now, range);
-  return card({ cls: 'rain', icon: glyph('umbrella'), title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', RANGES.rain, range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d' }), foot: [cols.some(c => c.mm >= (range === '10d' ? 0.5 : 0.1)) ? '深色＝雨量' : '', e(extra)].filter(Boolean).join(' · ') });
+  return card({ cls: 'rain', icon: glyph('umbrella'), title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', dayTabs('rain', now, f.tz), range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d', fromNow: range === 'd0' }), foot: [cols.some(c => c.mm >= (range === '10d' ? 0.5 : 0.1)) ? '深色＝雨量' : '', e(extra)].filter(Boolean).join(' · ') });
 }
 
 // The air's columns: now (the station), then the forecast days.
@@ -228,15 +243,20 @@ export function airCols(f, now) {
   return [...(a.aqi != null ? [{ label: '現在', aqi: a.aqi, pm25: a.pm25, now: true }] : []), ...days.map(d => ({ date: d.date, label: dayLabel(d.date, now, f.tz), aqi: d.aqi, main: d.main, daily: true }))];
 }
 
-export function airCard(f, { now }) {
+// The air's hours: its hourly forecast from now on (none where it has none).
+export const airHours = (f, now) => (f.air?.hourly || []).filter(h => h.t + HOUR > now && h.aqi != null);
+
+export function airCard(f, { now, ranges }) {
   const a = f.air;
   if (!a) return '';
-  const cols = airCols(f, now);
+  const hourly = airHours(f, now).length > 0;
+  const range = hourly ? rangeOf('air', ranges) : 'days';
+  const cols = colsFor('air', f, now, range);
   const big = `<div class="wx-big" style="--c:${aqiColor(a.aqi)}">${a.aqi ?? '–'}<small>${e(a.level || '')}</small></div>`;
-  const ahead = cols.filter(c => c.daily && c.date > dateOf(now, f.tz));
   // (The days' worst is the graph's tallest bar: not said again here, so the line stays one line.)
   const summary = `PM2.5 ${a.pm25 ?? '–'} · ${e(a.station?.name || '')} ${a.station?.km ?? '–'} km`;
-  return card({ cls: 'air', icon: glyph('air'), title: '空氣品質', summary, big, graph: airGraph(cols, { tz: f.tz }), foot: `${ahead.length + 1} 天預報 · 點柱子看等級` });
+  const daily = range === 'days';
+  return card({ cls: 'air', icon: glyph('air'), title: '空氣品質', summary, big, tabs: hourly ? tabsHtml('air', dayTabs('air', now, f.tz), range) : '', graph: airGraph(cols, { tz: f.tz, daily, fromNow: range === 'd0' }), foot: daily ? '按住圖表滑動，看每天' : '按住圖表滑動，看每小時' });
 }
 
 // ---- What to do: today, and the week -------------------------------------------------------

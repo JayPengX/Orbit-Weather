@@ -97,7 +97,7 @@ export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, ticks = 
     if (c.v != null && c.v >= minLabel && (peaks[d] == null || c.v > cols[peaks[d]].v)) peaks[d] = i;
   });
   const labelled = [];
-  for (const i of bars && n <= 12 ? cols.map((c, i) => i) : [...(nowIndex >= 0 && cols[nowIndex]?.v != null ? [nowIndex] : []), ...Object.values(peaks)]) {
+  for (const i of bars && cols.every(c => c.daily) ? cols.map((c, i) => i) : [...(nowIndex >= 0 && cols[nowIndex]?.v != null ? [nowIndex] : []), ...Object.values(peaks)]) {
     if (cols[i]?.v == null || (!cols[i].daily && cols[i].v < minLabel) || labelled.some(j => Math.abs(xOf(j) - xOf(i)) < 30)) continue;
     labelled.push(i);
   }
@@ -226,20 +226,25 @@ export const dryNote = hours => {
   const top = Math.max(0, ...hours.map(h => h.pop ?? 0));
   return top ? `最高 ${top}%` : '不會下雨';
 };
-export function rainGraph(cols, { tz, daily = false } = {}) {
+export function rainGraph(cols, { tz, daily = false, fromNow = true } = {}) {
   if (daily) return chart('rain', cols.map(d => ({ date: d.date, v: d.pop, under: d.label, daily: true, inner: d.mm >= 0.5 ? Math.min(1, d.mm / 30) : 0 })), { max: 100, stops: RAIN_STOPS, tz, label: '每天的降雨機率', bars: true, ticks: RAIN_TICKS, fmt: v => `${Math.round(v)}%` });
   if (isDry(cols)) return `<p class="wx-dry">${glyph('umbrella', { size: 18 })}${dryNote(cols)}</p>`;
   const every = cols.length > 30 ? 6 : 3;
   return chart(
     'rain',
-    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: i === 0 ? '現在' : hourText(h.t, tz, every), strong: i === 0 })),
-    { max: 100, stops: RAIN_STOPS, tz, label: '逐時降雨機率', nowIndex: 0, bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%` }
+    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: fromNow && i === 0 ? '現在' : hourText(h.t, tz, every), strong: fromNow && i === 0 })),
+    { max: 100, stops: RAIN_STOPS, tz, label: '逐時降雨機率', nowIndex: fromNow ? 0 : -1, bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%` }
   );
 }
 
-// Air: now, then the forecast days, a bar each.
-export function airGraph(cols, { tz } = {}) {
-  return chart('air', cols.map(c => ({ ...c, v: c.aqi, under: c.label, daily: true })), { max: Math.max(150, ...cols.map(c => c.aqi ?? 0)), stops: AQI_STOPS, tz, label: '空氣品質：現在與預報', bars: true, ticks: [[50, '50'], [100, '100'], [150, '150']] });
+// Air: its hours as a line coloured by the level (a day tab), or now and
+// the forecast days, a bar each.
+const AQI_TICKS = [[50, '50'], [100, '100'], [150, '150']];
+export function airGraph(cols, { tz, daily = true, fromNow = true } = {}) {
+  const max = Math.max(150, ...cols.map(c => c.aqi ?? 0));
+  if (daily) return chart('air', cols.map(c => ({ ...c, v: c.aqi, under: c.label, daily: true })), { max, stops: AQI_STOPS, tz, label: '空氣品質：現在與預報', bars: true, ticks: AQI_TICKS });
+  const every = cols.length > 30 ? 6 : 3;
+  return chart('air', cols.map((h, i) => ({ t: h.t, v: h.aqi, under: fromNow && i === 0 ? '現在' : hourText(h.t, tz, every), strong: fromNow && i === 0 })), { max, stops: AQI_STOPS, tz, label: '逐時空氣品質', nowIndex: fromNow ? 0 : -1, ticks: AQI_TICKS });
 }
 
 export { uvColor, aqiColor, rainColor };

@@ -32,10 +32,14 @@ real station measurements, and learns which to trust
    (`MORE_FIRST_MS`), then every 2 s (`MORE_MS`), 7 times at most. The kit's `holidays.mjs` is fetched
    with the first files (a `modulepreload` in `index.html`), since
    `app.mjs` waits for it before its first screen.
-2. 紫外線, 降雨機率, 空氣品質: a card each with its graph, hourly for as far
-   as the forecast goes (10 days; air: the last 48 hours measured, then the
-   coming days' forecast), swiped sideways, the time and date under it, a
-   tap reads an hour out.
+2. 紫外線, 降雨機率, 空氣品質: a small card each; a tap opens its sheet,
+   whose tabs are days (`RANGES`, `dayHours` in `cards.mjs`): 今天 (now to
+   midnight; from 18:00 it's 今晚, on to 07:00, the night and the way out),
+   明天 (all of it), then the days ahead as bars (rain and UV 10 天, air
+   每天: now and its forecast days). UV's tabs are the daylight days ahead,
+   named by their day. Air has its day tabs only where the forecast has
+   its hours (`air.hourly`), else the days alone. A finger on a graph reads
+   an hour (or a day) out.
    Every graph (these sheets' and a day's) has one frame (`chart` in
    `graph.mjs`): the plot `PLOT_W` wide, its scale in a gutter on the
    right, the labels kept inside the plot. UV is a line coloured by its

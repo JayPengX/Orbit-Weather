@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
+import { pageHtml, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionIcon, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -117,14 +117,23 @@ const forecast = {
 
 test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () => {
   const shown = hoursFrom(forecast, NOW);
-  const r24 = colsFor('rain', forecast, NOW, '24');
-  assert.equal(r24.length, 24);
-  assert.equal(colsFor('rain', forecast, NOW, '48').length, 48);
+  // Day tabs: at 19:46, 今晚 runs to 07:00 (the night and the way out); 明天 is all of Saturday.
+  const r24 = colsFor('rain', forecast, NOW, 'd0');
+  assert.equal(r24.length, 12, '19:00 to 06:00');
+  assert.equal(dateOf(r24[r24.length - 1].t), '2026-10-03');
+  const tomorrow = colsFor('rain', forecast, NOW, 'd1');
+  assert.equal(tomorrow.length, 24);
+  assert.equal(tomorrow[0].t, tpe('2026-10-03T00:00:00'));
+  assert.equal(colsFor('rain', forecast, tpe('2026-10-03T11:20:00'), 'd0').length, 13, 'by day: now to midnight');
+  assert.equal(colsFor('rain', forecast, NOW, '24').length, 12, 'an old saved tab (24 小時) opens 今晚');
+  assert.match(rainCard(forecast, { now: NOW, ranges: {} }), />今晚<[^]*>明天<[^]*>10 天</);
+  assert.match(rainCard(forecast, { now: tpe('2026-10-03T11:20:00'), ranges: {} }), />今天</);
+  assert.ok(!rainCard(forecast, { now: NOW, ranges: { rain: 'd1' } }).includes('>現在<'), 'tomorrow starts at 0時, not 現在');
   const rain = rainGraph(r24, { tz: 'Asia/Taipei' });
   assert.equal((rain.match(/<svg/g) || []).length, 1);
   assert.match(rain, new RegExp(`viewBox="0 0 ${CHART_W} `), 'a fixed width, scaled to the card');
   assert.ok(!/width="\d{4}/.test(rain), 'nothing thousands of pixels wide');
-  assert.equal((rain.match(/class="ch-bar"/g) || []).length, 24, 'a bar an hour');
+  assert.equal((rain.match(/class="ch-bar"/g) || []).length, 12, 'a bar an hour');
   assert.match(rain, /data-pw="310"[^]*class="ch-ax" x="340"[^>]*>100%</, 'the scale in the gutter beside the plot');
   for (const [, x] of rain.matchAll(/class="ch-val" x="([\d.]+)"/g)) assert.ok(Number(x) <= 310, 'labels inside the plot');
   // Two dry days: no graph, the words.
@@ -156,6 +165,13 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   const cols = airCols(forecast, NOW);
   assert.deepEqual(cols.map(c => c.label), ['現在', '今天', '明天', '週日']);
   assert.equal((airGraph(cols, { tz: 'Asia/Taipei' }).match(/class="ch-bar"/g) || []).length, 4);
+  // Its hourly forecast, where there is one: 今晚 / 明天 as a line, 每天 as the bars.
+  assert.equal(airCard(forecast, { now: NOW }).includes('data-range="air:'), false, 'no hours: the days alone, no tabs');
+  const withHours = { ...forecast, air: { ...forecast.air, hourly: Array.from({ length: 60 }, (_, i) => ({ t: tpe('2026-10-02T19:00:00') + i * H, aqi: 40 + i, pm25: 8 })) } };
+  assert.match(airCard(withHours, { now: NOW, ranges: {} }), />今晚<[^]*>明天<[^]*>每天</);
+  assert.equal(colsFor('air', withHours, NOW, 'd1').length, 24);
+  assert.match(airCard(withHours, { now: NOW, ranges: {} }), /class="ch-line"/);
+  assert.equal((airCard(withHours, { now: NOW, ranges: { air: 'days' } }).match(/class="ch-bar"/g) || []).length, 4);
   assert.equal(readout('rain', shown[5], 'Asia/Taipei'), '10/3 週六 00:00 · 降雨機率 70% · 雨量 2.4 mm');
   assert.equal(readout('rain', { ...shown[5], place: '學校' }, 'Asia/Taipei'), '10/3 週六 00:00 · 學校 · 降雨機率 70% · 雨量 2.4 mm');
   assert.equal(readout('air', cols[2], 'Asia/Taipei'), '明天 10/3 · AQI 55 普通');
