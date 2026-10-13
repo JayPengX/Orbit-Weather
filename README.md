@@ -36,6 +36,13 @@ real station measurements, and learns which to trust
    as the forecast goes (10 days; air: the last 48 hours measured, then the
    coming days' forecast), swiped sideways, the time and date under it, a
    tap reads an hour out.
+   Every graph (these sheets' and a day's) has one frame (`chart` in
+   `graph.mjs`): the plot `PLOT_W` wide, its scale in a gutter on the
+   right, the labels kept inside the plot. UV is a line coloured by its
+   level, its fill fading down; rain a bar an hour (the amount darker
+   inside), and hours that stay dry (under 10%, no amount) show
+   「不會下雨」 or 「最高 5%」 in the graph's place, at its height; the 10 days
+   and the air a bar each. The air's level sits under its number.
 3. 建議: umbrella, sunscreen, what to wear, mask, heat, the week.
 4. 10 天預報: tap a day (or the top) for its sheet: the day's numbers, then
    temperature (feels-like dashed, the high and low marked), rain (a bar an

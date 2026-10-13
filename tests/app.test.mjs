@@ -124,7 +124,14 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   assert.equal((rain.match(/<svg/g) || []).length, 1);
   assert.match(rain, new RegExp(`viewBox="0 0 ${CHART_W} `), 'a fixed width, scaled to the card');
   assert.ok(!/width="\d{4}/.test(rain), 'nothing thousands of pixels wide');
-  assert.match(rain, /class="ch-area"/);
+  assert.equal((rain.match(/class="ch-bar"/g) || []).length, 24, 'a bar an hour');
+  assert.match(rain, /data-pw="310"[^]*class="ch-ax" x="340"[^>]*>100%</, 'the scale in the gutter beside the plot');
+  for (const [, x] of rain.matchAll(/class="ch-val" x="([\d.]+)"/g)) assert.ok(Number(x) <= 310, 'labels inside the plot');
+  // Two dry days: no graph, the words.
+  const dryCols = r24.map(h => ({ ...h, pop: 0, mm: 0 }));
+  assert.match(rainGraph(dryCols, { tz: 'Asia/Taipei' }), /class="wx-dry"[^]*不會下雨/);
+  assert.ok(!rainGraph(dryCols, { tz: 'Asia/Taipei' }).includes('<svg class="ch"'));
+  assert.match(uvGraph(colsFor('uv', forecast, NOW + 12 * H, 'd0'), { tz: 'Asia/Taipei', now: NOW + 12 * H }), /class="ch-area"[^]*mask=/, 'UV: a line, its fill fading');
   assert.match(rain, />70%</, 'the peak labelled');
   assert.match(rain, /class="ch-inner"/, 'the amount as a bar');
   assert.match(rain, />現在</);
@@ -133,9 +140,11 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   const d10 = colsFor('rain', forecast, NOW, '10d');
   assert.equal(d10.length, 10);
   assert.equal((rainGraph(d10, { tz: 'Asia/Taipei', daily: true }).match(/class="ch-bar"/g) || []).length, 10);
-  // A missing value: the line breaks.
+  // A missing value: no bar there; a line breaks.
   const gap = rainGraph(shown.slice(5, 11).map((h, i) => ({ ...h, pop: i === 3 ? null : h.pop })), { tz: 'Asia/Taipei' });
-  assert.equal((gap.match(/class="ch-line"/g) || []).length, 2);
+  assert.equal((gap.match(/class="ch-bar"/g) || []).length, 5);
+  const uvGap = uvGraph(colsFor('uv', forecast, NOW, 'd0').map((h, i) => ({ ...h, uv: i === 5 ? null : h.uv })), { tz: 'Asia/Taipei', now: NOW });
+  assert.equal((uvGap.match(/class="ch-line"/g) || []).length, 2);
   // UV: the next daylight day, the one after, or the 10 days' peaks.
   const days = uvDays(forecast, NOW);
   assert.equal(days[0].date, '2026-10-03', 'tonight: tomorrow\'s daylight first');

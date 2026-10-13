@@ -1481,7 +1481,7 @@ body {
   stroke: color-mix(in srgb, var(--q-text) 16%, transparent);
 }
 .ch-area {
-  opacity: 0.32;
+  opacity: 1;
 }
 .ch-line {
   fill: none;
@@ -1490,7 +1490,7 @@ body {
   stroke-linejoin: round;
 }
 .ch-area.ch-fc {
-  opacity: 0.16;
+  opacity: 0.5;
 }
 .ch-line.ch-fc {
   stroke-dasharray: 5 5;
@@ -2470,4 +2470,24 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-scrub-vals.is-sum {
   grid-template-columns: repeat(4, auto);
   justify-content: space-between;
+}
+.ch-pt {
+  fill: var(--q-text);
+}
+/* Hours that stay dry: the words instead of a graph. */
+.wx-dry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  aspect-ratio: 340 / 218;
+  margin: 0;
+  color: var(--q-muted);
+  font-size: 15px;
+  font-weight: 650;
+}
+/* Air's level is long (對敏感族群不健康): under the number, so the line beside it stays one line. */
+.wx-air .wx-big small {
+  display: block;
+  margin: 4px 0 0;
 }

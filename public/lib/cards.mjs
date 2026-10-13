@@ -216,7 +216,7 @@ export function rainCard(f, { now, ranges }) {
   const range = rangeOf('rain', ranges);
   const extra = [n.rainToday != null ? `今日 ${n.rainToday} mm` : '', n.rain1h ? `過去 1 小時 ${n.rain1h} mm` : ''].filter(Boolean).join(' · ');
   const cols = colsFor('rain', f, now, range);
-  return card({ cls: 'rain', icon: glyph('umbrella'), title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', RANGES.rain, range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d' }), foot: `深色＝雨量${extra ? ` · ${e(extra)}` : ''}` });
+  return card({ cls: 'rain', icon: glyph('umbrella'), title: '降雨機率', summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', RANGES.rain, range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d' }), foot: [cols.some(c => c.mm >= (range === '10d' ? 0.5 : 0.1)) ? '深色＝雨量' : '', e(extra)].filter(Boolean).join(' · ') });
 }
 
 // The air's columns: now (the station), then the forecast days.
@@ -234,8 +234,8 @@ export function airCard(f, { now }) {
   const cols = airCols(f, now);
   const big = `<div class="wx-big" style="--c:${aqiColor(a.aqi)}">${a.aqi ?? '–'}<small>${e(a.level || '')}</small></div>`;
   const ahead = cols.filter(c => c.daily && c.date > dateOf(now, f.tz));
-  const worst = ahead.reduce((x, d) => (d.aqi > (x?.aqi ?? -1) ? d : x), null);
-  const summary = `PM2.5 ${a.pm25 ?? '–'} · ${e(a.station?.name || '')} ${a.station?.km ?? '–'} km${worst ? ` · 最差 ${e(worst.label)} ${worst.aqi}` : ''}`;
+  // (The days' worst is the graph's tallest bar: not said again here, so the line stays one line.)
+  const summary = `PM2.5 ${a.pm25 ?? '–'} · ${e(a.station?.name || '')} ${a.station?.km ?? '–'} km`;
   return card({ cls: 'air', icon: glyph('air'), title: '空氣品質', summary, big, graph: airGraph(cols, { tz: f.tz }), foot: `${ahead.length + 1} 天預報 · 點柱子看等級` });
 }
 
