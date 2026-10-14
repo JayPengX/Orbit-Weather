@@ -4,6 +4,7 @@
 
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonPhase, escapeHtml as e, ago } from './format.mjs';
 import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
+import { segHtml } from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines, OLD_MS } from './api.mjs';
@@ -146,7 +147,13 @@ const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) =
     <div class="wx-readout" data-read="${cls}" aria-live="polite">${foot}</div>
     <div class="wx-graphbox" data-box="${cls}">${graph}<i class="ch-xh" hidden></i><i class="ch-dh" hidden></i></div>
   </section>`;
-const tabsHtml = (kind, list, on) => `<div class="wx-tabs" role="tablist">${list.map(([k, name]) => `<button class="wx-tab" type="button" role="tab" data-range="${kind}:${k}" aria-pressed="${k === on}">${e(name)}</button>`).join('')}</div>`;
+// The kit's segmented control; its thumb slides from the range shown before.
+const shownRange = {};
+const tabsHtml = (kind, list, on) => {
+  const from = shownRange[kind] ?? on;
+  shownRange[kind] = on;
+  return `<div class="wx-tabs">${segHtml(list, on, { from, attr: k => `data-range="${kind}:${k}"`, esc: e })}</div>`;
+};
 export const dayText = (date, now, tz) => `${dayLabel(date, now, tz)} ${shortDate(date)}`;
 
 // The 10 days, a column each (for the bars).

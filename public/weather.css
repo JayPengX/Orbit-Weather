@@ -964,74 +964,6 @@ body {
 }
 
 /* Sheets: a pin, the settings, a day. */
-.wx-sheet {
-  width: min(560px, 100vw);
-  background: var(--q-surface);
-}
-.wx-sheet .q-sheet-head {
-  background: var(--q-surface);
-}
-.wx-sheet::backdrop {
-  background: rgba(4, 5, 8, 0.6);
-}
-.wx-field {
-  display: grid;
-  gap: 6px;
-  margin: 12px 0 0;
-}
-.wx-field > span {
-  color: var(--q-muted);
-  font-size: 13px;
-}
-.wx-sheet input {
-  min-height: 44px;
-  box-sizing: border-box;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  border-radius: var(--q-radius-sm);
-  background: var(--q-fill, var(--q-sunken));
-  color: var(--q-text);
-  font: 16px var(--q-font);
-}
-.wx-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-}
-.wx-actions {
-  justify-content: flex-end;
-  margin-top: 18px;
-}
-.wx-danger {
-  color: var(--q-bad);
-}
-.wx-week {
-  flex-wrap: wrap;
-  overflow: visible;
-}
-.wx-week .q-chip {
-  min-width: 40px;
-  justify-content: center;
-}
-.wx-week .q-chip[aria-pressed='true'] {
-  background: var(--q-accent);
-  border-color: var(--q-accent);
-  color: #fff;
-}
-.wx-list {
-  display: grid;
-  max-height: 240px;
-  overflow-y: auto;
-  margin-top: 6px;
-}
-.wx-list .q-row-btn {
-  justify-content: space-between;
-}
-.wx-list small {
-  color: var(--q-muted);
-}
 .wx-legend {
   display: flex;
   flex-wrap: wrap;
@@ -1081,63 +1013,9 @@ body {
 .wx-dayg .wx-legend {
   margin: 6px 0 4px;
 }
-.wx-order {
-  display: grid;
-  gap: 6px;
-  margin-top: 10px;
-}
-.wx-order-row {
-  display: grid;
-  grid-template-columns: 1fr 40px 40px 52px;
-  gap: 6px;
-  align-items: center;
-  padding: 6px 6px 6px 12px;
-  border-radius: 14px;
-  background: var(--q-sunken);
-}
 .wx-order-row.is-off .wx-order-name {
   color: var(--q-muted);
   text-decoration: line-through;
-}
-.wx-order-name {
-  font-weight: 650;
-}
-.wx-mini {
-  width: 40px;
-  height: 40px;
-  font-size: 17px;
-}
-.wx-mini:disabled {
-  opacity: 0.3;
-}
-.wx-switch {
-  position: relative;
-  width: 48px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--q-text) 20%, transparent);
-  cursor: pointer;
-}
-.wx-switch i {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  transition: transform 0.15s;
-}
-.wx-switch[aria-checked='true'] {
-  background: var(--q-accent);
-}
-.wx-switch[aria-checked='true'] i {
-  transform: translateX(20px);
-}
-.wx-reset {
-  margin-top: 10px;
 }
 .wx-day-sheet .q-sheet-head {
   justify-content: flex-start;
@@ -1442,19 +1320,6 @@ body {
   color: var(--q-accent);
   color: color-mix(in srgb, var(--q-accent) 55%, #fff);
 }
-.wx-home-row {
-  justify-content: space-between;
-  margin-top: 14px;
-}
-.wx-home-row > span {
-  display: grid;
-  font-weight: 650;
-}
-.wx-home-row small {
-  color: var(--q-muted);
-  font-size: 12px;
-  font-weight: 500;
-}
 
 /* The charts: smooth areas, a piece a day. */
 .ch {
@@ -1630,29 +1495,6 @@ svg.ch {
 }
 .ch-sub {
   font-size: 10.5px;
-}
-.wx-tabs {
-  display: flex;
-  gap: 4px;
-  margin-top: 12px;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--q-sunken);
-}
-.wx-tab {
-  flex: 1;
-  padding: 7px 0;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: var(--q-muted);
-  font: 650 13px var(--q-font);
-  cursor: pointer;
-}
-.wx-tab[aria-pressed='true'] {
-  background: var(--q-surface);
-  color: var(--q-text);
-  box-shadow: var(--q-shadow-sm);
 }
 .g-hl {
   fill: #fff;
@@ -2151,26 +1993,7 @@ svg.ch {
   white-space: nowrap;
 }
 
-/* Sheets slide up, down again when closed; the handle at the top pulls them down. */
-.wx-sheet {
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wx-sheet[open] {
-  animation: wx-up 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-.wx-sheet[open]::backdrop {
-  animation: wx-fade 0.3s ease;
-}
-.wx-sheet.is-closing {
-  animation: wx-down 0.2s ease-in forwards;
-}
-.wx-sheet.is-closing::backdrop {
-  animation: wx-fade 0.2s ease reverse forwards;
-}
 /* (The grabber is the kit's, .q-sheet::before: one, not two.) */
-.wx-sheet .q-sheet-head {
-  touch-action: none;
-}
 .wx-day-sheet {
   touch-action: pan-y;
 }
@@ -2179,16 +2002,6 @@ svg.ch {
 }
 .wx-day-sheet.slide-r > :not(.q-sheet-head) {
   animation: wx-in-r 0.26s ease;
-}
-@keyframes wx-up {
-  from {
-    transform: translateY(100%);
-  }
-}
-@keyframes wx-down {
-  to {
-    transform: translateY(100%);
-  }
 }
 @keyframes wx-fade {
   from {
@@ -2207,18 +2020,7 @@ svg.ch {
     transform: translateX(-28px);
   }
 }
-@media (min-width: 720px) {
-  @keyframes wx-up {
-    from {
-      transform: translateY(40px);
-      opacity: 0;
-    }
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .wx-sheet[open],
-  .wx-sheet.is-closing,
-  .wx-sheet[open]::backdrop,
   .wx-day-sheet > * {
     animation: none !important;
   }
@@ -2227,11 +2029,6 @@ svg.ch {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-.wx-order-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
 }
 .wx-row .q-btn .wx-g {
   margin-right: 4px;
@@ -2490,4 +2287,84 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-air .wx-big small {
   display: block;
   margin: 4px 0 0;
+}
+
+/* ---- The sheets' forms: the kit's lists, fields, switches and buttons (quadra.css) ---- */
+.wx-cell-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--q-text);
+  font: var(--q-t-body);
+  text-align: right;
+}
+.wx-time {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--q-fill-3);
+  color: var(--q-text);
+  font: var(--q-t-body);
+}
+.wx-week {
+  flex: 1 1 auto;
+  justify-content: space-between;
+  gap: 4px;
+  overflow: visible;
+}
+.wx-week .q-chip {
+  min-width: 36px;
+  padding: 0;
+  justify-content: center;
+}
+.wx-here {
+  margin-top: 12px;
+}
+.wx-list:empty {
+  display: none;
+}
+.wx-list {
+  max-height: 260px;
+  margin-top: 10px;
+  overflow-y: auto;
+}
+.wx-none {
+  margin: 0;
+  color: var(--q-muted);
+}
+.wx-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+  margin-top: 24px;
+}
+.wx-order-row.is-off .wx-order-name {
+  color: var(--q-muted);
+}
+.wx-order-row .q-cell-icon {
+  --q-cell-tint: var(--q-accent);
+}
+.wx-mini {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--q-fill-3);
+  color: var(--q-text);
+  font: 600 15px/1 var(--q-font);
+}
+.wx-mini:disabled {
+  opacity: 0.25;
+}
+.wx-reset {
+  margin: 4px 0 0 16px;
+}
+.wx-tabs {
+  margin-top: 12px;
 }

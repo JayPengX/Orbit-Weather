@@ -4,6 +4,7 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
+import { settleSegs } from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
@@ -137,6 +138,7 @@ function renderPage(page) {
   // What was on the page: its sections by kind, and whether it had a forecast.
   const before = new Set([...el.querySelectorAll(':scope > section')].map(sectionKind));
   const had = el.dataset.has === '1';
+  requestAnimationFrame(() => settleSegs(el));
   el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">編輯「${e(page.pin.name)}」</button>` : '');
   el.scrollTop = top;
   el.dataset.has = f ? '1' : '';
@@ -368,8 +370,8 @@ function sendNotices() {
 
 // ---- Sheets: a pin, the settings, a day --------------------------------------------------
 
-// A sheet slides up; it goes back down on ×, a tap outside it, Esc, or a
-// pull down on its top.
+// A sheet (the kit's): up from the foot; down again on ×, a tap outside it,
+// Esc, or a drag down.
 function sheet(html, cls = '') {
   const d = document.createElement('dialog');
   d.className = `q-sheet wx-sheet ${cls}`;
@@ -380,50 +382,16 @@ function sheet(html, cls = '') {
     shut(d);
   });
   d.addEventListener('close', () => d.remove());
-  pullToClose(d);
   document.body.append(d);
   d.showModal();
   return d;
 }
+// (Dragged down, the kit's sheetSwipe closes it.)
 function shut(d) {
-  if (!d.open || d.classList.contains('is-closing')) return;
-  d.classList.add('is-closing');
-  setTimeout(() => d.close(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 200);
+  if (!d.open || d.classList.contains('q-closing')) return;
+  d.classList.add('q-closing');
+  setTimeout(() => d.close(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240);
 }
-// Dragging the sheet's top down follows the finger; far or fast enough, it closes.
-function pullToClose(d) {
-  let y0 = null;
-  let t0 = 0;
-  let dy = 0;
-  d.addEventListener('pointerdown', ev => {
-    if (!ev.target.closest('.q-sheet-head') || ev.target.closest('button, input') || d.scrollTop > 0) return;
-    y0 = ev.clientY;
-    t0 = ev.timeStamp;
-    dy = 0;
-    try {
-      d.setPointerCapture?.(ev.pointerId);
-    } catch {}
-  });
-  d.addEventListener('pointermove', ev => {
-    if (y0 == null) return;
-    dy = Math.max(0, ev.clientY - y0);
-    d.style.transition = 'none';
-    d.style.transform = dy ? `translateY(${dy}px)` : '';
-  });
-  const end = ev => {
-    if (y0 == null) return;
-    y0 = null;
-    d.style.transition = '';
-    const fast = dy > 30 && dy / Math.max(1, ev.timeStamp - t0) > 0.6;
-    if (dy > 110 || fast) {
-      d.style.transform = '';
-      shut(d);
-    } else d.style.transform = '';
-  };
-  d.addEventListener('pointerup', end);
-  d.addEventListener('pointercancel', end);
-}
-
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 async function pinSheet(pin = null) {
   if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: `最多 ${MAX_PINS} 個釘選地點`, body: '先刪掉一個再新增。' });
@@ -432,21 +400,25 @@ async function pinSheet(pin = null) {
   const where = () => [draft.county, draft.town].filter(Boolean).join(' ') || '尚未選擇';
   const d = sheet(`
     <div class="q-sheet-head"><h2>${pin ? '編輯釘選地點' : '釘選地點'}</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
-    <label class="wx-field"><span>名稱</span><input id="pin-name" maxlength="20" placeholder="例如：學校、家" value="${e(draft.name)}"></label>
-    <div class="wx-field"><span>地點</span><b id="pin-where">${e(where())}</b></div>
-    <div class="wx-row">
-      ${here ? `<button class="q-btn" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}用目前位置${here.place?.town ? `（${e(here.place.town)}）` : ''}</button>` : ''}
+    <div class="q-list">
+      <label class="q-cell"><span class="q-cell-text">名稱</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="例如：學校、家" value="${e(draft.name)}"></label>
+      <div class="q-cell"><span class="q-cell-text">地點</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
+      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} 這是我的家</span><small>沒有其他行程的時間，就當作在這裡</small></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="這是我的家"></button></div>
     </div>
-    <label class="wx-field"><span>或搜尋鄉鎮市區</span><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off"></label>
-    <div id="pin-list" class="wx-list"></div>
-    <div class="wx-row wx-home-row"><span><b>${glyph('home', { size: 16 })}這是我的家</b><small>沒有其他行程的時間，就當作在這裡</small></span><button class="wx-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="這是我的家"><i></i></button></div>
-    <div class="wx-field"><span>我在這裡的時間（行程用；這時打開 App 也直接顯示這裡）</span>
-      <div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div>
-      <div class="wx-row"><input id="pin-from" type="time" value="${draft.from}"> 到 <input id="pin-to" type="time" value="${draft.to}"></div>
+    ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}用目前位置${here.place?.town ? `（${e(here.place.town)}）` : ''}</button>` : ''}
+    <h3 class="q-list-head">或搜尋鄉鎮市區</h3>
+    <label class="q-search"><input id="pin-q" type="search" placeholder="例如：大安區" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="清除">✕</button></label>
+    <div id="pin-list" class="q-list wx-list"></div>
+    <h3 class="q-list-head">我在這裡的時間</h3>
+    <div class="q-list">
+      <div class="q-cell"><div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div></div>
+      <div class="q-cell"><span class="q-cell-text">從</span><input id="pin-from" class="wx-time" type="time" value="${draft.from}"></div>
+      <div class="q-cell"><span class="q-cell-text">到</span><input id="pin-to" class="wx-time" type="time" value="${draft.to}"></div>
     </div>
-    <div class="wx-row wx-actions">
-      ${pin ? '<button class="q-btn wx-danger" type="button" data-pin-act="delete">刪除</button>' : ''}
-      <button class="q-btn primary" type="button" data-pin-act="save">儲存</button>
+    <p class="q-list-foot">行程用；這段時間打開 App 也直接顯示這裡。</p>
+    <div class="wx-actions">
+      ${pin ? '<button class="q-btn danger tinted large" type="button" data-pin-act="delete">刪除</button>' : ''}
+      <button class="q-btn primary large" type="button" data-pin-act="save">儲存</button>
     </div>`);
   const list = d.querySelector('#pin-list');
   const qInput = d.querySelector('#pin-q');
@@ -456,7 +428,7 @@ async function pinSheet(pin = null) {
     if (!text) return (list.innerHTML = '');
     places ||= await fetchPlaces().catch(() => []);
     const rows = places.filter(([c, t]) => (c + t).includes(text)).slice(0, 30);
-    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-row-btn" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}">${e(t)}<small>${e(c)}</small></button>`).join('') || '<p class="wx-foot">找不到這個地區</p>';
+    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || '<p class="q-cell wx-none">找不到這個地區</p>';
   });
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');
@@ -476,6 +448,11 @@ async function pinSheet(pin = null) {
       return;
     }
     const act = ev.target.closest('[data-pin-act]')?.dataset.pinAct;
+    if (act === 'clear-q') {
+      qInput.value = '';
+      list.innerHTML = '';
+      return qInput.focus();
+    }
     if (act === 'home') {
       draft.home = !draft.home;
       ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.home));
@@ -518,23 +495,24 @@ function settingsSheet() {
     state.data.cards
       .map((k, i, all) => {
         const on = !state.data.hidden.includes(k);
-        return `<div class="wx-order-row${on ? '' : ' is-off'}">
-          <span class="wx-order-name">${glyph(CARD_ICONS[k], { size: 18 })}${e(CARDS[k])}</span>
-          <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="上移${e(CARDS[k])}" ${i ? '' : 'disabled'}>↑</button>
-          <button class="q-icon-btn wx-mini" type="button" data-move="${k}" data-by="1" aria-label="下移${e(CARDS[k])}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
-          <button class="wx-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="顯示${e(CARDS[k])}"><i></i></button>
+        return `<div class="q-cell wx-order-row${on ? '' : ' is-off'}">
+          <span class="q-cell-icon" aria-hidden="true">${glyph(CARD_ICONS[k], { size: 18 })}</span>
+          <span class="q-cell-text wx-order-name">${(([t, sub]) => `<span>${e(t)}</span>${sub ? `<small>${e(sub)}</small>` : ''}`)(CARDS[k].split(/[（）]/))}</span>
+          <button class="wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="上移${e(CARDS[k])}" ${i ? '' : 'disabled'}>↑</button>
+          <button class="wx-mini" type="button" data-move="${k}" data-by="1" aria-label="下移${e(CARDS[k])}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
+          <button class="q-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="顯示${e(CARDS[k])}"></button>
         </div>`;
       })
       .join('');
   const d = sheet(`
     <div class="q-sheet-head"><h2>設定</h2><button class="q-close" type="button" data-act="close" aria-label="關閉">×</button></div>
-    <h3 class="q-sheet-h">卡片順序</h3>
-    <p class="wx-foot">最上面的地點和現在天氣固定在頂端；其他卡片可以上下移動，或關掉不顯示。每個地點的頁面都一樣，跟著 Quadra Pass 同步。</p>
-    <div class="wx-order" id="card-order">${rows()}</div>
-    <button class="q-btn wx-reset" type="button" data-reset="1">恢復預設順序</button>
-    <h3 class="q-sheet-h">通知</h3>
-    <label class="wx-field"><span>早晨天氣的時間</span><input id="brief-time" type="time" value="${state.data.brief}"></label>
-    <p class="wx-foot">早晨天氣和降雨提醒的開關，在右上角的帳戶裡（Quadra Pass 的通知設定）。早晨天氣以那時的釘選地點為準，沒有的話以最後打開本 App 的位置為準。</p>`);
+    <h3 class="q-list-head">卡片順序</h3>
+    <div class="q-list wx-order" id="card-order">${rows()}</div>
+    <p class="q-list-foot">最上面的地點和現在天氣固定在頂端；其他卡片可以上下移動，或關掉不顯示。每個地點的頁面都一樣，跟著 Quadra Pass 同步。</p>
+    <button class="q-btn plain wx-reset" type="button" data-reset="1">恢復預設順序</button>
+    <h3 class="q-list-head">通知</h3>
+    <div class="q-list"><label class="q-cell"><span class="q-cell-text">早晨天氣的時間</span><input id="brief-time" class="wx-time" type="time" value="${state.data.brief}"></label></div>
+    <p class="q-list-foot">早晨天氣和降雨提醒的開關，在右上角的帳戶裡（Quadra Pass 的通知設定）。早晨天氣以那時的釘選地點為準，沒有的話以最後打開本 App 的位置為準。</p>`);
   const redraw = () => (d.querySelector('#card-order').innerHTML = rows());
   d.addEventListener('click', ev => {
     const move = ev.target.closest('[data-move]');
@@ -580,6 +558,7 @@ function openMetric(key, kind) {
   d.redraw = () => {
     const now = Date.now();
     d.innerHTML = metricSheet(kind, f, { now, key, ranges: state.ranges, page });
+    settleSegs(d);
     state.cols[key] = { ...(state.cols[key] || {}), [kind]: colsFor(kind, f, now, rangeOf(kind, state.ranges)), tz: f.tz };
   };
   d.redraw();
