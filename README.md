@@ -19,6 +19,13 @@ real station measurements, and learns which to trust
    anywhere on it opens today. Under it, the next 24 hours every 3 hours (a
    column opens its day).
 
+   **Opening, fast** (`boot` in `app.mjs`): on a phone that has opened it
+   before, the last forecast is up at once (the loading screen gone) and the
+   phone is asked where it is beside the sign-in, not after it; the kit's
+   kept session token lets the forecast go out with them (each had waited on
+   the one before: about 1.5 s more on a slow sign-in). A first opening waits
+   for the sign-in, so no location prompt shows over it.
+
    **How the position is found, fast** (`locate` → `locateNow` in
    `app.mjs`): Wi-Fi's or the cell network's fix first (`getPosition` with
    `high: false`, 3 s at most, or the phone's own from the last two

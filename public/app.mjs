@@ -869,6 +869,23 @@ async function boot() {
   state.data = decodeData(state.local.data) || emptyData();
   buildPages();
   renderAll();
+  const start = openFromHash() ?? 0;
+  // A phone that has opened Weather before: its last forecast up at once and
+  // the phone asked where it is beside the sign-in, not after it (the sign-in's
+  // round trip, then the fix, then the forecast, one after another, was the
+  // seconds before the weather now). A first opening waits for the sign-in
+  // (no location prompt over the gate).
+  const used = Boolean(state.local.data || state.local.here);
+  const show = () => {
+    if (state.started) return;
+    $('loading').hidden = true;
+    state.started = true;
+    goTo(start);
+  };
+  if (used) {
+    show();
+    locate();
+  }
   const first = await q.start();
   const theirs = decodeData(first?.payload);
   const merged = mergeData(state.data, theirs);
@@ -879,12 +896,11 @@ async function boot() {
   buildPages();
   renderAll();
   // 我的行程 when there are pins (it shows where you are now), else here.
-  const start = openFromHash() ?? 0;
-  $('loading').hidden = true;
-  state.started = true;
-  goTo(start);
+  show();
   if (changed && (merged.pins.length || theirs) && q.active) q.write({ payload: encodeData(merged) }).catch(() => {});
-  locate();
+  // (Already on its way when it was asked beside the sign-in.)
+  if (!used) locate();
+  else loadPage(state.pages[state.index]);
   sendNotices();
 }
 q.on('active', live => live && state.started && q.write({ payload: encodeData(state.data) }).catch(() => {}));
