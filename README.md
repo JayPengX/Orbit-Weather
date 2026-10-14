@@ -25,6 +25,9 @@ real station measurements, and learns which to trust
    kept session token lets the forecast go out with them (each had waited on
    the one before: about 1.5 s more on a slow sign-in). A first opening waits
    for the sign-in, so no location prompt shows over it.
+   iOS is asked where the phone is unprompted once (the kit's `mayLocate`,
+   Transit's rule too): a phone that would ask again isn't asked at every
+   opening, return or tick; the last place stands until 定位.
 
    **How the position is found, fast** (`locate` → `locateNow` in
    `app.mjs`): Wi-Fi's or the cell network's fix first (`getPosition` with

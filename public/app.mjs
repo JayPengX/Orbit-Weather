@@ -3,7 +3,7 @@
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet } from '#kit/quadra.mjs';
+import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
@@ -257,24 +257,19 @@ async function loadPage(page, { force = false, naming = null } = {}) {
 // the page asks.
 const ASKED_KEY = 'orbit-weather.geo.asked';
 async function locate({ force = false } = {}) {
-  state.permission = await permissionState();
+  // (The kit's rule, Transit's too.)
+  const may = await mayLocate(ASKED_KEY, { force });
+  state.permission = may === 'denied' ? 'denied' : await permissionState();
   const here = pageOf('here');
-  let asked = false;
-  try {
-    asked = localStorage.getItem(ASKED_KEY) === '1';
-  } catch {}
   here.askable = false;
-  if (!force && state.permission === 'prompt' && asked) {
+  if (may === 'no') {
     here.askable = true;
     here.note = state.local.here ? '上次的位置' : '大約位置';
     if (!state.local.here) here.lat = here.lon = null;
     renderPage(here);
     return loadPage(here);
   }
-  try {
-    localStorage.setItem(ASKED_KEY, '1');
-  } catch {}
-  if (state.permission === 'denied') {
+  if (may === 'denied') {
     here.note = state.local.here ? '定位已關閉，顯示上次的位置' : '定位已關閉，顯示大約位置';
     if (!state.local.here) {
       here.lat = here.lon = null;
