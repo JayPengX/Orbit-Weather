@@ -3,7 +3,7 @@
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask } from '#kit/quadra.mjs';
+import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
@@ -386,12 +386,8 @@ function sheet(html, cls = '') {
   d.showModal();
   return d;
 }
-// (Dragged down, the kit's sheetSwipe closes it.)
-function shut(d) {
-  if (!d.open || d.classList.contains('q-closing')) return;
-  d.classList.add('q-closing');
-  setTimeout(() => d.close(), matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 240);
-}
+// Down to the foot as every sheet in the family goes (the kit's; dragged down, its sheetSwipe).
+const shut = d => closeSheet(d);
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
 async function pinSheet(pin = null) {
   if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: `最多 ${MAX_PINS} 個釘選地點`, body: '先刪掉一個再新增。' });
