@@ -201,10 +201,10 @@ async function loadPage(page, { force = false, naming = null } = {}) {
   if (!page) return;
   // Asked while it's loading (a new position as the old one loads): once more after.
   if (page.loading) return void (page.again = true);
-  // The plan needs every place: each loaded in turn, the plan redrawn as they come.
+  // The plan needs every place: all asked at once, the plan redrawn as they come.
   if (page.plan) {
     if (page.drawn !== drawnSig(page)) renderPage(page);
-    for (const p of state.pages.filter(x => !x.plan)) await loadPage(p, { force });
+    await Promise.all(state.pages.filter(x => !x.plan).map(p => loadPage(p, { force })));
     return page.drawn === drawnSig(page) ? undefined : renderPage(page);
   }
   const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
@@ -214,26 +214,17 @@ async function loadPage(page, { force = false, naming = null } = {}) {
   try {
     const token = await q.ensureToken();
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
-    const f = await fetchForecast(page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true }, token);
+    const { f, rest } = await fetchForecast(page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true }, token);
     await naming;
-    if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
-    else {
-      // Where the network said: the page takes the forecast's own place.
-      // (Each answer's own place: the network's guess moves as you do.)
-      page.ipForecast = f;
-      page.ipAt = Date.now();
-      page.place = f.place || page.place;
-    }
-    page.error = '';
-    saveLocal(state.local);
+    take(page, cell, f);
     // Not the last word yet: the proxy's quick answer (now, two days, the
     // week; `more`: the hours to day 10 and the air forecast follow), or an
     // old copy whose refresh took longer than the proxy waited
-    // (`refreshing`). Asked again MORE_FIRST_MS later, then every MORE_MS,
-    // MORE_TRIES times at most, until it's the new one.
+    // (`refreshing`). The whole one comes on the same request, drawn the
+    // moment it's in.
     clearTimeout(page.retry);
-    if ((f.more || f.refreshing) && (page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? MORE_FIRST_MS : MORE_MS);
-    else if (!f.more && !f.refreshing) page.mores = 0;
+    if (f.more || f.refreshing) follow(page, cell, rest);
+    else page.mores = 0;
   } catch (err) {
     page.error = err.status === 429 ? '請求太頻繁，請稍候再試。' : '暫時無法取得天氣，請檢查網路。';
   } finally {
@@ -247,6 +238,39 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     const plan = planPage();
     if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
   }
+}
+
+// A page's answer kept (a place's on the device, the network's guess on the page).
+function take(page, cell, f) {
+  if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
+  else {
+    // Where the network said: the page takes the forecast's own place.
+    // (Each answer's own place: the network's guess moves as you do.)
+    page.ipForecast = f;
+    page.ipAt = Date.now();
+    page.place = f.place || page.place;
+  }
+  page.error = '';
+  saveLocal(state.local);
+}
+// The whole answer, on the request that brought the first: drawn when it's
+// in (unless something newer came meanwhile). When the request ends without
+// it, asked again MORE_FIRST_MS later, then every MORE_MS, MORE_TRIES times
+// at most.
+function follow(page, cell, rest) {
+  rest.then(g => {
+    if (g && !g.more && !g.refreshing) {
+      page.mores = 0;
+      const had = cell ? cachedForecast(state.local, cell)?.f : page.ipForecast;
+      if ((Number(g.at) || 0) < (Number(had?.at) || 0) || (!cell && page.lat != null)) return;
+      take(page, cell, g);
+      renderPage(page);
+      const plan = planPage();
+      if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
+      return;
+    }
+    if ((page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? MORE_FIRST_MS : MORE_MS);
+  });
 }
 
 // Where the device is: as precise as it gives, to the township, each time

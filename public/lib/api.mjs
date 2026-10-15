@@ -16,8 +16,9 @@ export const HIDE_MS = 6 * 3_600_000;
 export const RECHECK_MS = 2 * 60_000;
 // An answer that isn't the last word (`more`: the proxy is still getting the
 // hours to day 10 and the air forecast; `refreshing`: an old copy, its
-// refresh still going): asked again MORE_FIRST_MS later (the proxy's rest is
-// usually in by then), then every MORE_MS, up to MORE_TRIES times.
+// refresh still going): the whole one follows on the same request; when it
+// doesn't come, asked again MORE_FIRST_MS later, then every MORE_MS, up to
+// MORE_TRIES times.
 export const MORE_FIRST_MS = 1200;
 export const MORE_MS = 2000;
 export const MORE_TRIES = 7;
@@ -88,8 +89,43 @@ async function get(path, token, fetchFn) {
   }
   return res.json();
 }
-// The forecast for a point, or where the network says (`auto`).
-export const fetchForecast = (where, token, fetchFn = fetch) => get(where.auto ? '/weather?auto=1' : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`, token, fetchFn);
+// The forecast for a point, or where the network says (`auto`): → { f, rest }.
+// When `f` isn't the last word (`more`, `refreshing`), the proxy sends the
+// whole answer on the same request the moment it's in: `rest`, a promise of
+// it (null when the request ends without it; then it's asked again).
+export async function fetchForecast(where, token, fetchFn = fetch) {
+  const path = where.auto ? '/weather?auto=1' : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`;
+  const res = await fetchFn(`${PROXY}${path}&lines=1&qt=${encodeURIComponent(token)}`);
+  if (!res.ok) throw Object.assign(new Error(`/weather ${res.status}`), { status: res.status });
+  const reader = res.body?.getReader?.();
+  if (!reader) {
+    const [f, rest] = (res.text ? await res.text() : JSON.stringify(await res.json())).trim().split('\n');
+    return { f: JSON.parse(f), rest: Promise.resolve(rest ? JSON.parse(rest) : null) };
+  }
+  const text = new TextDecoder();
+  let buf = '';
+  const line = async () => {
+    for (;;) {
+      const nl = buf.indexOf('\n');
+      if (nl >= 0) {
+        const one = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
+        if (one.trim()) return JSON.parse(one);
+        continue;
+      }
+      const { done, value } = await reader.read();
+      if (done) {
+        const last = buf.trim();
+        buf = '';
+        return last ? JSON.parse(last) : null;
+      }
+      buf += text.decode(value, { stream: true });
+    }
+  };
+  const f = await line();
+  if (!f) throw Object.assign(new Error('/weather empty'), { status: 0 });
+  return { f, rest: line().catch(() => null) };
+}
 // The place: { county, town }.
 export const fetchWhere = (lat, lon, token, fetchFn = fetch) => get(`/weather/where?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`, token, fetchFn);
 // Taiwan's townships [[county, town, lat, lon]…] for the pin picker.

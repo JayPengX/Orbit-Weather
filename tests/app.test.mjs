@@ -260,13 +260,35 @@ test('a day\'s sheet: its numbers, its charts, its own advice', () => {
   assert.equal(tips.laundry.text, '適合', '10%, partly cloudy');
 });
 
+test('the forecast in lines: the first answer at once, the whole one when it comes on the same request', async () => {
+  const enc = new TextEncoder();
+  let push;
+  const body = new ReadableStream({ start: c => (push = c) });
+  const res = new Response(body, { status: 200 });
+  const asked = fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => res);
+  push.enqueue(enc.encode('{"at":1,"more":true,"hours":[1]}\n{"at":2,'));
+  const { f, rest } = await asked;
+  assert.deepEqual(f, { at: 1, more: true, hours: [1] });
+  let whole = null;
+  rest.then(g => (whole = g));
+  await new Promise(r => setTimeout(r, 10));
+  assert.equal(whole, null, 'not before it has come');
+  push.enqueue(enc.encode('"hours":[1,2]}\n'));
+  push.close();
+  assert.deepEqual(await rest, { at: 2, hours: [1, 2] });
+  // A proxy that sends one answer (no line after it): no rest.
+  const one = await fetchForecast({ auto: true }, 'T', async () => new Response('{"at":3}'));
+  assert.deepEqual(one.f, { at: 3 });
+  assert.equal(await one.rest, null);
+});
+
 test('proxy calls carry the session; the device keeps a few places', async () => {
   const urls = [];
   const f = async u => (urls.push(u), { ok: true, json: async () => ({}) });
   await fetchForecast({ lat: 25.03412, lon: 121.56456 }, 'TOKEN', f);
   await fetchForecast({ auto: true }, 'T', f);
   await fetchWhere(25.034123, 121.565432, 'T', f);
-  assert.deepEqual(urls.map(u => u.replace('https://orbit-workers-proxy.pengzjay.workers.dev', '')), ['/weather?lat=25.0341&lon=121.5646&qt=TOKEN', '/weather?auto=1&qt=T', '/weather/where?lat=25.03412&lon=121.56543&qt=T']);
+  assert.deepEqual(urls.map(u => u.replace('https://orbit-workers-proxy.pengzjay.workers.dev', '')), ['/weather?lat=25.0341&lon=121.5646&lines=1&qt=TOKEN', '/weather?auto=1&lines=1&qt=T', '/weather/where?lat=25.03412&lon=121.56543&qt=T']);
   await assert.rejects(fetchForecast({ auto: true }, 'T', async () => ({ ok: false, status: 401 })), e => e.status === 401);
   const st = memStore();
   const local = { forecasts: {} };
