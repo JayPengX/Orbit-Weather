@@ -42,8 +42,9 @@ real station measurements, and learns which to trust
    (`state.locating`). The proxy's quick answer (`more`) or an old copy it's
    still refreshing (`refreshing`) is asked again 1.2 s later
    (`MORE_FIRST_MS`), then every 2 s (`MORE_MS`), 7 times at most. The kit's `holidays.mjs` is fetched
-   with the first files (a `modulepreload` in `index.html`), since
-   `app.mjs` waits for it before its first screen.
+   with the first files (a modulepreload the deploy writes, with the kit's
+   other modules: the kit's `preload.mjs`), since `app.mjs` waits for it
+   before its first screen.
 2. 紫外線, 降雨機率, 空氣品質: a small card each; a tap opens its sheet,
    whose tabs are days (`RANGES`, `dayHours` in `cards.mjs`): 今天 (now to
    midnight; from 18:00 it's 今晚, on to 07:00, the night and the way out),
@@ -162,7 +163,7 @@ node ../Shared-Proxy/tools/preview.mjs weather --webkit
   `weather.js` on the saved fixtures (`--no-geo` refuses the position;
   `--store`, `--click`, `--eval`).
 - **Deploy**: a push to `main` runs the tests, stamps versions
-  (`scripts/stamp-version.mjs`) and deploys to Pages; the kit puts a new
+  (`scripts/stamp-version.mjs`; the kit modules its first screen imports are listed as modulepreload (the kit's `preload.mjs`)) and deploys to Pages; the kit puts a new
   deploy in place at once.
 
 ## What depends on what
