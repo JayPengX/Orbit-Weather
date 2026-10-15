@@ -3,7 +3,7 @@
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate } from '#kit/quadra.mjs';
+import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
@@ -897,4 +897,5 @@ async function boot() {
 q.on('active', live => live && state.started && q.write({ payload: encodeData(state.data) }).catch(() => {}));
 if (!gated) boot();
 
-if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('./sw.js').catch(() => {});
+// Opens without a connection: the kit registers the worker and has it keep every file loaded.
+keepOffline();

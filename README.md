@@ -12,6 +12,8 @@ blends several forecasts (Google Weather, CWA 中央氣象署, MOENV 環境部) 
 real station measurements, and learns which to trust
 (`weather-skill.js`). The app never names a source.
 
+**Without a connection**: opens on the last forecast kept (its time shown), the kit's capsule saying 沒有網路連線; refreshing and new places need the network. Back online, the page refreshes.
+
 ## A page, top to bottom
 
 1. Where (the township, 鄉鎮市區, from the device's position), now, today's high
