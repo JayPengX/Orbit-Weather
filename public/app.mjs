@@ -666,13 +666,6 @@ function armScrub(d, f, date) {
   });
 }
 
-const help = () =>
-  tell({
-    title: 'Orbit Weather',
-    body: '一個答案的天氣：多個來源在背後合成一個數字。',
-    points: ['左右滑動整頁，切換我的行程、目前位置和各地點。', '點最上面的天氣，看今天每小時的溫度、降雨和建議；點「10 天預報」的任一天看那一天，左右滑動換一天。', '按住圖表滑動，看每小時（或每天）的數字；上方的分頁切換今天（晚上是今晚到隔天早上）、明天和之後的每一天。', 'App 開著時每 15 分鐘自動更新（資料來源最快每 15 分鐘更新一次）。', '把地點設成「家」並設定學校等地點的星期和時間：「我的行程」每小時取你在的城市。', '⚙︎ 設定：調整卡片順序、關掉不需要的卡片。']
-  });
-
 // ---- Taps and swipes --------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
@@ -845,7 +838,7 @@ window.__fxStarted = true;
 document.body.insertAdjacentHTML('afterbegin', ICON_DEFS);
 const gated = installGate('weather', 'zh');
 watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-', busy: () => Boolean(document.querySelector('dialog[open]')) });
-topActions(q, { help, refresh: () => loadPage(state.pages[state.index], { force: true }) });
+topActions(q, { refresh: () => loadPage(state.pages[state.index], { force: true }) });
 // The app's own buttons beside the kit's: add a place, the settings.
 const extra = document.createElement('button');
 extra.className = 'q-icon-btn';
