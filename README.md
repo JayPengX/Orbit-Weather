@@ -40,8 +40,11 @@ real station measurements, and learns which to trust
    (`/weather/where`) is asked together with the forecast and drawn with it
    (`loadPage`'s `naming`), never before it. One locate at a time
    (`state.locating`). The proxy's quick answer (`more`) or an old copy it's
-   still refreshing (`refreshing`) is asked again 1.2 s later
-   (`MORE_FIRST_MS`), then every 2 s (`MORE_MS`), 7 times at most. The kit's `holidays.mjs` is fetched
+   still refreshing (`refreshing`) is followed by the whole one on the same
+   request (`lines=1`, `follow`), drawn the moment it's in; only when that
+   request ends without it is it asked again 1.2 s later (`MORE_FIRST_MS`),
+   then every 2 s (`MORE_MS`), 7 times at most. 我的行程 asks for every
+   place at once. The kit's `holidays.mjs` is fetched
    with the first files (a modulepreload the deploy writes, with the kit's
    other modules: the kit's `preload.mjs`), since `app.mjs` waits for it
    before its first screen.
@@ -74,8 +77,8 @@ real station measurements, and learns which to trust
 Asked again once the numbers are 15 minutes old (by when the proxy made
 them, `f.at`): on opening, on coming back to the app, on a swipe, and every
 minute's check while it's on screen. An old copy the proxy is still
-refreshing is asked again 1.2 s later, then every 2 s (the proxy waits up
-to 4 s for a refresh before answering with the old copy). The proxy matches its sources: Google
+refreshing comes with the new one behind it on the same request (the proxy
+waits up to 4 s for a refresh before answering with the old copy). The proxy matches its sources: Google
 current every 15 minutes, its forecast every 30; stations and air hourly;
 CWA's township forecast every 6 hours.
 
