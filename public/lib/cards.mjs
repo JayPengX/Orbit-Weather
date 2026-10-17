@@ -70,7 +70,7 @@ export function topArea(f, { page, now }) {
     </div>
     ${
       f
-        ? `<div class="wx-temp">${deg(n.temp)}</div>
+        ? `<div class="wx-temp" data-q-live="wx:temp">${deg(n.temp)}</div>
     <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(n.condition?.text || '')}</b></p>
     <p class="wx-hl">最高 ${deg(d?.hi)}<i></i>最低 ${deg(d?.lo)}</p>
     <p class="wx-feel">體感 ${deg(n.feels)} · 降雨 ${pct(h0?.pop)} · 濕度 ${pct(n.humidity)}</p>
