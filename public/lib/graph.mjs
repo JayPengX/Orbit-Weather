@@ -11,7 +11,7 @@
 // and down) — and shows the column's numbers above.
 
 import { glyph } from './icons.mjs';
-import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e, conditionText } from './format.mjs';
+import { clock, hourOf, dateOf, shortDate, weekday, escapeHtml as e, conditionText, aqiName } from './format.mjs';
 import { W } from './lang.mjs';
 
 export const CHART_W = 340;
@@ -248,7 +248,6 @@ export function airGraph(cols, { tz, daily = true, fromNow = true } = {}) {
   return chart('air', cols.map((h, i) => ({ t: h.t, v: h.aqi, under: fromNow && i === 0 ? W('現在', 'Now') : hourText(h.t, tz, every), strong: fromNow && i === 0 })), { max, stops: AQI_STOPS, tz, label: W('逐時空氣品質', 'Hourly air quality'), nowIndex: fromNow ? 0 : -1, ticks: AQI_TICKS });
 }
 
-export { uvColor, aqiColor, rainColor };
 
 // One day (the 10 days' sheet): temperature (and feels-like, the high and
 // low marked), then rain and UV under it on the same hours, in the same
@@ -336,8 +335,7 @@ export function readout(kind, col, tz) {
   if (!col) return '';
   const when = col.t == null ? `${col.label}${col.date ? ` ${shortDate(col.date)}` : ''}` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.place ? ` · ${col.place}` : ''}`;
   if (kind === 'uv') return col.t == null ? `${when} · ${W('最高 UV', 'Peak UV')} ${col.uvMax ?? '–'}` : `${when} · ${W('紫外線', 'UV')} ${col.uv ?? '–'}`;
-  if (kind === 'rain') return `${when} · ${W('降雨機率', 'Rain')} ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · ${col.t == null ? W('約 ', '~') : W('雨量 ', '')}${col.mm} mm` : ''}`;
-  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${AQI_NAMES.find(([m]) => col.aqi <= m)[1]}` : ''}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}${col.main ? ` · ${W('主要', 'mainly')} ${col.main}` : ''}`;
+  if (kind === 'rain') return `${when} · ${W('降雨機率', 'Rain')} ${col.pop == null ? '–' : `${col.pop}%`}${col.mm >= 0.1 ? ` · ${col.t == null ? W('約 ', '~') : W('雨量 ', '')}${col.mm} mm` : ''}`;
+  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${aqiName(col.aqi)}` : ''}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}${col.main ? ` · ${W('主要', 'mainly')} ${col.main}` : ''}`;
   return when;
 }
-const AQI_NAMES = [[50, W('良好', 'Good')], [100, W('普通', 'Moderate')], [150, W('對敏感族群不健康', 'Unhealthy for some')], [200, W('不健康', 'Unhealthy')], [300, W('非常不健康', 'Very unhealthy')], [Infinity, W('危害', 'Hazardous')]];

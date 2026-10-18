@@ -7,16 +7,21 @@ const UV = { 低: 'low', 中: 'moderate', 高: 'high', 過量: 'very high', 危�
 const RULES = [
   [/^(\d+)時 (\d+)% 會下雨$/, 'Rain $2% at $1:00'],
   [/^摺疊傘，(\d+)時 (\d+)%$/, 'Folding one, $2% at $1:00'],
-  [/^(\d+)–(\d+)時 UV (\d+) (低|中|高|過量|危險)$/, (m, a, b, uv, lv) => `UV ${uv} ${UV[lv]}, ${a}:00–${b}:00`],
-  [/^明早 (\d+)°，低 (\d+)°$/, 'Tomorrow morning $1°, $2° colder'],
-  [/^明早 (\d+)°，高 (\d+)°$/, 'Tomorrow morning $1°, $2° warmer'],
+  [/^(\d+)–(\d+)時 UV ([\d.]+) (低|中|高|過量|危險)$/, (m, a, b, uv, lv) => `UV ${uv} ${UV[lv]}, ${a}:00–${b}:00`],
+  [/^明早 (-?\d+)°，低 (\d+)°$/, 'Tomorrow morning $1°, $2° colder'],
+  [/^明早 (-?\d+)°，高 (\d+)°$/, 'Tomorrow morning $1°, $2° warmer'],
   [/^(\d+)–(\d+)時可能打雷$/, 'Thunder likely $1:00–$2:00'],
   [/^(\d+)時陣風 (\d+) km\/h$/, 'Gusts $2 km/h at $1:00'],
   [/^(\d+)時能見度 ([\d.]+) 公里$/, 'Visibility $2 km at $1:00'],
   [/^空氣(很差|不佳)，AQI (\d+)$/, (m, how, aqi) => `Air ${how === '很差' ? 'very poor' : 'poor'}, AQI ${aqi}`],
   [/^濕度 (\d+)%，衣物易潮$/, 'Humidity $1%, clothes stay damp'],
-  [/^今晚 (\d+)°，(.+)$/, (m, v, how) => `Tonight ${v}°, ${{ 開冷氣: 'AC on', 開除濕: 'dehumidifier on', 開電扇: 'fan on', 舒適: 'comfortable', 蓋薄被: 'light blanket', 蓋厚被: 'thick blanket' }[how] ?? how}`],
-  [/^體感 (\d+)°，多喝水$/, 'Feels $1°, drink water']
+  [/^今晚 (-?\d+)°，(.+)$/, (m, v, how) => `Tonight ${v}°, ${{ 開冷氣: 'AC on', 開除濕: 'dehumidifier on', 開電扇: 'fan on', 舒適: 'comfortable', 蓋薄被: 'light blanket', 蓋厚被: 'thick blanket' }[how] ?? how}`],
+  [/^體感 (-?\d+)°，多喝水$/, 'Feels $1°, drink water'],
+  // A kind the week needs but today doesn't (weather.js weekAdvice).
+  [/^不太會下雨$/, 'Unlikely today'],
+  [/^紫外線不強$/, 'UV low today'],
+  [/^不會太熱$/, 'Not too hot today'],
+  [/^空氣還可以$/, 'Air OK today']
 ];
 const WORDS = [
   [/(\d+)–(\d+)時/g, '$1:00–$2:00'],
@@ -44,10 +49,12 @@ const WORDS = [
   [/ {2,}/g, ' ']
 ];
 
+const CJK = /[\u4e00-\u9fff]/;
 export function adviceEn(text) {
   const s = String(text || '').trim();
-  if (!/[一-鿿]/.test(s)) return s;
-  for (const [re, to] of RULES) if (re.test(s)) return s.replace(re, to);
-  const out = WORDS.reduce((t, [re, to]) => t.replace(re, to), s).trim();
-  return /[一-鿿]/.test(out) ? null : out.charAt(0).toUpperCase() + out.slice(1);
+  if (!CJK.test(s)) return s;
+  const rule = RULES.find(([re]) => re.test(s));
+  const out = rule ? s.replace(...rule) : WORDS.reduce((t, [re, to]) => t.replace(re, to), s).trim();
+  // (Anything still Chinese, a rule's unknown word included: left out.)
+  return CJK.test(out) ? null : out.charAt(0).toUpperCase() + out.slice(1);
 }

@@ -45,14 +45,12 @@ export function uvColor(uv) {
   return uv < 3 ? '#4caf50' : uv < 6 ? '#f5c518' : uv < 8 ? '#ff8c1a' : uv < 11 ? '#e53935' : '#8e24aa';
 }
 
-// AQI: Taiwan's six levels.
+// AQI: Taiwan's six levels (AQI_LEVELS below).
 export function aqiColor(aqi) {
   if (aqi == null) return '#9e9e9e';
   return aqi <= 50 ? '#4caf50' : aqi <= 100 ? '#f5c518' : aqi <= 150 ? '#ff8c1a' : aqi <= 200 ? '#e53935' : aqi <= 300 ? '#8e24aa' : '#7b1e1e';
 }
 
-// A rain bar's colour by probability.
-export const rainColor = pop => (pop >= 70 ? '#1e88e5' : pop >= 40 ? '#42a5f5' : '#90caf9');
 
 // Compass direction (the wind comes FROM it), in Chinese.
 const DIRS = ['北', '東北', '東', '東南', '南', '西南', '西', '西北'];
@@ -87,17 +85,27 @@ export function conditionKind(code, text = '', day = true) {
   if (/CLEAR|SUNNY/.test(c) || /晴/.test(t)) return `clear-${dn}`;
   return `part-${dn}`;
 }
-// The same as an emoji (for notices, which are plain text).
-const EMOJI = { storm: '⛈️', snow: '🌨️', rain: '🌧️', 'drizzle-day': '🌦️', 'drizzle-night': '🌧️', fog: '🌫️', wind: '💨', cloud: '☁️', 'part-day': '⛅', 'part-night': '☁️', 'clear-day': '☀️', 'clear-night': '🌙' };
-export const conditionIcon = (code, text = '', day = true) => EMOJI[conditionKind(code, text, day)];
-
 const MOON = {
-  NEW_MOON: ['新月', '🌑', 'New moon'], WAXING_CRESCENT: ['眉月', '🌒', 'Waxing crescent'], FIRST_QUARTER: ['上弦月', '🌓', 'First quarter'], WAXING_GIBBOUS: ['盈凸月', '🌔', 'Waxing gibbous'],
-  FULL_MOON: ['滿月', '🌕', 'Full moon'], WANING_GIBBOUS: ['虧凸月', '🌖', 'Waning gibbous'], LAST_QUARTER: ['下弦月', '🌗', 'Last quarter'], WANING_CRESCENT: ['殘月', '🌘', 'Waning crescent']
+  NEW_MOON: ['新月', 'New moon'], WAXING_CRESCENT: ['眉月', 'Waxing crescent'], FIRST_QUARTER: ['上弦月', 'First quarter'], WAXING_GIBBOUS: ['盈凸月', 'Waxing gibbous'],
+  FULL_MOON: ['滿月', 'Full moon'], WANING_GIBBOUS: ['虧凸月', 'Waning gibbous'], LAST_QUARTER: ['下弦月', 'Last quarter'], WANING_CRESCENT: ['殘月', 'Waning crescent']
 };
-// [name, emoji] in the reader's language.
-export const moonPhase = p => (MOON[p] ? [W(MOON[p][0], MOON[p][2]), MOON[p][1]] : null);
+// The moon's phase in the reader's language (its picture is icons.mjs moonArt).
+export const moonName = p => (MOON[p] ? W(...MOON[p]) : null);
 
+// ---- One rule each, wherever the page says it ---------------------------------------
+//
+// Rain: an umbrella at 50%, a folding one at 30% (the proxy's ADVICE, weather.js).
+export const RAIN_YES = 50;
+export const RAIN_MAYBE = 30;
+export const rainLevel = pop => (pop >= RAIN_YES ? 'yes' : pop >= RAIN_MAYBE ? 'maybe' : 'none');
+// What to wear for a feel (°C): the proxy's ADVICE.wear, short.
+const WEAR = [[15, 'coat', W('外套', 'Coat'), W('外套', 'Coat')], [20, 'jacket', W('薄外套', 'Light jacket'), W('薄外套', 'Jacket')], [26, 'sleeves', W('長袖', 'Long sleeves'), W('長袖', 'Sleeves')], [Infinity, 'light', W('短袖', 'Short sleeves'), W('短袖', 'Tee')]];
+export function wearFor(feel) {
+  const [, code, text, short] = WEAR.find(([max]) => feel < max);
+  return { code, text, short };
+}
+// The day's feel when people are out: a third of the way from its coolest to its warmest.
+export const outFeel = (lo, hi) => lo + (hi - lo) / 3;
 
 export const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
@@ -109,6 +117,10 @@ export function ago(ms, now) {
   const h = Math.round(m / 60);
   return h < 24 ? W(`${h} 小時前`, `${h} h ago`) : W(`${Math.round(h / 24)} 天前`, `${Math.round(h / 24)} d ago`);
 }
+
+// The top's line under the numbers: when they were made, and an old copy's age.
+export const updatedText = (at, now) => W(`更新於 ${ago(at, now)}`, `Updated ${ago(at, now)}`);
+export const staleText = (at, now) => W(`${ago(at, now)}的資料`, `Data from ${ago(at, now)}`);
 
 // A condition's words in the reader's language: Google's (or CWA's) Chinese,
 // or in English from Google's code (PARTLY_CLOUDY: Partly cloudy); the
@@ -134,6 +146,9 @@ export function conditionText(code, text = '') {
   const hit = Object.keys(CONDITION_EN).find(k => String(text).includes(k));
   return hit ? CONDITION_EN[hit] : text;
 }
-// Taiwan's air quality levels (MOENV's words) in English.
-const AQI_EN = { 良好: 'Good', 普通: 'Moderate', 對敏感族群不健康: 'Unhealthy for some', 對所有族群不健康: 'Unhealthy', 非常不健康: 'Very unhealthy', 危害: 'Hazardous' };
+// Taiwan's air quality levels (MOENV's words), each with its top AQI and its English.
+const AQI_LEVELS = [[50, '良好', 'Good'], [100, '普通', 'Moderate'], [150, '對敏感族群不健康', 'Unhealthy for some'], [200, '對所有族群不健康', 'Unhealthy'], [300, '非常不健康', 'Very unhealthy'], [Infinity, '危害', 'Hazardous']];
+const AQI_EN = Object.fromEntries(AQI_LEVELS.map(([, zh, english]) => [zh, english]));
+// A level by its AQI, in the reader's language.
+export const aqiName = aqi => (aqi == null ? '' : W(...AQI_LEVELS.find(([max]) => aqi <= max).slice(1)));
 export const aqiLevel = level => (en ? AQI_EN[String(level || '').trim()] || level || '' : level || '');

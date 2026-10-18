@@ -2,14 +2,14 @@
 // owner's order (default: UV, rain and air, each with its graph; what to do,
 // today and this week; the days; everything else). One truth: one value for each thing, no sources named.
 
-import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonPhase, escapeHtml as e, ago, conditionText, aqiLevel } from './format.mjs';
+import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
 import { W, en } from './lang.mjs';
 import { adviceEn } from './advice-en.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
 import { segHtml } from '#kit/ui.mjs';
-import { uvGraph, rainGraph, airGraph, dayCharts, scrubHtml, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines, OLD_MS } from './api.mjs';
 import { scheduleText } from './pins.mjs';
@@ -22,6 +22,18 @@ export const uvCols = (hours, tz) => hours.filter(h => hourOf(h.t, tz) >= 6 && h
 // The hours from this one on (the graphs start now).
 export const hoursFrom = (f, now) => (f?.hours || []).filter(h => h.t + HOUR > now);
 const today = (f, now) => f.days?.find(d => d.date === dateOf(now, f.tz)) || f.days?.[0] || null;
+// A day's chance of rain, as every place shows it: today's is the highest of
+// the hours still ahead (where you'll be then: the hourly graph's), not the
+// forecast's whole day with its gone hours; the line, the graphs and the 10
+// days say the same (TRUTH §14).
+export function dayPop(f, d, now) {
+  if (!d || d.date !== dateOf(now, f.tz)) return d?.pop ?? null;
+  const ahead = hoursFrom(f, now).filter(h => dateOf(h.t, f.tz) === d.date && h.pop != null);
+  return ahead.length ? Math.max(...ahead.map(h => h.pop)) : d.pop ?? null;
+}
+// The forecast's words are the proxy's Chinese; in English only what's
+// already English (the route's own, `f.own`, or a sentence with no Chinese).
+const readable = text => !en || !/[\u4e00-\u9fff]/.test(text);
 
 // The sky behind the top: by the weather now, day or night.
 export function skyOf(n) {
@@ -63,7 +75,7 @@ export function topArea(f, { page, now }) {
   // when the read failed, tap to try again.
   const old = f && f.at && now - f.at > OLD_MS;
   const stale = old
-    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Waiting to update')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${W(`${e(ago(f.at, now))}的資料`, `from ${e(ago(f.at, now))}`)}</span></button>`
+    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Waiting to update')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
   return `
   <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
@@ -78,7 +90,7 @@ export function topArea(f, { page, now }) {
     <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
     <p class="wx-hl">${W('最高', 'H')} ${deg(d?.hi)}<i></i>${W('最低', 'L')} ${deg(d?.lo)}</p>
     <p class="wx-feel">${W('體感', 'Feels')} ${deg(n.feels)} · ${W('降雨', 'Rain')} ${pct(h0?.pop)} · ${W('濕度', 'Humidity')} ${pct(n.humidity)}</p>
-    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? W(`更新於 ${e(ago(f.at, now))}`, `Updated ${e(ago(f.at, now))}`) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
+    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
           : '<div class="wx-temp wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><p class="wx-hl wx-skel-hero" aria-hidden="true"><i class="sk sk-hl"></i></p>'
@@ -95,14 +107,15 @@ export function hourStrip(f, { now, key }) {
   if (cols.length < 4) return '';
   return `
   <section class="q-card wx-hours" aria-label="${W('接下來 24 小時', 'Next 24 hours')}">
-    ${f.headline && !(en && /[\u4e00-\u9fff]/.test(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : ''}
+    ${f.headline && (f.own || readable(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : ''}
     ${cols
       .map((h, i) => {
         const date = dateOf(h.t, f.tz);
         const hr = hourOf(h.t, f.tz);
         // A new day: a line before it, and its name.
         const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
-        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, `${dayLabel(date, now, f.tz)} ${hr}`) : hh(hr);
+        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column.)
+        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, `${weekday(date)} ${hr}`) : hh(hr);
         return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}
@@ -162,15 +175,12 @@ export const dayText = (date, now, tz) => `${dayLabel(date, now, tz)} ${shortDat
 
 // The 10 days, a column each (for the bars).
 export function daysCols(f, now) {
-  // Today: the highest chance of the hours still ahead, where you'll be then
-  // (the hourly graph's), not the forecast's whole day (its gone hours, and
-  // every place's at once), so the two say the same.
+  // (Today's chance of rain: dayPop's, as the 10-day row says it.)
   const today = dateOf(now, f.tz);
-  const ahead = hoursFrom(f, now).filter(h => dateOf(h.t, f.tz) === today && h.pop != null);
   return (f.days || [])
     .filter(d => d.date >= today)
     .slice(0, 10)
-    .map(d => ({ date: d.date, label: en ? dayLabel(d.date, now, f.tz).slice(0, 3) : dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: d.date === today && ahead.length ? Math.max(...ahead.map(h => h.pop)) : d.pop, mm: d.mm, uvMax: d.uvMax, daily: true }));
+    .map(d => ({ date: d.date, label: en ? dayLabel(d.date, now, f.tz).slice(0, 3) : dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: dayPop(f, d, now), mm: d.mm, uvMax: d.uvMax, daily: true }));
 }
 // The daylight days ahead: [{ date, hours (6–18時, from now on) }].
 export function uvDays(f, now) {
@@ -295,7 +305,8 @@ export function adviceCards(f, { now } = {}) {
   // (The proxy writes these in Chinese; in English, what adviceEn can read.)
   const list = (f.advice || [])
     .map(a => ({ ...a, text: a.text.replace(/^[^：]+：/, '') }))
-    .map(a => (en ? { ...a, text: adviceEn(a.text) } : a))
+    // (The route's own advice, `own`, is in the reader's language already.)
+    .map(a => (en && !a.own ? { ...a, text: adviceEn(a.text) } : a))
     .filter(a => LIFE[a.kind] && a.text)
     .sort((a, b) => (URGENT[a.level] ?? 3) - (URGENT[b.level] ?? 3) || ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
   if (!list.length) return '';
@@ -318,6 +329,7 @@ export function daysList(f, { now, key }) {
   const lo = Math.min(...days.map(d => d.lo ?? Infinity));
   const hi = Math.max(...days.map(d => d.hi ?? -Infinity));
   const span = Math.max(1, hi - lo);
+  const pop = d => dayPop(f, d, now);
   return `
   <section class="wx-section">
     <h3 class="wx-h">${glyph('calendar', { size: 18 })}${W(`${days.length} 天預報`, `${days.length}-day forecast`)}</h3>
@@ -328,9 +340,9 @@ export function daysList(f, { now, key }) {
           const right = (((d.hi ?? hi) - lo) / span) * 100;
           const c = d.day?.condition || {};
           return `<button class="wx-day" type="button" data-day="${e(d.date)}" data-page="${e(key)}">
-            <span class="wx-dname">${e(dayLabel(d.date, now, f.tz))}<small>${d.places?.length > 1 ? e(d.places.join('·')) : shortDate(d.date)}</small></span>
+            <span class="wx-dname">${e(en && d.date !== dateOf(now, f.tz) ? weekday(d.date) : dayLabel(d.date, now, f.tz))}<small>${d.places?.length > 1 ? e(d.places.join('·')) : shortDate(d.date)}</small></span>
             <span class="wx-dicon">${conditionArt(c.code, c.text, true, { size: 30 })}</span>
-            <span class="wx-dpop" style="--p:${d.pop ?? 0}%"><b>${d.pop == null ? '–' : `${d.pop}%`}</b><i></i></span>
+            <span class="wx-dpop" style="--p:${pop(d) ?? 0}%"><b>${pop(d) == null ? '–' : `${pop(d)}%`}</b><i></i></span>
             <span class="wx-dlo">${deg(d.lo)}</span>
             <span class="wx-bar"><i style="left:${left.toFixed(1)}%;width:${Math.max(4, right - left).toFixed(1)}%"></i></span>
             <span class="wx-dhi">${deg(d.hi)}</span>
@@ -342,32 +354,32 @@ export function daysList(f, { now, key }) {
   </section>`;
 }
 
-// The sheet for one day: its graph with everything on it, then its numbers.
-// A day's recommendations, from its own hours: what to bring and wear, when
+// A day's recommendations, from its own hours (today's: the hours still
+// ahead, never a rain or a sun already gone): what to bring and wear, when
 // to run, whether to wash and hang laundry, sun, heat, air, storms, wind.
-const WEAR = [[15, W('外套', 'Coat')], [20, W('薄外套', 'Light jacket')], [26, W('長袖', 'Long sleeves')], [Infinity, W('短袖', 'Short sleeves')]];
 export function dayTips(f, date, now) {
   const tz = f.tz;
   const d = f.days?.find(x => x.date === date);
-  const hours = (f.hours || []).filter(h => dateOf(h.t, tz) === date);
+  const hours = (f.hours || []).filter(h => dateOf(h.t, tz) === date && (date !== dateOf(now, tz) || h.t + HOUR > now));
   const awake = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) < 22);
   const tips = [];
   const at = h => hh(hourOf(h.t, tz));
   // Rain.
   const wet = awake.reduce((a, h) => ((h.pop ?? -1) > (a?.pop ?? -1) ? h : a), null);
-  const pop = wet?.pop ?? d?.pop ?? null;
-  if (pop != null) tips.push(pop >= 50 ? { k: 'umbrella', title: LIFE.umbrella, text: en ? (wet ? `${wet.pop}% at ${at(wet)}` : 'Take one') : `要帶${wet ? `，${at(wet)} ${wet.pop}%` : ''}`, lv: 'yes' } : pop >= 30 ? { k: 'umbrella', title: LIFE.umbrella, text: en ? (wet ? `${wet.pop}% at ${at(wet)}` : 'Maybe') : `摺疊傘${wet ? `，${at(wet)} ${wet.pop}%` : ''}`, lv: 'maybe' } : { k: 'umbrella', title: LIFE.umbrella, text: W('不用帶', 'Not needed'), lv: 'none' });
+  const pop = wet?.pop ?? dayPop(f, d, now);
+  const rain = rainLevel(pop);
+  if (pop != null) tips.push({ k: 'umbrella', title: LIFE.umbrella, lv: rain, text: rain === 'none' ? W('不用帶', 'Not needed') : en ? (wet ? `${wet.pop}% at ${at(wet)}` : rain === 'yes' ? 'Take one' : 'Maybe') : `${rain === 'yes' ? '要帶' : '摺疊傘'}${wet ? `，${at(wet)} ${wet.pop}%` : ''}` });
   // Clothes: a third of the way from the day's coolest to warmest feel.
   const fl = awake.map(h => h.feels ?? h.temp).filter(v => v != null);
   const lo = fl.length ? Math.min(...fl) : d?.feelsLo ?? d?.lo;
   const hi = fl.length ? Math.max(...fl) : d?.feelsHi ?? d?.hi;
-  if (lo != null && hi != null) tips.push({ k: 'wear', title: LIFE.wear, text: `${WEAR.find(([m]) => lo + (hi - lo) / 3 < m)[1]}${hi - lo >= 7 ? W('，早晚加件', ', a layer for morning and night') : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
+  if (lo != null && hi != null) tips.push({ k: 'wear', title: LIFE.wear, text: `${wearFor(outFeel(lo, hi)).text}${hi - lo >= 7 ? W('，早晚加件', ', a layer for morning and night') : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
   // Running: the best 2 hours, 6–20時.
   const cost = h => {
     const v = h.feels ?? h.temp;
     return (h.pop ?? 0) * 1.2 + Math.max(0, v - 24) * 6 + Math.max(0, 16 - v) * 4 + Math.max(0, (h.uv ?? 0) - 5) * 8 + ((h.thunder ?? 0) >= 40 ? 30 : 0);
   };
-  const runH = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) <= 20 && h.t + HOUR > now && (h.feels ?? h.temp) != null);
+  const runH = hours.filter(h => hourOf(h.t, tz) >= 6 && hourOf(h.t, tz) <= 20 && (h.feels ?? h.temp) != null);
   let best = null;
   for (let i = 0; i + 1 < runH.length; i++) {
     if (runH[i + 1].t - runH[i].t !== HOUR) continue;
@@ -377,8 +389,9 @@ export function dayTips(f, date, now) {
   if (best) tips.push({ k: 'run', title: LIFE.run, text: `${hourOf(best.h.t, tz)}–${hourOf(best.h.t, tz) + 2}${W('時', 'h')} ${Math.round(best.h.feels ?? best.h.temp)}°`, lv: best.c < 45 ? 'good' : 'none' });
   // Laundry: dry and not overcast.
   if (d) {
-    const dry = d.pop != null && d.pop < 20 && !/^CLOUDY|RAIN|SHOWER|THUNDER|DRIZZLE/.test(d.day?.condition?.code || '');
-    tips.push({ k: 'laundry', title: LIFE.laundry, text: dry ? W('適合', 'Good day for it') : d.pop != null && d.pop < 40 ? W('乾得慢', 'Slow to dry') : W('用烘乾', 'Use the dryer'), lv: dry ? 'good' : d.pop >= 40 ? 'bad' : 'none' });
+    const p = dayPop(f, d, now);
+    const dry = p != null && p < 20 && !/^CLOUDY|RAIN|SHOWER|THUNDER|DRIZZLE/.test(d.day?.condition?.code || '');
+    tips.push({ k: 'laundry', title: LIFE.laundry, text: dry ? W('適合', 'Good day for it') : p != null && p < 40 ? W('乾得慢', 'Slow to dry') : W('用烘乾', 'Use the dryer'), lv: dry ? 'good' : p >= 40 ? 'bad' : 'none' });
   }
   // Sun.
   const sunny = hours.filter(h => h.uv >= 3);
@@ -427,7 +440,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>
     <div class="wx-dayg">
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
-      ${hours.length >= 4 ? `<div class="wx-dayg-plot">${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
+      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot">${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
     </div>
     ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid">
@@ -442,14 +455,14 @@ export function daySheet(f, date, { now, lat, lon }) {
 export function infoCard(f, { now, lat, lon, page }) {
   const n = f.now || {};
   const w = n.wind || {};
-  const h0 = f.hours?.[0];
-  const h3 = f.hours?.[3];
+  // (The hour now and three on, as the top reads them: an old copy's first hours are gone.)
+  const [h0, , , h3] = hoursFrom(f, now);
   const date = dateOf(now, f.tz);
   const d = today(f, now);
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
   const g = s && goldenHours(s);
   const len = s ? s.sunset - s.sunrise : 0;
-  const moon = moonPhase(d?.moon?.phase);
+  const moon = moonName(d?.moon?.phase);
   const trend = n.pressure != null && h3?.pressure != null ? (h3.pressure - n.pressure > 0.5 ? ' ↑' : h3.pressure - n.pressure < -0.5 ? ' ↓' : ' →') : '';
   const items = [
     [glyph('drop'), W('濕度', 'Humidity'), pct(n.humidity ?? h0?.humidity), `${W('露點', 'Dew point')} ${deg(n.dew ?? h0?.dew)}`],
@@ -461,7 +474,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [glyph('sunrise'), W('日出', 'Sunrise'), s ? clock(s.sunrise, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.morning[0], f.tz)}–${clock(g.morning[1], f.tz)}` : ''],
     [glyph('sunset'), W('日落', 'Sunset'), s ? clock(s.sunset, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.evening[0], f.tz)}–${clock(g.evening[1], f.tz)}` : ''],
     [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', ''],
-    [moon ? moonArt(d?.moon?.phase) : glyph('moon'), W('月相', 'Moon'), moon ? moon[0] : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : ''],
+    [moon ? moonArt(d?.moon?.phase) : glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : ''],
     [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb'],
     [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · measured ${clock(n.station.at, f.tz)}`) : ''],
     [glyph('pin'), W('位置', 'Location'), page.place?.town ? e(page.place.town) : '–', page.place?.county ? e(page.place.county) : '']
@@ -471,7 +484,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     <h3 class="wx-h">${glyph('list', { size: 18 })}${W('更多資訊', 'More details')}</h3>
     <div class="q-card wx-info">
       <div class="wx-tiles">${items.map(([icon, k, v, sub]) => `<div class="wx-tile"><span>${icon}${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`).join('')}</div>
-      <p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${W('更新於', 'Updated')} ${e(ago(f.at, now))}</p>
+      <p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${e(updatedText(f.at, now))}</p>
     </div>
   </section>`;
 }
@@ -499,7 +512,7 @@ export function uvTile(f, { now, key }) {
   const list = (day?.hours || []).filter(h => h.uv != null);
   const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
   const nowUv = f.now?.uv ?? hours[0]?.uv;
-  const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, `${day.date === dateOf(now, f.tz) ? '' : `${dayLabel(day.date, now, f.tz)} `}peak ${peak.uv} at ${hourOf(peak.t, f.tz)}`) : '';
+  const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, day.date === dateOf(now, f.tz) ? `Peak ${peak.uv} at ${hourOf(peak.t, f.tz)}` : `${weekday(day.date)} peak ${peak.uv}`) : '';
   return tile({ kind: 'uv', key, icon: glyph('sun', { size: 16 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}<small>${uvLevel(nowUv) || ''}</small>`, color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
 }
 export function airTile(f, { now, key }) {

@@ -22,7 +22,10 @@ Live: https://jaypengx.github.io/Orbit-Weather/
   cards (each opens a sheet of day tabs and graphs) → 建議 → 10 天預報
   (a day opens its sheet) → 更多資訊.
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
-  on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`).
+  on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
+  newest). The Pass's copy is read again before a write whenever another
+  device may have written (`lib/pass-sync.mjs`), and a copy that can't be
+  read is never written over.
 - **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll
   be then (from the pins; the phone's real position wins). A school pin is
   off on Taiwan's holidays.
@@ -33,7 +36,8 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 ## Decisions in force
 
 - The line, the graph and the 10-day row read the same hours: one number
-  means one thing everywhere.
+  means one thing everywhere. Today's rain chance and advice count only
+  the hours still ahead (`dayPop`).
 - No source named on screen; a test fails if one reaches it.
 - An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
 - Weather draws its own pictures; a test fails if an emoji reaches the page.
@@ -49,7 +53,9 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 | `public/lib/cards.mjs` | A page's sections |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
 | `public/lib/pins.mjs`, `plan.mjs` | Pins; 我的行程 |
-| `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours; sunrise/sunset; the app's own pictures |
+| `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
+| `public/lib/lang.mjs`, `advice-en.mjs` | English; the proxy's advice turned over |
+| `public/lib/pass-sync.mjs` | Keeping the pins in step with the Pass (the same file as Orbit Words') |
 | `public/sw.js` | Offline and notices |
 
 The proxy's reads: `GET /weather?lat=&lon=` (the blend for a ~1 km cell,

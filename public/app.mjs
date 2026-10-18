@@ -13,10 +13,11 @@ const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => nul
 if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
-import { escapeHtml as e, dateOf, ago } from './lib/format.mjs';
+import { escapeHtml as e, dateOf, updatedText, staleText } from './lib/format.mjs';
 import { W, en, lang } from './lib/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
+import { passSync } from './lib/pass-sync.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -298,10 +299,7 @@ async function locate({ force = false } = {}) {
   }
   if (may === 'denied') {
     here.note = state.local.here ? W('定位已關閉，顯示上次的位置', 'Location off · last location') : W('定位已關閉，顯示大約位置', 'Location off · approximate');
-    if (!state.local.here) {
-      here.lat = here.lon = null;
-      return loadPage(here);
-    }
+    if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
   }
   state.locatedAt = Date.now();
@@ -372,17 +370,36 @@ async function placeHere(here, pos) {
 
 // ---- The pins on the pass ---------------------------------------------------------------
 
-let saving = null;
-async function saveData() {
-  state.data.t = Date.now();
+// The pins on the pass, kept in step with this device's copy: the pass's
+// read and merged in before anything is written over it, whenever it may
+// have changed (lib/pass-sync.mjs; a copy this version can't read is never
+// written over).
+const keepData = () => {
   state.local.data = encodeData(state.data);
   saveLocal(state.local);
+};
+const pass = passSync(q, {
+  decode: decodeData,
+  encode: () => encodeData(state.data),
+  apply: theirs => {
+    const was = encodeData(state.data);
+    state.data = mergeData(state.data, theirs);
+    if (encodeData(state.data) === was) return;
+    keepData();
+    if (!state.started) return;
+    buildPages();
+    renderAll();
+    sendNotices();
+  }
+});
+async function saveData() {
+  state.data.t = Date.now();
+  keepData();
   buildPages();
   renderAll();
   sendNotices();
-  if (!q.active) return;
-  saving = q.write({ payload: encodeData(state.data) }).catch(() => {});
-  await saving;
+  pass.changed();
+  await pass.sync();
 }
 
 function sendNotices() {
@@ -738,8 +755,8 @@ document.addEventListener('keydown', ev => {
 function tick() {
   if (document.visibilityState !== 'visible' || !state.started) return;
   const now = Date.now();
-  for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = W(`更新於 ${ago(Number(el.dataset.at), now)}`, `Updated ${ago(Number(el.dataset.at), now)}`);
-  for (const el of document.querySelectorAll('.wx-stale-age[data-at]')) el.textContent = W(`${ago(Number(el.dataset.at), now)}的資料`, `Data from ${ago(Number(el.dataset.at), now)}`);
+  for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = updatedText(Number(el.dataset.at), now);
+  for (const el of document.querySelectorAll('.wx-stale-age[data-at]')) el.textContent = staleText(Number(el.dataset.at), now);
   const page = state.pages[state.index];
   if (!page) return;
   if (page.drawn !== drawnSig(page)) renderPage(page);
@@ -898,23 +915,20 @@ async function boot() {
     locate();
   }
   const first = await q.start();
-  const theirs = decodeData(first?.payload);
-  const merged = mergeData(state.data, theirs);
-  const changed = encodeData(merged) !== (first?.payload || '');
-  state.data = merged;
-  state.local.data = encodeData(merged);
-  saveLocal(state.local);
+  // The pass's pins merged in; this device's go up where the pass lacks them.
+  await pass.first(first, { local: Boolean(state.data.pins.length || state.data.t) });
+  keepData();
   buildPages();
   renderAll();
   // 我的行程 when there are pins (it shows where you are now), else here.
   show();
-  if (changed && (merged.pins.length || theirs) && q.active) q.write({ payload: encodeData(merged) }).catch(() => {});
+  pass.watch();
+  pass.sync();
   // (Already on its way when it was asked beside the sign-in.)
   if (!used) locate();
   else loadPage(state.pages[state.index]);
   sendNotices();
 }
-q.on('active', live => live && state.started && q.write({ payload: encodeData(state.data) }).catch(() => {}));
 if (!gated) boot();
 
 // Opens without a connection: the kit registers the worker and has it keep every file loaded.

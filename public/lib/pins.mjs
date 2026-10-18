@@ -122,7 +122,8 @@ export function decodeData(text) {
   }
 }
 // Two copies made one: each pin the newer of the two, a deletion newer than
-// the pin wins; the brief time and the cards from the newer copy. Order: `a`'s, then new ones.
+// the pin wins, one home (the one marked last); the brief time and the cards
+// from the newer copy. Order: `a`'s, then new ones.
 export function mergeData(a, b, now = Date.now()) {
   if (!a) return b || emptyData();
   if (!b) return a;
@@ -135,7 +136,10 @@ export function mergeData(a, b, now = Date.now()) {
     if (!had || p.t > had.t) byId.set(p.id, p);
   }
   const order = [...a.pins.map(p => p.id), ...b.pins.map(p => p.id)];
-  const pins = [...new Set(order)].map(id => byId.get(id)).filter(p => p && !(gone[p.id] >= p.t)).slice(0, MAX_PINS);
+  let pins = [...new Set(order)].map(id => byId.get(id)).filter(p => p && !(gone[p.id] >= p.t)).slice(0, MAX_PINS);
+  // One home at most: two devices each marking one, the one marked last.
+  const home = pins.filter(p => p.home).sort((x, y) => y.t - x.t)[0];
+  if (home) pins = pins.map(p => (p.home && p !== home ? { ...p, home: false } : p));
   const newer = (b.t || 0) > (a.t || 0) ? b : a;
   return { pins, brief: newer.brief, t: Math.max(a.t || 0, b.t || 0), gone, ...cleanLayout(newer.cards, newer.hidden) };
 }
