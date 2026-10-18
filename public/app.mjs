@@ -252,7 +252,8 @@ function take(page, cell, f) {
     // (Each answer's own place: the network's guess moves as you do.)
     page.ipForecast = f;
     page.ipAt = Date.now();
-    page.place = f.place || page.place;
+    // (Only until a fix: once the phone has said where it is, that name stands.)
+    if (page.lat == null) page.place = f.place || page.place;
   }
   page.error = '';
   saveLocal(state.local);
