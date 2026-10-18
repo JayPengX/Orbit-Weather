@@ -63,7 +63,8 @@ export function topArea(f, { page, now }) {
   const place = placeLines(page.place);
   // 我的行程: the route's title, where you are now under it.
   const title = page.plan ? W('我的行程', 'My day') : page.pin ? page.pin.name : place.main || W('目前位置', 'Current location');
-  const sub = page.plan ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}` : page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || W('目前位置', 'Current location')].filter(Boolean).join(' · ');
+  // (Here with no township's name yet: the title already says 目前位置, so not again under it.)
+  const sub = page.plan ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}` : page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || (place.main ? W('目前位置', 'Current location') : '')].filter(Boolean).join(' · ');
   // (No warning banner under the hero: 陸上強風特報 and the like sat there
   // most days and said little; the advice tiles speak of wind and rain.)
   const h0 = f ? hoursFrom(f, now)[0] : null;
@@ -82,7 +83,7 @@ export function topArea(f, { page, now }) {
     ${fxHtml(sky)}
     <div class="wx-where">
       <h2 class="wx-place">${placeGlyph(page, { size: 18 })}<span>${e(title)}</span></h2>
-      <p class="wx-sub">${e(sub)}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}${page.askable && !page.pin && !page.plan ? ` <button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : ''}</p>
+      <p class="wx-sub">${e(sub) || '&nbsp;'}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}${page.askable && !page.pin && !page.plan ? ` <button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : ''}</p>
     </div>
     ${
       f
@@ -476,7 +477,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', ''],
     [moon ? moonArt(d?.moon?.phase) : glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : ''],
     [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb'],
-    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · measured ${clock(n.station.at, f.tz)}`) : ''],
+    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : ''],
     [glyph('pin'), W('位置', 'Location'), page.place?.town ? e(page.place.town) : '–', page.place?.county ? e(page.place.county) : '']
   ];
   return `
