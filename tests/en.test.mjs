@@ -45,7 +45,7 @@ test("the proxy's advice in English; what can't be read is left out, never half 
   assert.match(html, /Unlikely today/);
   assert.match(html, /Tonight -2°, thick blanket/);
   assert.match(html, /Tomorrow morning -1°, 6° colder/);
-  assert.match(html, /Tomorrow 6–8h 18°/);
+  assert.match(html, /Tmrw 6–8h 18°/);
   assert.doesNotMatch(html, /打開窗戶|今晚/, 'an unknown phrase drops its tile');
   // The proxy's own sentence (Chinese) isn't shown in English; its numbers are.
   const page = pageHtml(forecast, { key: 'here', place: { town: '信義區' } }, { now: tpe('2026-10-02T19:46:00') });

@@ -39,6 +39,8 @@ const WORDS = [
   [/傍晚/g, 'PM '],
   [/乾爽/g, 'dry'],
   [/今天/g, 'Today'],
+  // (Before an hour, the short form: "Tmrw 6–8h 18°" fits a tile's line.)
+  [/明天(?=\s*\d)/g, 'Tmrw'],
   [/明天/g, 'Tomorrow'],
   [/起 (\d+) 天/g, ', $1 dry days'],
   [/這週用烘乾/g, 'Use the dryer this week'],

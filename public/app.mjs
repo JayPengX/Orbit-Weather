@@ -168,7 +168,7 @@ const planPage = () => state.pages.find(p => p.plan);
 // What a page was drawn from: drawn again only when it changes (or the hour turns).
 const drawnSig = page => {
   const f = page.plan ? `${state.pages.filter(p => !p.plan).map(p => `${forecastOf(p)?.at || 0}${forecastOf(p)?.more ? '+' : ''}`).join()}|${liveRoute() ? 'here' : ''}` : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}`;
-  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}`;
+  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}|${page.note || ''}`;
 };
 
 
@@ -365,11 +365,12 @@ async function placeHere(here, pos) {
           })
       : null;
   await loadPage(here, { naming });
-  // (A forecast already kept for the cell: the name, once it's in, or that it isn't.)
+  // (A forecast already kept for the cell: the name, once it's in, or that it
+  // isn't; the note is part of what was drawn, so a lookup that failed while
+  // the forecast loaded is drawn too.)
   if (naming) {
-    const note = here.note;
     await naming;
-    if (here.drawn !== drawnSig(here) || here.note !== note) renderPage(here);
+    if (here.drawn !== drawnSig(here)) renderPage(here);
   }
 }
 
