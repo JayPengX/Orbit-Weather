@@ -87,7 +87,7 @@ export function topArea(f, { page, now }) {
   // when the read failed, tap to try again.
   const old = f && f.at && now - f.at > OLD_MS;
   const stale = old
-    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Waiting to update')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
+    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
   return `
   <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
@@ -127,8 +127,9 @@ export function hourStrip(f, { now, key }) {
         const hr = hourOf(h.t, f.tz);
         // A new day: a line before it, and its name.
         const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
-        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column.)
-        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, `${weekday(date)} ${hr}`) : hh(hr);
+        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column;
+        // at midnight the name alone, not "Mon 0".)
+        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, hr === 0 ? weekday(date) : `${weekday(date)} ${hr}`) : hh(hr);
         return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}

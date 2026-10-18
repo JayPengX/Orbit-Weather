@@ -13,7 +13,7 @@ const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => nul
 if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
 import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
-import { escapeHtml as e, dateOf, updatedText, staleText } from './lib/format.mjs';
+import { escapeHtml as e, dateOf, updatedText, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from './lib/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
@@ -168,7 +168,7 @@ const planPage = () => state.pages.find(p => p.plan);
 // What a page was drawn from: drawn again only when it changes (or the hour turns).
 const drawnSig = page => {
   const f = page.plan ? `${state.pages.filter(p => !p.plan).map(p => `${forecastOf(p)?.at || 0}${forecastOf(p)?.more ? '+' : ''}`).join()}|${liveRoute() ? 'here' : ''}` : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}`;
-  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}`;
+  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}|${page.note || ''}`;
 };
 
 
@@ -322,7 +322,8 @@ async function locateNow(here) {
   if (!pos.error) {
     // (Within the quick one's cell: only its accuracy is news.)
     if (!quick.error && cellOf(pos.lat, pos.lon) === cellOf(quick.lat, quick.lon)) {
-      const note = pos.acc > 1000 ? W('大約位置', 'Approximate') : '';
+      // (A name that couldn't be read stays said until one is.)
+      const note = hereNote(pos.acc, here.nameless && !here.place?.town);
       state.local.here = { ...state.local.here, lat: pos.lat, lon: pos.lon, at: Date.now() };
       saveLocal(state.local);
       Object.assign(here, { lat: pos.lat, lon: pos.lon });
@@ -339,7 +340,7 @@ async function locateNow(here) {
 // The page at a fix: its forecast and its township's name asked together,
 // drawn together (the name used to be waited for before the forecast was asked).
 async function placeHere(here, pos) {
-  here.note = pos.acc > 1000 ? W('大約位置', 'Approximate') : '';
+  here.note = hereNote(pos.acc, false);
   const was = state.local.here;
   const moved = !was || Math.abs(was.lat - pos.lat) > 0.001 || Math.abs(was.lon - pos.lon) > 0.001;
   let place = was?.place || null;
@@ -354,14 +355,24 @@ async function placeHere(here, pos) {
           .ensureToken()
           .then(token => fetchWhere(pos.lat, pos.lon, token))
           .then(w => {
-            if (!w?.county || state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
+            if (state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
+            if (!w?.county) throw new Error('no name');
             state.local.here.place = here.place = w;
+            here.nameless = false;
+            here.note = hereNote(pos.acc, false);
             saveLocal(state.local);
           })
-          .catch(() => {})
+          // (No name to be had: said under the title, not left as if it were coming.)
+          .catch(() => {
+            if (here.place?.town) return;
+            here.nameless = true;
+            here.note = hereNote(pos.acc, true);
+          })
       : null;
   await loadPage(here, { naming });
-  // (A forecast already kept for the cell: the name, once it's in.)
+  // (A forecast already kept for the cell: the name, once it's in, or that it
+  // isn't; the note is part of what was drawn, so a lookup that failed while
+  // the forecast loaded is drawn too.)
   if (naming) {
     await naming;
     if (here.drawn !== drawnSig(here)) renderPage(here);

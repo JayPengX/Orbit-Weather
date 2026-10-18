@@ -120,7 +120,8 @@ export function ago(ms, now) {
 
 // The top's line under the numbers: when they were made, and an old copy's age.
 export const updatedText = (at, now) => W(`更新於 ${ago(at, now)}`, `Updated ${ago(at, now)}`);
-export const staleText = (at, now) => W(`${ago(at, now)}的資料`, `Data from ${ago(at, now)}`);
+// (English short, "3 h old": "Waiting to update · Data from 3 h ago" ran into the Today button.)
+export const staleText = (at, now) => W(`${ago(at, now)}的資料`, ago(at, now).replace(/ ago$/, ' old'));
 
 // A condition's words in the reader's language: Google's (or CWA's) Chinese,
 // or in English from Google's code (PARTLY_CLOUDY: Partly cloudy); the
@@ -152,3 +153,8 @@ const AQI_EN = Object.fromEntries(AQI_LEVELS.map(([, zh, english]) => [zh, engli
 // A level by its AQI, in the reader's language.
 export const aqiName = aqi => (aqi == null ? '' : W(...AQI_LEVELS.find(([max]) => aqi <= max).slice(1)));
 export const aqiLevel = level => (en ? AQI_EN[String(level || '').trim()] || level || '' : level || '');
+
+// What's said under 目前位置: that the fix is rough (over 1 km), and that the
+// area's name couldn't be read (kept until a name is in, through a sharper
+// fix in the same cell too).
+export const hereNote = (acc, nameless) => [acc > 1000 ? W('大約位置', 'Approximate') : '', nameless ? W('地名暫時讀不到', 'Area name unavailable') : ''].filter(Boolean).join(' · ');

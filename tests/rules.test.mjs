@@ -6,7 +6,7 @@ import { realpathSync, existsSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
 import { pageHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard, colsFor } from '../public/lib/cards.mjs';
 import { readout } from '../public/lib/graph.mjs';
-import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText } from '../public/lib/format.mjs';
+import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText, hereNote } from '../public/lib/format.mjs';
 import { cleanPin, mergeData, emptyData, encodeData, decodeData } from '../public/lib/pins.mjs';
 // PASS_SYNC=kit runs these against the kit's shared module instead of this app's own copy (the fallback).
 const { passSync } = await import(process.env.PASS_SYNC === 'kit' ? '#kit/pass-sync.mjs' : '../public/lib/pass-sync.mjs');
@@ -211,6 +211,13 @@ test("the proxy's advice in English: every sentence it writes reads", { skip: !p
   }
   assert.ok(seen > 2000, String(seen));
   assert.deepEqual([...missed.values()], [], 'sentences left in Chinese');
+});
+
+test('under 目前位置: a rough fix, and a name that could not be read, kept through a sharper fix', () => {
+  assert.equal(hereNote(30, false), '');
+  assert.equal(hereNote(2000, false), '大約位置');
+  assert.equal(hereNote(30, true), '地名暫時讀不到');
+  assert.equal(hereNote(2000, true), '大約位置 · 地名暫時讀不到');
 });
 
 import { rainSoon } from '../public/lib/soon.mjs';
