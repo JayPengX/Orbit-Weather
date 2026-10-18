@@ -152,3 +152,8 @@ const AQI_EN = Object.fromEntries(AQI_LEVELS.map(([, zh, english]) => [zh, engli
 // A level by its AQI, in the reader's language.
 export const aqiName = aqi => (aqi == null ? '' : W(...AQI_LEVELS.find(([max]) => aqi <= max).slice(1)));
 export const aqiLevel = level => (en ? AQI_EN[String(level || '').trim()] || level || '' : level || '');
+
+// What's said under 目前位置: that the fix is rough (over 1 km), and that the
+// area's name couldn't be read (kept until a name is in, through a sharper
+// fix in the same cell too).
+export const hereNote = (acc, nameless) => [acc > 1000 ? W('大約位置', 'Approximate') : '', nameless ? W('地名暫時讀不到', 'Area name unavailable') : ''].filter(Boolean).join(' · ');
