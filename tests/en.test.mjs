@@ -50,7 +50,7 @@ test("the proxy's advice in English; what can't be read is left out, never half 
   // The proxy's own sentence (Chinese) isn't shown in English; its numbers are.
   const page = pageHtml(forecast, { key: 'here', place: { town: '信義區' } }, { now: tpe('2026-10-02T19:46:00') });
   assert.doesNotMatch(page, /wx-say/);
-  assert.match(page, /Feels 27° · Rain 10% · Humidity 94%/);
+  assert.match(page, /Feels <b>27°<\/b>/);
 });
 
 test('an old copy says "Not updated" and "3 h old", short enough to sit beside Today', async () => {

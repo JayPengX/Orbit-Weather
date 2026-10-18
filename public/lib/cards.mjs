@@ -8,7 +8,7 @@ import { adviceEn } from './advice-en.mjs';
 import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
-import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
+import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
 import { segHtml } from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
@@ -90,7 +90,7 @@ export function topArea(f, { page, now }) {
     ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
   return `
-  <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
+  <section class="wx-hero q-hero-card ${sky}${old ? ' wx-old' : ''}"${open}>
     ${fxHtml(sky)}
     <div class="wx-where">
       <h2 class="wx-place">${placeGlyph(page, { size: 18 })}<span>${e(title)}</span></h2>
@@ -98,10 +98,16 @@ export function topArea(f, { page, now }) {
     </div>
     ${
       f
-        ? `<div class="wx-temp" data-q-live="wx:temp">${deg(n.temp)}</div>
-    <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
-    <p class="wx-hl">${W('最高', 'H')} ${deg(d?.hi)}<i></i>${W('最低', 'L')} ${deg(d?.lo)}</p>
-    <p class="wx-feel">${W('體感', 'Feels')} ${deg(n.feels)} · ${W('降雨', 'Rain')} ${pct(h0?.pop)} · ${W('濕度', 'Humidity')} ${pct(n.humidity)}</p>
+        ? `<div class="wx-now">
+      <div class="wx-temp" data-q-live="wx:temp">${deg(n.temp)}</div>
+      <span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 76 })}</span>
+    </div>
+    <p class="wx-cond"><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
+    <div class="wx-pills">
+      <span class="wx-pill">${W('最高', 'H')} <b>${deg(d?.hi)}</b></span>
+      <span class="wx-pill">${W('最低', 'L')} <b>${deg(d?.lo)}</b></span>
+      <span class="wx-pill wx-feel">${W('體感', 'Feels')} <b>${deg(n.feels)}</b></span>
+    </div>
     ${old ? '' : soonLine(f, now, f.tz)}
     <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
@@ -111,6 +117,9 @@ export function topArea(f, { page, now }) {
   </section>${f ? hourStrip(f, { now, key: page.key }) : ''}`;
 }
 
+// A section: a 20px head (the kit's q-section-head), then its body.
+const sec = (cls, title, body) => `<section class="q-section wx-section ${cls}"><div class="q-section-head"><h2>${title}</h2></div>${body}</section>`;
+
 // The next 24 hours at a glance, every 3 hours, fitted to the width (the
 // page swipes sideways, so nothing in it does). A column opens its day.
 export function hourStrip(f, { now, key }) {
@@ -118,26 +127,29 @@ export function hourStrip(f, { now, key }) {
   const cols = [];
   for (let i = 0; i < 24 && i < hours.length; i += 3) cols.push(hours[i]);
   if (cols.length < 4) return '';
-  return `
-  <section class="q-card wx-hours" aria-label="${W('接下來 24 小時', 'Next 24 hours')}">
-    ${f.headline && (f.own || readable(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : ''}
-    ${cols
-      .map((h, i) => {
-        const date = dateOf(h.t, f.tz);
-        const hr = hourOf(h.t, f.tz);
-        // A new day: a line before it, and its name.
-        const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
-        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column;
-        // at midnight the name alone, not "Mon 0".)
-        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, hr === 0 ? weekday(date) : `${weekday(date)} ${hr}`) : hh(hr);
-        return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
+  const say = f.headline && (f.own || readable(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : '';
+  const rail = cols
+    .map((h, i) => {
+      const date = dateOf(h.t, f.tz);
+      const hr = hourOf(h.t, f.tz);
+      // A new day: its name before it.
+      const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
+      // (In English the day by its short name: "Tomorrow 2:00" ran into the next column;
+      // at midnight the name alone, not "Mon 0".)
+      const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, hr === 0 ? weekday(date) : `${weekday(date)} ${hr}`) : hh(hr);
+      return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}
           <b class="wx-hr-v">${deg(h.temp)}</b>
           <span class="wx-hr-p">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
         </button>`;
-      })
-      .join('')}
+    })
+    .join('');
+  return `
+  <section class="q-section wx-section wx-hours" aria-label="${W('接下來 24 小時', 'Next 24 hours')}">
+    <div class="q-section-head"><h2>${W('接下來 24 小時', 'Next 24 hours')}</h2></div>
+    ${say}
+    <div class="q-rail wx-rail">${rail}</div>
   </section>`;
 }
 
@@ -306,13 +318,18 @@ const ORDER = ['thunder', 'umbrella', 'move', 'commute', 'wear', 'temp', 'sun', 
 const URGENT = { yes: 0, bad: 0, hot: 0, maybe: 1, good: 2, none: 3 };
 const SHOWN = 4;
 
-// One piece of advice: its glyph in a level-coloured disc, the name, what to do.
-export const lifeTile = ({ kind, level, title, text }) =>
-  `<div class="wx-life lv-${e(level)} k-${e(kind)}"><span class="wx-life-icon">${glyph(ADVICE_GLYPH[kind] || 'bulb', { size: 19 })}</span><div><b>${e(title)}</b><p>${e(text)}</p></div></div>`;
-// The tiles: the first few, the rest behind 「更多建議」.
+// One piece of advice, a row: its glyph on a colour tile, the name, what to
+// do, and a tag when the level asks for attention (or says go).
+const KIND_COLOR = { umbrella: 'blue', commute: 'indigo', move: 'indigo', wear: 'orange', temp: 'orange', sun: 'orange', run: 'green', laundry: 'teal', sleep: 'indigo', window: 'mint', mask: 'red', heat: 'red', wind: 'teal', thunder: 'purple', fog: 'cyan', diff: 'purple', weekend: 'pink', humid: 'cyan', carwash: 'blue' };
+const LEVEL_TAG = { yes: ['orange', W('留意', 'Heads up')], hot: ['orange', W('留意', 'Heads up')], bad: ['orange', W('留意', 'Heads up')], maybe: ['blue', W('可能', 'Maybe')], good: ['green', W('適合', 'Good')] };
+export const lifeTile = ({ kind, level, title, text }) => {
+  const tag = LEVEL_TAG[level];
+  return `<div class="q-ritem wx-life lv-${e(level)} k-${e(kind)}"><span class="q-tile wx-life-icon" style="--t:var(--q-${KIND_COLOR[kind] || 'indigo'})">${glyph(ADVICE_GLYPH[kind] || 'bulb', { size: 22 })}</span><span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small>${e(text)}</small></span>${tag ? `<span class="q-tag ${tag[0]}">${tag[1]}</span>` : ''}</div>`;
+};
+// The rows: the first few, the rest behind 「更多建議」.
 const lifeGrid = tiles => {
   const rest = tiles.slice(SHOWN);
-  return `<div class="wx-lifegrid">${tiles.slice(0, SHOWN).join('')}</div>${rest.length ? `<details class="wx-more-advice"><summary>${W('更多建議', 'More')}<span>${rest.length}</span>${glyph('chevR', { size: 16 })}</summary><div class="wx-lifegrid">${rest.join('')}</div></details>` : ''}`;
+  return `<div class="q-rowcard wx-lifegrid">${tiles.slice(0, SHOWN).join('')}</div>${rest.length ? `<details class="wx-more-advice"><summary>${W('更多建議', 'More')}<span>${rest.length}</span>${glyph('chevR', { size: 16 })}</summary><div class="q-rowcard wx-lifegrid">${rest.join('')}</div></details>` : ''}`;
 };
 
 export function adviceCards(f, { now } = {}) {
@@ -328,11 +345,7 @@ export function adviceCards(f, { now } = {}) {
   const first = list.find(a => a.week?.days?.length)?.week.days[0].date;
   const tomorrow = first && now != null && first !== dateOf(now, f.tz);
   const tiles = list.map(a => lifeTile({ kind: a.kind, level: a.level, title: LIFE[a.kind], text: a.text }));
-  return `
-  <section class="wx-section">
-    <h3 class="wx-h">${glyph('bulb', { size: 18 })}${tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today')}</h3>
-    ${lifeGrid(tiles)}
-  </section>`;
+  return sec('wx-advice-sec', tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'), lifeGrid(tiles));
 }
 
 // ---- The days ------------------------------------------------------------------------------
@@ -345,9 +358,9 @@ export function daysList(f, { now, key }) {
   const span = Math.max(1, hi - lo);
   const pop = d => dayPop(f, d, now);
   return `
-  <section class="wx-section">
-    <h3 class="wx-h">${glyph('calendar', { size: 18 })}${W(`${days.length} 天預報`, `${days.length}-day forecast`)}</h3>
-    <div class="q-card wx-days">
+  <section class="q-section wx-section">
+    <div class="q-section-head"><h2>${W(`${days.length} 天預報`, `${days.length}-day forecast`)}</h2></div>
+    <div class="q-rowcard wx-days">
       ${days
         .map(d => {
           const left = (((d.lo ?? lo) - lo) / span) * 100;
@@ -481,45 +494,54 @@ export function infoCard(f, { now, lat, lon, page }) {
   // (The place the header shows: one rule, placeLines.)
   const where = placeLines(page.place);
   const items = [
-    [glyph('drop'), W('濕度', 'Humidity'), pct(n.humidity ?? h0?.humidity), `${W('露點', 'Dew point')} ${deg(n.dew ?? h0?.dew)}`],
-    [glyph('wind'), W('風', 'Wind'), w.speed != null ? `<span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 14 })}</span> ${e(windDir(w.dir))} ${W(`${beaufort(w.speed)} 級`, `force ${beaufort(w.speed)}`)}` : '–', w.gust ? W(`陣風 ${beaufort(w.gust)} 級（${Math.round(w.gust)} km/h）`, `Gusts ${Math.round(w.gust)} km/h`) : ''],
-    [glyph('gauge'), W('氣壓', 'Pressure'), n.pressure != null ? `${Math.round(n.pressure)} hPa${trend}` : '–', trend ? W('未來 3 小時', 'Next 3 hours') : ''],
-    [glyph('eye'), W('能見度', 'Visibility'), n.vis != null ? W(`${n.vis} 公里`, `${n.vis} km`) : '–', `${W('雲量', 'Cloud')} ${pct(n.cloud ?? h0?.cloud)}`],
-    [glyph('rain'), W('今日雨量', 'Rain today'), n.rainToday != null ? `${n.rainToday} mm` : '–', n.rain1h != null ? W(`過去 1 小時 ${n.rain1h} mm`, `Last hour ${n.rain1h} mm`) : ''],
-    [glyph('bolt'), W('雷雨機率', 'Thunderstorms'), pct(h0?.thunder), ''],
-    [glyph('sunrise'), W('日出', 'Sunrise'), s ? clock(s.sunrise, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.morning[0], f.tz)}–${clock(g.morning[1], f.tz)}` : ''],
-    [glyph('sunset'), W('日落', 'Sunset'), s ? clock(s.sunset, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.evening[0], f.tz)}–${clock(g.evening[1], f.tz)}` : ''],
-    [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', ''],
-    [moon ? moonArt(d?.moon?.phase) : glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : ''],
-    [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb'],
-    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : ''],
-    [glyph('pin'), W('位置', 'Location'), where.main ? e(where.main) : '–', where.sub ? e(where.sub) : '']
+    [glyph('gauge'), W('氣壓', 'Pressure'), n.pressure != null ? `${Math.round(n.pressure)} hPa${trend}` : '–', trend ? W('未來 3 小時', 'Next 3 hours') : '', 'indigo'],
+    [glyph('eye'), W('能見度', 'Visibility'), n.vis != null ? W(`${n.vis} 公里`, `${n.vis} km`) : '–', `${W('雲量', 'Cloud')} ${pct(n.cloud ?? h0?.cloud)}`, 'teal'],
+    [glyph('rain'), W('今日雨量', 'Rain today'), n.rainToday != null ? `${n.rainToday} mm` : '–', n.rain1h != null ? W(`過去 1 小時 ${n.rain1h} mm`, `Last hour ${n.rain1h} mm`) : '', 'blue'],
+    [glyph('bolt'), W('雷雨機率', 'Thunderstorms'), pct(h0?.thunder), '', 'purple'],
+    [glyph('sunrise'), W('日出', 'Sunrise'), s ? clock(s.sunrise, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.morning[0], f.tz)}–${clock(g.morning[1], f.tz)}` : '', 'orange'],
+    [glyph('sunset'), W('日落', 'Sunset'), s ? clock(s.sunset, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.evening[0], f.tz)}–${clock(g.evening[1], f.tz)}` : '', 'pink'],
+    [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', '', 'yellow'],
+    [glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : '', 'indigo'],
+    [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb', 'green'],
+    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : '', 'mint'],
+    [glyph('pin'), W('位置', 'Location'), where.main ? e(where.main) : '–', where.sub ? e(where.sub) : '', 'red']
   ];
+  const rows = items.map(([icon, k, v, sub, color]) => `<div class="q-ritem wx-info-row"><span class="q-tile sm" style="--t:var(--q-${color})">${icon}</span><span class="q-ritem-text"><span class="q-ritem-title">${k}</span>${sub ? `<small>${sub}</small>` : ''}</span><span class="q-ritem-value">${v}</span></div>`).join('');
   return `
-  <section class="wx-section">
-    <h3 class="wx-h">${glyph('list', { size: 18 })}${W('更多資訊', 'More details')}</h3>
-    <div class="q-card wx-info">
-      <div class="wx-tiles">${items.map(([icon, k, v, sub]) => `<div class="wx-tile"><span>${icon}${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`).join('')}</div>
-      <p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${e(updatedText(f.at, now))}</p>
-    </div>
+  <section class="q-section wx-section wx-info-sec">
+    <div class="q-section-head"><h2>${W('更多資訊', 'More details')}</h2></div>
+    <div class="q-rowcard wx-info">${rows}</div>
+    <p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${e(updatedText(f.at, now))}</p>
   </section>`;
 }
 
 // ---- The metrics: a small card each, the big graph in a sheet ------------------------------
 
-const tile = ({ kind, key, icon, title, value, color, sub, art }) => `
-  <button class="q-card wx-metric k-${kind}" type="button" data-metric="${kind}" data-page="${e(key)}">
-    <span class="wx-metric-head">${icon}${title}${glyph('chevR', { size: 14, cls: 'wx-metric-go' })}</span>
-    <b class="wx-metric-val" style="--c:${color}">${value}</b>
+// A level's word on a stat: a tag in the level's colour, kept readable on light and dark.
+const levelTag = (text, color) => (text ? `<span class="q-tag tint wx-lv" style="--t:color-mix(in srgb, ${color} 62%, var(--q-label))">${e(text)}</span>` : '');
+// A stat card: its colour tile and name, a big number, one line, a sparkline.
+const tile = ({ kind, key, icon, title, value, color, sub, art, level = '', tint = '' }) => `
+  <button class="q-stat q-press wx-metric k-${kind}" type="button" data-metric="${kind}" data-page="${e(key)}" style="--c:${color}">
+    <span class="wx-metric-head"><span class="q-tile sm" style="--t:${tint || `var(--q-${{ rain: 'blue', uv: 'orange', air: 'green' }[kind]})`}">${icon}</span>${level}</span>
+    <small>${title}</small>
+    <strong class="wx-metric-val">${value}</strong>
     <span class="wx-metric-sub">${sub}</span>
     ${art}
   </button>`;
+// A stat with no graph to open (the humidity, the wind).
+const plainStat = ({ kind, icon, color, title, value, sub, wide = false, extra = '' }) => `
+  <div class="q-stat wx-metric wx-plain k-${kind}${wide ? ' wx-wide' : ''}">
+    <span class="wx-metric-head"><span class="q-tile sm" style="--t:var(--q-${color})">${icon}</span>${extra}</span>
+    <small>${title}</small>
+    <strong class="wx-metric-val">${value}</strong>
+    <span class="wx-metric-sub">${sub}</span>
+  </div>`;
 
 export function rainTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
   if (!hours.length) return '';
   const next = hours.slice(0, 24);
-  return tile({ kind: 'rain', key, icon: glyph('umbrella', { size: 16 }), title: W('降雨', 'Rain'), value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
+  return tile({ kind: 'rain', key, icon: glyph('umbrella', { size: 18 }), title: W('降雨', 'Rain'), value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
 }
 export function uvTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
@@ -529,22 +551,39 @@ export function uvTile(f, { now, key }) {
   const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
   const nowUv = f.now?.uv ?? hours[0]?.uv;
   const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, day.date === dateOf(now, f.tz) ? `Peak ${peak.uv} at ${hourOf(peak.t, f.tz)}` : `${weekday(day.date)} peak ${peak.uv}`) : '';
-  return tile({ kind: 'uv', key, icon: glyph('sun', { size: 16 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}<small>${uvLevel(nowUv) || ''}</small>`, color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
+  return tile({ kind: 'uv', key, icon: glyph('sun', { size: 18 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}`, level: levelTag(uvLevel(nowUv), uvColor(nowUv)), color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
 }
 export function airTile(f, { now, key }) {
   const a = f.air;
   if (!a) return '';
   const cols = airCols(f, now);
-  return tile({ kind: 'air', key, icon: glyph('air', { size: 16 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}<small>${e(aqiLevel(a.level))}</small>`, color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
+  return tile({ kind: 'air', key, icon: glyph('air', { size: 18 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}`, level: levelTag(aqiLevel(a.level), aqiColor(a.aqi)), color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
 }
 export function metricTiles(f, opts) {
-  const tiles = [rainTile(f, opts), uvTile(f, opts), airTile(f, opts)].filter(Boolean);
+  const n = f.now || {};
+  const w = n.wind || {};
+  const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
+  const dew = n.dew ?? hoursFrom(f, opts.now)[0]?.dew;
+  const tiles = [
+    rainTile(f, opts),
+    uvTile(f, opts),
+    airTile(f, opts),
+    hum != null ? plainStat({ kind: 'humidity', icon: glyph('drop', { size: 18 }), color: 'cyan', title: W('濕度', 'Humidity'), value: `${Math.round(hum)}<small>%</small>`, sub: dew != null ? `${W('露點', 'Dew point')} ${deg(dew)}` : '' }) : '',
+    w.speed != null
+      ? plainStat({
+          kind: 'wind',
+          icon: glyph('wind', { size: 18 }),
+          color: 'teal',
+          wide: true,
+          title: W('風', 'Wind'),
+          value: `${Math.round(w.speed)}<small>km/h</small>`,
+          extra: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
+          sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)} km/h`, `gusts ${Math.round(w.gust)} km/h`)}` : ''}`
+        })
+      : ''
+  ].filter(Boolean);
   if (!tiles.length) return '';
-  return `
-  <section class="wx-section">
-    <h3 class="wx-h">${glyph('chart', { size: 18 })}${W('天氣指標', 'Conditions')}</h3>
-    <div class="wx-metrics" style="--n:${tiles.length}">${tiles.join('')}</div>
-  </section>`;
+  return sec('wx-metrics-sec', W('天氣指標', 'Conditions'), `<div class="q-stats wx-metrics" style="--q-stats-n:2">${tiles.join('')}</div>`);
 }
 // The sheet a metric opens: its big graph, tabs and read-out.
 export const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
@@ -557,9 +596,8 @@ export function metricSheet(kind, f, opts) {
 const SECTIONS = { metrics: metricTiles, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
 // The page before its forecast: the hours strip and two cards, as grey shapes.
 const skeleton = () => `
-  <section class="q-card wx-hours wx-skel" aria-label="${W('正在取得天氣', 'Getting the weather')}">${Array.from({ length: 8 }, () => '<span class="wx-hr"><i class="sk sk-t"></i><i class="sk sk-ic"></i><i class="sk sk-v"></i></span>').join('')}</section>
-  <section class="q-card wx-skel wx-skel-card" aria-hidden="true"><i class="sk sk-h"></i><i class="sk sk-line"></i><i class="sk sk-line short"></i></section>
-  <section class="q-card wx-skel wx-skel-card" aria-hidden="true"><i class="sk sk-h"></i><i class="sk sk-line"></i><i class="sk sk-line"></i><i class="sk sk-line short"></i></section>`;
+  <section class="q-section wx-section wx-hours wx-skel" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="q-rail wx-rail">${Array.from({ length: 8 }, () => '<span class="wx-hr"><i class="sk sk-t"></i><i class="sk sk-ic"></i><i class="sk sk-v"></i></span>').join('')}</div></section>
+  <section class="q-stats wx-skel-stats" style="--q-stats-n:2" aria-hidden="true">${Array.from({ length: 4 }, () => '<div class="q-stat wx-skel"><i class="sk sk-ic"></i><i class="sk sk-h"></i><i class="sk sk-line short"></i></div>').join('')}</section>`;
 
 export function pageHtml(f, page, { now, cards = Object.keys(SECTIONS), hidden = [], ranges = {} }) {
   const top = topArea(f, { page, now });

@@ -61,7 +61,7 @@ test('an old copy is never read as now: the details read the hour now, not its f
   const f = { ...today(), at: NOW - 5 * H };
   const html = infoCard(f, { now: NOW, page: { place: { town: '信義區', county: '臺北市' } } });
   // 19:00's thunder is 0 (08:00's 80 long gone), the pressure trend from 19:00 to 22:00.
-  assert.match(html, /雷雨機率<\/span><b>0%<\/b>/);
+  assert.match(html, /雷雨機率<\/span><\/span><span class="q-ritem-value">0%<\/span>/);
   assert.doesNotMatch(html, /80%/);
   assert.match(html, /<small>5 小時前<\/small>|更新於 5 小時前/);
   // The stale chip and the age line: one wording each, the tick's too.
@@ -238,7 +238,7 @@ test('the 位置 tile names the place the header shows, and the Today sheet labe
   for (const place of [{ town: '信義區', county: '臺北市' }, { county: '臺北市' }]) {
     const page = { key: 'here', place };
     const title = pageHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-place">[^]*?<span>([^<]*)<\/span>/)[1];
-    const tile = infoCard(forecast, { now: NOW, page }).match(/位置<\/span><b>([^<]*)<\/b>/)[1];
+    const tile = infoCard(forecast, { now: NOW, page }).match(/位置<\/span>(?:<small>[^<]*<\/small>)?<\/span><span class="q-ritem-value">([^<]*)<\/span>/)[1];
     assert.equal(tile, title);
   }
   const sheet = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });

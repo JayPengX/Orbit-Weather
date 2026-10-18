@@ -175,16 +175,17 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
   assert.match(html, /信義區&lt;b&gt;/);
   assert.ok(!html.includes('西村里'), 'no 村里 anywhere');
-  assert.match(html, /最高 30°<i><\/i>最低 23°/);
-  assert.match(html, /體感 27° · 降雨 10% · 濕度 94%/);
+  assert.match(html, /最高 <b>30°<\/b>[^]*最低 <b>23°<\/b>/);
+  assert.match(html, /體感 <b>27°<\/b>/);
+  assert.match(html, /濕度[^]*?94<small>%<\/small>/, 'humidity is a stat card');
   assert.match(html, /wx-say">現在陰/, "today’s sentence heads the hours");
   // No warning banner (the owner, 2026-10-10: rarely useful, and in the way).
   assert.doesNotMatch(html, /大雨特報|wx-alert/);
   // Advice: today, and the week with a mark a day.
   // Advice: the day's tiles (tomorrow's in the evening), then the week's table.
   assert.match(html, /明天的建議/, 'in the evening, the advice is for tomorrow');
-  assert.match(html, /k-umbrella"><span class="wx-life-icon"><svg class="wx-g"[^]*?<\/svg><\/span><div><b>雨傘<\/b><p>13:00 降雨機率 41%<\/p>/);
-  const first = html.split('<div class="wx-lifegrid">')[1].split('</div></div>').length - 1;
+  assert.match(html, /k-umbrella"><span class="q-tile wx-life-icon"[^>]*><svg class="wx-g"[^]*?<\/svg><\/span><span class="q-ritem-text"><span class="q-ritem-title">雨傘<\/span><small>13:00 降雨機率 41%<\/small>/);
+  const first = html.split('<div class="q-rowcard wx-lifegrid">')[1].split('</div></div>')[0].split('wx-life lv-').length - 1;
   assert.ok(first <= 4, 'four tiles at most, the rest behind 更多建議');
   const many = adviceCards({ ...forecast, advice: Array.from({ length: 7 }, (_, i) => ({ kind: ['umbrella', 'wear', 'sun', 'run', 'laundry', 'sleep', 'thunder'][i], level: i === 6 ? 'yes' : 'none', text: `x：${i}` })) }, { now: NOW });
   assert.match(many, /<details class="wx-more-advice"><summary>更多建議<span>3<\/span>/);

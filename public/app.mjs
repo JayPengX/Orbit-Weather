@@ -124,8 +124,8 @@ function paintSky() {
   if (want) body.classList.add(...want.split(' '));
   body.dataset.sky = want;
   const meta = document.querySelector('meta[name="theme-color"]');
-  // (Dark whatever the weather: Safari's bar the page's own colour.)
-  if (meta) meta.content = '#0a0b0f';
+  // (The kit keeps Safari's bar the page's own colour, light or dark.)
+
 }
 function renderPage(page) {
   const el = pageEl(page);

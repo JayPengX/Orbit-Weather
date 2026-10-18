@@ -43,7 +43,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 - No source named on screen; a test fails if one reaches it.
 - An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
 - Weather draws its own pictures; a test fails if an emoji reaches the page.
-- Always dark. No warning banner.
+- Light and dark (the kit's tokens); the sky hero stays a sky. No warning banner.
 - English screens through `W(zh, en)`; place names stay Chinese.
 
 ## Files
