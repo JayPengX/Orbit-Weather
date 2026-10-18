@@ -359,6 +359,7 @@ async function placeHere(here, pos) {
             if (!w?.county) throw new Error('no name');
             state.local.here.place = here.place = w;
             here.nameless = false;
+            here.note = hereNote(pos.acc, false);
             saveLocal(state.local);
           })
           // (No name to be had: said under the title, not left as if it were coming.)
