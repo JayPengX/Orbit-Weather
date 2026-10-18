@@ -407,6 +407,7 @@ body {
 .wx-old .wx-hero-foot .wx-age::before { display: none; }
 .wx-more {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: 2px;
   color: #fff;
