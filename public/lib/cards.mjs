@@ -387,7 +387,7 @@ export function dayTips(f, date, now) {
   const fl = awake.map(h => h.feels ?? h.temp).filter(v => v != null);
   const lo = fl.length ? Math.min(...fl) : d?.feelsLo ?? d?.lo;
   const hi = fl.length ? Math.max(...fl) : d?.feelsHi ?? d?.hi;
-  if (lo != null && hi != null) tips.push({ k: 'wear', title: LIFE.wear, text: `${wearFor(outFeel(lo, hi)).text}${hi - lo >= 7 ? W('，早晚加件', ', a layer for morning and night') : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
+  if (lo != null && hi != null) tips.push({ k: 'wear', title: LIFE.wear, text: `${wearFor(outFeel(lo, hi)).text}${hi - lo >= 7 ? W('，早晚加件', ', layer up') : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, lv: hi - lo >= 7 ? 'maybe' : 'none' });
   // Running: the best 2 hours, 6–20時.
   const cost = h => {
     const v = h.feels ?? h.temp;
@@ -442,8 +442,8 @@ export function daySheet(f, date, { now, lat, lon }) {
     <div class="wx-scrub-vals is-sum">
       <div><span>${W('最高 / 最低', 'High / low')}</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>${W('體感', 'Feels')} ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
       <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? W(`約 ${d.mm} mm`, `~${d.mm} mm`) : ''}</small></div>
-      <div><span>${W('紫外線', 'UV')}</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
-      <div><span>${W('空氣', 'Air')}</span><b style="color:${fc ? aqiColor(fc.aqi) : 'inherit'}">${fc?.aqi ?? '–'}</b><small>${e(aqiLevel(fc?.level))}</small></div>
+      <div><span>${W('紫外線最高', 'UV high')}</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
+      <div><span>${W('空氣最高', 'Air high')}</span><b style="color:${fc ? aqiColor(fc.aqi) : 'inherit'}">${fc?.aqi ?? '–'}</b><small>${e(aqiLevel(fc?.level))}</small></div>
     </div>`;
   return `
     <div class="q-sheet-head">
@@ -478,6 +478,8 @@ export function infoCard(f, { now, lat, lon, page }) {
   const len = s ? s.sunset - s.sunrise : 0;
   const moon = moonName(d?.moon?.phase);
   const trend = n.pressure != null && h3?.pressure != null ? (h3.pressure - n.pressure > 0.5 ? ' ↑' : h3.pressure - n.pressure < -0.5 ? ' ↓' : ' →') : '';
+  // (The place the header shows: one rule, placeLines.)
+  const where = placeLines(page.place);
   const items = [
     [glyph('drop'), W('濕度', 'Humidity'), pct(n.humidity ?? h0?.humidity), `${W('露點', 'Dew point')} ${deg(n.dew ?? h0?.dew)}`],
     [glyph('wind'), W('風', 'Wind'), w.speed != null ? `<span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 14 })}</span> ${e(windDir(w.dir))} ${W(`${beaufort(w.speed)} 級`, `force ${beaufort(w.speed)}`)}` : '–', w.gust ? W(`陣風 ${beaufort(w.gust)} 級（${Math.round(w.gust)} km/h）`, `Gusts ${Math.round(w.gust)} km/h`) : ''],
@@ -491,7 +493,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [moon ? moonArt(d?.moon?.phase) : glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : ''],
     [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb'],
     [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : ''],
-    [glyph('pin'), W('位置', 'Location'), page.place?.town ? e(page.place.town) : '–', page.place?.county ? e(page.place.county) : '']
+    [glyph('pin'), W('位置', 'Location'), where.main ? e(where.main) : '–', where.sub ? e(where.sub) : '']
   ];
   return `
   <section class="wx-section">

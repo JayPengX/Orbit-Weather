@@ -233,3 +233,15 @@ test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh num
   assert.equal(rainSoon({ ...f([10, 70]), at: now - 40 * 60_000 }, now), null, 'an old copy is not now');
   assert.equal(rainSoon(f([10, 70]), tpe('2026-10-02T13:20:00')), null, 'hours that begin after now, with a gap before them: not read as dry now');
 });
+
+test('the 位置 tile names the place the header shows, and the Today sheet labels the day\'s highs', () => {
+  for (const place of [{ town: '信義區', county: '臺北市' }, { county: '臺北市' }]) {
+    const page = { key: 'here', place };
+    const title = pageHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-place">[^]*?<span>([^<]*)<\/span>/)[1];
+    const tile = infoCard(forecast, { now: NOW, page }).match(/位置<\/span><b>([^<]*)<\/b>/)[1];
+    assert.equal(tile, title);
+  }
+  const sheet = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });
+  assert.match(sheet, /<span>空氣最高<\/span>/);
+  assert.match(sheet, /<span>紫外線最高<\/span>/);
+});
