@@ -212,3 +212,17 @@ test("the proxy's advice in English: every sentence it writes reads", { skip: !p
   assert.ok(seen > 2000, String(seen));
   assert.deepEqual([...missed.values()], [], 'sentences left in Chinese');
 });
+
+import { rainSoon } from '../public/lib/soon.mjs';
+test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh numbers only', () => {
+  const now = tpe('2026-10-02T14:20:00');
+  const f = pops => ({ at: now - 60_000, hours: pops.map((pop, i) => ({ t: tpe('2026-10-02T14:00:00') + i * H, pop })) });
+  assert.deepEqual(rainSoon(f([10, 70, 80, 90]), now), { kind: 'start', at: tpe('2026-10-02T15:00:00'), mins: 40, pop: 70 });
+  assert.equal(rainSoon(f([10, 40, 20, 90]), now), null, '3 hours out and 40% are not a heads-up');
+  assert.equal(rainSoon(f([10, 10, 70]), now)?.mins, 100, '(within 2 hours of now: 16:00 is 100 min away)');
+  assert.equal(rainSoon(f([10, 10, 10, 70]), now), null, '17:00 is past the 2 hours');
+  assert.deepEqual(rainSoon(f([60, 70, 20, 10]), now), { kind: 'stop', at: tpe('2026-10-02T16:00:00'), mins: 100, pop: 60 }, 'raining now, easing by 16:00');
+  assert.equal(rainSoon(f([60, 70, 50, 90]), now), null, 'still wet all the way: nothing to announce');
+  assert.equal(rainSoon({ ...f([10, 70]), at: now - 40 * 60_000 }, now), null, 'an old copy is not now');
+  assert.equal(rainSoon(f([10, 70]), tpe('2026-10-02T13:20:00')), null, 'hours that begin after now, with a gap before them: not read as dry now');
+});

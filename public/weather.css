@@ -2368,3 +2368,23 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-tabs {
   margin-top: 12px;
 }
+
+/* The rain heads-up under the hero's numbers (cards.mjs soonLine). */
+.wx-soon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  margin: 10px auto 0;
+  padding: 6px 12px;
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.wx-soon svg { flex: none; }
+.wx-soon-stop { background: rgba(255, 255, 255, 0.12); font-weight: 500; }

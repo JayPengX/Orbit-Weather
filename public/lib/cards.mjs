@@ -5,6 +5,7 @@
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
 import { W, en } from './lang.mjs';
 import { adviceEn } from './advice-en.mjs';
+import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
@@ -57,6 +58,16 @@ const fxHtml = sky => {
   return `<div class="wx-fx" aria-hidden="true">${Array.from({ length: n }, (_, k) => i(k)).join('')}</div>`;
 };
 
+// The heads-up under the numbers: rain starting (or easing) within 2 hours.
+export function soonLine(f, now, tz) {
+  const r = rainSoon(f, now);
+  if (!r) return '';
+  const near = r.mins <= 60;
+  const at = hh(hourOf(r.at, tz));
+  const text = r.kind === 'start' ? (near ? W(`約 ${r.mins} 分鐘後下雨 · ${r.pop}%`, `Rain in ~${r.mins} min · ${r.pop}%`) : W(`${at}起下雨 · ${r.pop}%`, `Rain from ${at} · ${r.pop}%`)) : near ? W(`雨約 ${r.mins} 分鐘後減弱`, `Easing in ~${r.mins} min`) : W(`${at}後雨勢減弱`, `Easing by ${at}`);
+  return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(text)}</span></p>`;
+}
+
 export function topArea(f, { page, now }) {
   const n = f?.now || {};
   const d = f ? today(f, now) : null;
@@ -91,6 +102,7 @@ export function topArea(f, { page, now }) {
     <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
     <p class="wx-hl">${W('最高', 'H')} ${deg(d?.hi)}<i></i>${W('最低', 'L')} ${deg(d?.lo)}</p>
     <p class="wx-feel">${W('體感', 'Feels')} ${deg(n.feels)} · ${W('降雨', 'Rain')} ${pct(h0?.pop)} · ${W('濕度', 'Humidity')} ${pct(n.humidity)}</p>
+    ${old ? '' : soonLine(f, now, f.tz)}
     <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
