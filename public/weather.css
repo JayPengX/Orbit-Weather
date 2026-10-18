@@ -2368,3 +2368,15 @@ body[data-sky]:not([data-sky='']) .q-appbar {
 .wx-tabs {
   margin-top: 12px;
 }
+
+/* Pin and settings sheets at 375 px: labels keep their line, long text gives way */
+.q-cell > .q-cell-text:first-child:not(.wx-order-name) { grid-template-columns: minmax(0, 1fr); }
+.q-cell > .q-cell-text:only-of-type { min-width: 0; }
+.q-cell:has(> .wx-cell-input) > .q-cell-text,
+.q-cell:has(> .wx-time) > .q-cell-text { flex: none; white-space: nowrap; }
+.wx-order-name small { white-space: nowrap; overflow-wrap: normal; word-break: keep-all; }
+.wx-order-name > span { overflow-wrap: anywhere; }
+.wx-order-row { gap: 8px; padding-inline: 12px; }
+.wx-order-row .wx-mini { width: 28px; }
+.wx-tile b:has(> .wx-compass) { display: flex; align-items: center; gap: 4px; letter-spacing: -0.01em; }
+.wx-tile b > .wx-compass { flex: none; }
