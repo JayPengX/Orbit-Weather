@@ -487,3 +487,14 @@ test('the advice in English: the proxy sentences turn over, the unreadable drop'
   assert.equal(adviceEn('Bring one, 15:00 60%'), 'Bring one, 15:00 60%');
   assert.equal(adviceEn('一句沒見過的話'), null);
 });
+
+test('the rain watch follows a pin that runs past midnight: its evening and its next morning, inside 07–21', () => {
+  const night = cleanPin({ id: 'pnight', name: '夜班', lat: 24.8, lon: 120.97, days: [1, 2, 3, 4, 5], from: '18:00', to: '09:00' });
+  const here = { lat: 22.6, lon: 120.3 };
+  // Wednesday 2026-10-07: 07–09 is Tuesday's shift ending, 18–21 is this evening's start.
+  const rain = planNotices({ pins: [night], now: tpe('2026-10-07T00:30:00'), days: 1, briefOn: false, here }).filter(x => x.kind === 'rain');
+  const mine = rain.filter(x => x.tag.includes(':pnight')).map(x => [x.at, x.until]);
+  assert.deepEqual(mine, [[tpe('2026-10-07T07:00:00'), tpe('2026-10-07T09:00:00')], [tpe('2026-10-07T18:00:00'), tpe('2026-10-07T21:00:00')]]);
+  const away = rain.filter(x => x.tag.endsWith(':here')).map(x => [x.at, x.until]);
+  assert.deepEqual(away, [[tpe('2026-10-07T09:00:00'), tpe('2026-10-07T18:00:00')]]);
+});

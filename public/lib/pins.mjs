@@ -173,9 +173,19 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       const dayEnd = at(date, '21:00');
       // The pins' windows that day, clipped to 07–21, in time order.
       const { day } = taipeiClock(dayStart);
+      const prev = dayBefore(date);
       const segs = pins
-        .filter(p => pinDay(p, day, date) && minutes(p.from) < minutes(p.to))
-        .map(p => ({ pin: p, from: Math.max(dayStart, at(date, p.from)), to: Math.min(dayEnd, at(date, p.to)) }))
+        .flatMap(p => {
+          const from = minutes(p.from);
+          const to = minutes(p.to);
+          if (from < to) return pinDay(p, day, date) ? [{ pin: p, from: at(date, p.from), to: at(date, p.to), sfx: '' }] : [];
+          // Past midnight: the morning end of last night's stay, and this evening's start.
+          return [
+            ...(pinDay(p, (day + 6) % 7, prev) ? [{ pin: p, from: dayStart, to: at(date, p.to), sfx: ':am' }] : []),
+            ...(pinDay(p, day, date) ? [{ pin: p, from: at(date, p.from), to: dayEnd, sfx: '' }] : [])
+          ];
+        })
+        .map(s => ({ ...s, from: Math.max(dayStart, s.from), to: Math.min(dayEnd, s.to) }))
         .filter(s => s.to > s.from)
         .sort((a, b) => a.from - b.from);
       const all = [];
@@ -183,13 +193,13 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       for (const s of segs) {
         if (s.from < cursor) continue;
         if (s.from > cursor && here) all.push({ from: cursor, to: s.from, p: here, pin: homePin });
-        all.push({ from: s.from, to: s.to, p: s.pin, pin: s.pin });
+        all.push({ from: s.from, to: s.to, p: s.pin, pin: s.pin, sfx: s.sfx });
         cursor = s.to;
       }
       if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: homePin });
       for (const s of all) {
         if (s.to <= now) continue;
-        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon at {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
+        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon at {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}${s.sfx || ''}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
       }
     }
   }
