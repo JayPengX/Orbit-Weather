@@ -6,6 +6,7 @@
 
 import { placeAt } from './pins.mjs';
 import { clock, hourOf, dateOf, dayLabel, conditionIcon } from './format.mjs';
+import { W, en } from './lang.mjs';
 
 const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';
@@ -15,7 +16,7 @@ export const placeKey = pin => (pin ? pin.id : 'here');
 // somewhere else (`live.until`: the hours it's taken as true), then here.
 // A plan says where you usually are; the phone says where you are.
 const at = (pins, t, live) => (live?.until && t < live.until ? null : placeAt(pins, t));
-export const placeName = pin => (pin ? pin.name : '目前位置');
+export const placeName = pin => (pin ? pin.name : W('目前位置', 'Current location'));
 export const placeIcon = pin => (pin?.home ? '🏠' : pin ? '📌' : '📍');
 
 // n hours from `from`: [{ t, key, pin, h }] (h: that place's forecast hour,
@@ -69,8 +70,10 @@ export function stayFacts(seg) {
   return { hi: hi?.temp ?? null, lo: lo?.temp ?? null, wet, uv, icon: wet?.pop >= 40 ? conditionIcon(wet.condition?.code, wet.condition?.text, wet.day ?? true) : conditionIcon(hs[Math.floor(hs.length / 2)]?.condition?.code, hs[Math.floor(hs.length / 2)]?.condition?.text, hs[Math.floor(hs.length / 2)]?.day ?? true), loaded: hs.length > 0 };
 }
 
-const WEAR = [[15, '外套'], [20, '薄外套'], [26, '長袖'], [Infinity, '短袖']];
-const wearFor = v => WEAR.find(([max]) => v < max)[1];
+const WEAR = [[15, 'coat'], [20, 'jacket'], [26, 'sleeves'], [Infinity, 'light']];
+const WEAR_TEXT = { coat: W('外套', 'Coat'), jacket: W('薄外套', 'Light jacket'), sleeves: W('長袖', 'Long sleeves'), light: W('短袖', 'Short sleeves') };
+const wearKey = v => WEAR.find(([max]) => v < max)[1];
+const wearFor = v => WEAR_TEXT[wearKey(v)];
 
 // The day the advice is for: what's left of today (to 22時), or tomorrow
 // 6–22時 once it's 21時.
@@ -79,9 +82,9 @@ export function adviceSpan(now) {
   const date = dateOf(now, TZ);
   if (h >= 21) {
     const d = dateOf(now + 12 * HOUR, TZ);
-    return { from: Date.parse(`${d}T06:00:00+08:00`), to: Date.parse(`${d}T22:00:00+08:00`), word: '明天' };
+    return { from: Date.parse(`${d}T06:00:00+08:00`), to: Date.parse(`${d}T22:00:00+08:00`), word: W('明天', 'Tomorrow') };
   }
-  return { from: Math.max(now, Date.parse(`${date}T06:00:00+08:00`)), to: Date.parse(`${date}T22:00:00+08:00`), word: '今天' };
+  return { from: Math.max(now, Date.parse(`${date}T06:00:00+08:00`)), to: Date.parse(`${date}T22:00:00+08:00`), word: W('今天', 'Today') };
 }
 
 // What to bring and wear for the whole route: [{ kind, icon, title, text, level }].
@@ -93,7 +96,9 @@ export function planTips(pins, forecastFor, now, live = null) {
   if (!withH.length) return { span, tips };
   // Rain anywhere you'll be.
   const wet = withH.reduce((a, x) => ((x.h.pop ?? -1) > (a.h.pop ?? -1) ? x : a), withH[0]);
-  tips.push(wet.h.pop >= 50 ? { kind: 'umbrella', icon: '☂️', title: '雨傘', text: `要帶，${hourOf(wet.t, TZ)}時 ${wet.h.pop}%`, level: 'yes' } : wet.h.pop >= 30 ? { kind: 'umbrella', icon: '☂️', title: '雨傘', text: `摺疊傘，${hourOf(wet.t, TZ)}時 ${wet.h.pop}%`, level: 'maybe' } : { kind: 'umbrella', icon: '☂️', title: '雨傘', text: '不用帶', level: 'none' });
+  const umbrella = W('雨傘', 'Umbrella');
+  const wetAt = `${W(`${hourOf(wet.t, TZ)}時`, `${hourOf(wet.t, TZ)}:00`)} ${wet.h.pop}%`;
+  tips.push(wet.h.pop >= 50 ? { kind: 'umbrella', icon: '☂️', title: umbrella, text: `${W('要帶，', 'Bring one, ')}${wetAt}`, level: 'yes' } : wet.h.pop >= 30 ? { kind: 'umbrella', icon: '☂️', title: umbrella, text: `${W('摺疊傘，', 'Folding, ')}${wetAt}`, level: 'maybe' } : { kind: 'umbrella', icon: '☂️', title: umbrella, text: W('不用帶', 'Not needed'), level: 'none' });
   // Clothes for the coolest and warmest place-hours.
   const fs = withH.filter(x => feel(x.h) != null);
   if (fs.length) {
@@ -102,13 +107,13 @@ export function planTips(pins, forecastFor, now, live = null) {
     const lo = feel(cold.h);
     const hi = feel(warm.h);
     const layers = hi - lo >= 7;
-    tips.push({ kind: 'wear', icon: '👕', title: '穿著', text: `${wearFor(lo + (hi - lo) / 3)}${layers ? '，帶件外套' : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, level: layers ? 'yes' : 'none' });
+    tips.push({ kind: 'wear', icon: '👕', title: W('穿著', 'Wear'), text: `${wearFor(lo + (hi - lo) / 3)}${layers ? W('，帶件外套', ', bring a layer') : ` ${Math.round(lo) === Math.round(hi) ? '' : `${Math.round(lo)}–`}${Math.round(hi)}°`}`, level: layers ? 'yes' : 'none' });
   }
   // Sun where you'll be in the day.
   const sunny = withH.filter(x => x.h.uv >= 3);
   if (sunny.length) {
     const top = sunny.reduce((a, x) => (x.h.uv > a.h.uv ? x : a), sunny[0]);
-    tips.push({ kind: 'sun', icon: '🧴', title: '防曬', text: `${hourOf(top.t, TZ)}時 UV ${top.h.uv}`, level: top.h.uv >= 6 ? 'yes' : 'maybe' });
+    tips.push({ kind: 'sun', icon: '🧴', title: W('防曬', 'Sunscreen'), text: `${W(`${hourOf(top.t, TZ)}時`, `${hourOf(top.t, TZ)}:00`)} UV ${top.h.uv}`, level: top.h.uv >= 6 ? 'yes' : 'maybe' });
   }
   // The moves between places: rain at either end.
   const segs = segments(list);
@@ -121,7 +126,7 @@ export function planTips(pins, forecastFor, now, live = null) {
     const pa = ha?.pop ?? 0;
     const pb = hb?.pop ?? 0;
     const worst = Math.max(pa, pb);
-    tips.push({ kind: 'move', icon: '🚆', title: '移動', text: `${clock(b.from, TZ)} 到${placeName(b.pin)}，${worst >= 30 ? `雨 ${worst}%` : '乾爽'}`, level: worst >= 50 ? 'yes' : worst >= 30 ? 'maybe' : 'none' });
+    tips.push({ kind: 'move', icon: '🚆', title: W('移動', 'Move'), text: `${clock(b.from, TZ)} ${W('到', 'to ')}${placeName(b.pin)}${W('，', ', ')}${worst >= 30 ? `${W('雨', 'rain')} ${worst}%` : W('乾爽', 'dry')}`, level: worst >= 50 ? 'yes' : worst >= 30 ? 'maybe' : 'none' });
   }
   // How different the places are at the same hour (the main stay away from home).
   const away = segs.filter(s => s.pin && !s.pin.home).sort((x, y) => y.to - y.from - (x.to - x.from))[0];
@@ -131,7 +136,7 @@ export function planTips(pins, forecastFor, now, live = null) {
     const there = hourAt(forecastFor(away.key), mid);
     const home = hourAt(forecastFor(homeKey), mid);
     if (there?.temp != null && home?.temp != null && Math.abs(there.temp - home.temp) >= 2) {
-      tips.push({ kind: 'diff', icon: '↔️', title: '兩地溫差', text: `${hourOf(mid, TZ)}時${away.pin.name}${there.temp > home.temp ? '熱' : '涼'} ${Math.round(Math.abs(there.temp - home.temp))}°`, level: 'none' });
+      tips.push({ kind: 'diff', icon: '↔️', title: W('兩地溫差', 'Temp gap'), text: W(`${hourOf(mid, TZ)}時${away.pin.name}${there.temp > home.temp ? '熱' : '涼'} ${Math.round(Math.abs(there.temp - home.temp))}°`, `${away.pin.name} ${Math.round(Math.abs(there.temp - home.temp))}° ${there.temp > home.temp ? 'warmer' : 'cooler'} at ${hourOf(mid, TZ)}:00`), level: 'none' });
     }
   }
   return { span, tips };
@@ -139,9 +144,9 @@ export function planTips(pins, forecastFor, now, live = null) {
 
 // ---- One forecast for the route ---------------------------------------------------
 
-const WEEK_SHORT = { 外套: '外套', 薄外套: '薄外套', 長袖: '長袖', 短袖: '短袖' };
+const WEEK_SHORT = { coat: W('外套', 'Coat'), jacket: W('薄外套', 'Jacket'), sleeves: W('長袖', 'Sleeves'), light: W('短袖', 'Tee') };
 const md = date => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
-const wd = date => '週' + '日一二三四五六'[new Date(date + 'T12:00:00Z').getUTCDay()];
+const wd = date => (en ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : [...'日一二三四五六'].map(c => '週' + c))[new Date(date + 'T12:00:00Z').getUTCDay()];
 
 // The places' forecasts made one: { tz, now, hours (each with its place),
 // days, air, alerts, advice, headline, at, partial, places } — or null until
@@ -205,20 +210,22 @@ export function routeForecast(pins, forecastFor, now, live = null) {
     const lo = d.feelsLo ?? d.lo;
     const hi = d.feelsHi ?? d.hi;
     if (lo == null || hi == null) return { mark: null, v: '' };
-    const w = wearFor(lo + (hi - lo) / 3);
-    return { mark: { 外套: 'coat', 薄外套: 'jacket', 長袖: 'sleeves', 短袖: 'light' }[w], v: WEEK_SHORT[w] };
+    const w = wearKey(lo + (hi - lo) / 3);
+    return { mark: w, v: WEEK_SHORT[w] };
   });
   if (week.length >= 3) {
     const score = d => (d.pop ?? 0) + (d.uvMax ?? 0) * 3 + Math.abs((d.hi ?? 25) - 25) * 2;
     const sorted = [...week].sort((a, b) => score(a) - score(b));
-    advice.push({ kind: 'week', level: 'info', text: `本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: null } });
+    advice.push({ kind: 'week', level: 'info', text: W(`本週最佳：${md(sorted[0].date)}（${wd(sorted[0].date)}）`, `Best day this week: ${wd(sorted[0].date)} ${md(sorted[0].date)}`), why: { best: sorted[0].date, worst: sorted[sorted.length - 1].date, laundry: null } });
   }
   // One sentence: where you are, and the next move.
   const segs = segments(stitch(pins, forecastFor, now, 36, live));
   const next = segs[1];
   const nf = next && stayFacts(next);
-  const when = next ? `${dayLabel(dateOf(next.from, tz), now, tz) === '今天' ? '' : dayLabel(dateOf(next.from, tz), now, tz)} ${clock(next.from, tz)}`.trim() : '';
-  const headline = next ? `現在在${placeName(cur)}；${when} 到${placeName(next.pin)}${nf.loaded ? `，${Math.round(nf.lo) === Math.round(nf.hi) ? '' : `${Math.round(nf.lo)}–`}${Math.round(nf.hi)}°、雨 ${nf.wet?.pop ?? 0}%` : ''}。` : `今天都在${placeName(cur)}。`;
+  const when = next ? `${dateOf(next.from, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.from, tz), now, tz)} ${clock(next.from, tz)}`.trim() : '';
+  const temps = nf?.loaded ? `${Math.round(nf.lo) === Math.round(nf.hi) ? '' : `${Math.round(nf.lo)}–`}${Math.round(nf.hi)}°` : '';
+  const enHead = next ? `In ${placeName(cur)}; ${when} to ${placeName(next.pin)}${nf.loaded ? `, ${temps}, rain ${nf.wet?.pop ?? 0}%` : ''}.` : `In ${placeName(cur)} all day.`;
+  const headline = en ? enHead : next ? `現在在${placeName(cur)}；${when} 到${placeName(next.pin)}${nf.loaded ? `，${Math.round(nf.lo) === Math.round(nf.hi) ? '' : `${Math.round(nf.lo)}–`}${Math.round(nf.hi)}°、雨 ${nf.wet?.pop ?? 0}%` : ''}。` : `今天都在${placeName(cur)}。`;
   const alerts = [];
   for (const k of new Set(list.slice(0, 24).map(x => x.key))) for (const a of forecastFor(k)?.alerts || []) if (!alerts.some(b => b.title === a.title)) alerts.push(a);
   return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, place: fNow.place, places: [...new Set(list.map(x => placeName(x.pin)))] };

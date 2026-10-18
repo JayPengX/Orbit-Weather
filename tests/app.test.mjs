@@ -504,3 +504,14 @@ test('an old forecast says so at the top: its now faded, 更新中 or 無法更�
   assert.doesNotMatch(old, /class="wx-age"/);
   assert.match(topArea({ ...forecast, at: now - 2 * 3_600_000 }, { page: { ...page, error: 'x' }, now }), /無法更新/);
 });
+
+test('the advice in English: the proxy sentences turn over, the unreadable drop', async () => {
+  const { adviceEn } = await import('../public/lib/advice-en.mjs');
+  assert.equal(adviceEn('15時 60% 會下雨'), 'Rain 60% at 15:00');
+  assert.equal(adviceEn('10–14時 UV 7 高'), 'UV 7 high, 10:00–14:00');
+  assert.equal(adviceEn('早上 40%，傍晚乾爽'), 'AM 40%, PM dry');
+  assert.equal(adviceEn('週六較好，28°'), 'Sat is better, 28°');
+  assert.equal(adviceEn('今晚 27°，開除濕'), 'Tonight 27°, dehumidifier on');
+  assert.equal(adviceEn('Bring one, 15:00 60%'), 'Bring one, 15:00 60%');
+  assert.equal(adviceEn('一句沒見過的話'), null);
+});

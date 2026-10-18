@@ -11,7 +11,8 @@
 // and down) — and shows the column's numbers above.
 
 import { glyph } from './icons.mjs';
-import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e } from './format.mjs';
+import { clock, hourOf, dateOf, shortDate, weekday, uvColor, aqiColor, rainColor, escapeHtml as e, conditionText } from './format.mjs';
+import { W } from './lang.mjs';
 
 export const CHART_W = 340;
 const HOUR = 3_600_000;
@@ -201,19 +202,19 @@ export function colSpot(svg, i) {
 
 const hourText = (t, tz, every) => {
   const h = hourOf(t, tz);
-  return h % every === 0 ? `${h}時` : '';
+  return h % every === 0 ? W(`${h}時`, `${h}`) : '';
 };
 
 const UV_TICKS = [[3, '3'], [6, '6'], [11, '11']];
 
 // UV: one day's daylight (6–18時), or the 10 days' peaks.
 export function uvGraph(cols, { tz, now = Date.now(), daily = false } = {}) {
-  if (daily) return chart('uv', cols.map(d => ({ date: d.date, v: d.uvMax, under: d.label, daily: true })), { max: 12, stops: UV_STOPS, tz, label: '每天的紫外線最高', bars: true, ticks: UV_TICKS });
+  if (daily) return chart('uv', cols.map(d => ({ date: d.date, v: d.uvMax, under: d.label, daily: true })), { max: 12, stops: UV_STOPS, tz, label: W('每天的紫外線最高', 'Daily UV peak'), bars: true, ticks: UV_TICKS });
   const nowIndex = cols.findIndex(h => h.t <= now && now < h.t + HOUR);
   return chart(
     'uv',
-    cols.map((h, i) => ({ t: h.t, v: h.uv, place: h.place, under: i === nowIndex ? '現在' : hourText(h.t, tz, 3), strong: i === nowIndex })),
-    { max: Math.max(11, ...cols.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: '逐時紫外線（白天）', nowIndex, ticks: UV_TICKS, minLabel: 1 }
+    cols.map((h, i) => ({ t: h.t, v: h.uv, place: h.place, under: i === nowIndex ? W('現在', 'Now') : hourText(h.t, tz, 3), strong: i === nowIndex })),
+    { max: Math.max(11, ...cols.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: W('逐時紫外線（白天）', 'Hourly UV (daytime)'), nowIndex, ticks: UV_TICKS, minLabel: 1 }
   );
 }
 
@@ -224,16 +225,16 @@ const RAIN_TICKS = [[50, '50%'], [100, '100%']];
 export const isDry = hours => !hours.some(h => h.pop >= 10 || h.mm >= 0.1);
 export const dryNote = hours => {
   const top = Math.max(0, ...hours.map(h => h.pop ?? 0));
-  return top ? `最高 ${top}%` : '不會下雨';
+  return top ? W(`最高 ${top}%`, `peak ${top}%`) : W('不會下雨', 'no rain');
 };
 export function rainGraph(cols, { tz, daily = false, fromNow = true } = {}) {
-  if (daily) return chart('rain', cols.map(d => ({ date: d.date, v: d.pop, under: d.label, daily: true, inner: d.mm >= 0.5 ? Math.min(1, d.mm / 30) : 0 })), { max: 100, stops: RAIN_STOPS, tz, label: '每天的降雨機率', bars: true, ticks: RAIN_TICKS, fmt: v => `${Math.round(v)}%` });
+  if (daily) return chart('rain', cols.map(d => ({ date: d.date, v: d.pop, under: d.label, daily: true, inner: d.mm >= 0.5 ? Math.min(1, d.mm / 30) : 0 })), { max: 100, stops: RAIN_STOPS, tz, label: W('每天的降雨機率', 'Daily chance of rain'), bars: true, ticks: RAIN_TICKS, fmt: v => `${Math.round(v)}%` });
   if (isDry(cols)) return `<p class="wx-dry">${glyph('umbrella', { size: 18 })}${dryNote(cols)}</p>`;
   const every = cols.length > 30 ? 6 : 3;
   return chart(
     'rain',
-    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: fromNow && i === 0 ? '現在' : hourText(h.t, tz, every), strong: fromNow && i === 0 })),
-    { max: 100, stops: RAIN_STOPS, tz, label: '逐時降雨機率', nowIndex: fromNow ? 0 : -1, bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%` }
+    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: fromNow && i === 0 ? W('現在', 'Now') : hourText(h.t, tz, every), strong: fromNow && i === 0 })),
+    { max: 100, stops: RAIN_STOPS, tz, label: W('逐時降雨機率', 'Hourly chance of rain'), nowIndex: fromNow ? 0 : -1, bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%` }
   );
 }
 
@@ -242,9 +243,9 @@ export function rainGraph(cols, { tz, daily = false, fromNow = true } = {}) {
 const AQI_TICKS = [[50, '50'], [100, '100'], [150, '150']];
 export function airGraph(cols, { tz, daily = true, fromNow = true } = {}) {
   const max = Math.max(150, ...cols.map(c => c.aqi ?? 0));
-  if (daily) return chart('air', cols.map(c => ({ ...c, v: c.aqi, under: c.label, daily: true })), { max, stops: AQI_STOPS, tz, label: '空氣品質：現在與預報', bars: true, ticks: AQI_TICKS });
+  if (daily) return chart('air', cols.map(c => ({ ...c, v: c.aqi, under: c.label, daily: true })), { max, stops: AQI_STOPS, tz, label: W('空氣品質：現在與預報', 'Air quality: now and forecast'), bars: true, ticks: AQI_TICKS });
   const every = cols.length > 30 ? 6 : 3;
-  return chart('air', cols.map((h, i) => ({ t: h.t, v: h.aqi, under: fromNow && i === 0 ? '現在' : hourText(h.t, tz, every), strong: fromNow && i === 0 })), { max, stops: AQI_STOPS, tz, label: '逐時空氣品質', nowIndex: fromNow ? 0 : -1, ticks: AQI_TICKS });
+  return chart('air', cols.map((h, i) => ({ t: h.t, v: h.aqi, under: fromNow && i === 0 ? W('現在', 'Now') : hourText(h.t, tz, every), strong: fromNow && i === 0 })), { max, stops: AQI_STOPS, tz, label: W('逐時空氣品質', 'Hourly air quality'), nowIndex: fromNow ? 0 : -1, ticks: AQI_TICKS });
 }
 
 export { uvColor, aqiColor, rainColor };
@@ -264,7 +265,7 @@ export function dayCharts(hours, { tz } = {}) {
   const w = PLOT_W / n;
   const x = i => r1((i + 0.5) * w);
   const id = ++made;
-  const under = h => (hourOf(h.t, tz) % 3 === 0 ? `${hourOf(h.t, tz)}時` : '');
+  const under = h => (hourOf(h.t, tz) % 3 === 0 ? W(`${hourOf(h.t, tz)}時`, `${hourOf(h.t, tz)}`) : '');
 
   // Temperature and feels-like on one scale, whole 2 or 5 degrees marked.
   const vals = hours.flatMap(h => [h.temp, h.feels]).filter(v => v != null);
@@ -288,7 +289,7 @@ export function dayCharts(hours, { tz } = {}) {
   // low), the other way when there's no room; a halo where they cross a line.
   const iHi = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp > hours[a].temp) ? i : a), -1);
   const iLo = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp < hours[a].temp) ? i : a), -1);
-  for (const [i, above, word] of [[iHi, true, '最高'], [iLo, false, '最低']]) {
+  for (const [i, above, word] of [[iHi, true, W('最高', 'H')], [iLo, false, W('最低', 'L')]]) {
     if (i < 0 || (!above && i === iHi)) continue;
     const yd = y(hours[i].temp);
     const up = above ? yd - 11 >= 12 : yd + 21 > base - 2;
@@ -301,16 +302,16 @@ export function dayCharts(hours, { tz } = {}) {
     last = x(i);
     out.push(`<text class="ch-t" x="${r1(Math.min(PLOT_W - 12, Math.max(12, x(i))))}" y="${base + 17}">${t}</text>`);
   });
-  const temp = `<svg class="ch ch-daytemp" data-graph="day" data-n="${n}" data-pw="${PLOT_W}" data-ys="${hours.map(h => (h.temp == null ? '' : y(h.temp))).join(',')}" viewBox="0 0 ${CHART_W} ${base + 24}" role="img" aria-label="這一天的溫度與體感" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
+  const temp = `<svg class="ch ch-daytemp" data-graph="day" data-n="${n}" data-pw="${PLOT_W}" data-ys="${hours.map(h => (h.temp == null ? '' : y(h.temp))).join(',')}" viewBox="0 0 ${CHART_W} ${base + 24}" role="img" aria-label="${W('這一天的溫度與體感', 'Temperature and feels-like this day')}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
 
   const dry = isDry(hours);
   const wet = hours.some(h => h.mm >= 0.1);
-  const rain = dry ? '' : chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: '這一天的降雨機率', bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false });
-  const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: Math.max(11, ...hours.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: '這一天的紫外線', ticks: UV_TICKS, minLabel: 1, height: 56, dates: false }) : '';
-  const rainNote = dry ? `<span class="wx-dch-note">${dryNote(hours)}</span>` : wet ? '<span class="l-mm">深色＝雨量</span>' : '';
-  return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}溫度 <span class="l-temp">溫度</span><span class="l-feels">體感</span></p>${temp}</div>
-    <div class="wx-dch${dry ? ' is-dry' : ''}"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}降雨機率 ${rainNote}</p>${rain}</div>
-    ${uv ? `<div class="wx-dch"><p class="wx-dch-h">${glyph('sun', { size: 16 })}紫外線</p>${uv}</div>` : ''}
+  const rain = dry ? '' : chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: W('這一天的降雨機率', 'Chance of rain this day'), bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false });
+  const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: Math.max(11, ...hours.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: W('這一天的紫外線', 'UV this day'), ticks: UV_TICKS, minLabel: 1, height: 56, dates: false }) : '';
+  const rainNote = dry ? `<span class="wx-dch-note">${dryNote(hours)}</span>` : wet ? `<span class="l-mm">${W('深色＝雨量', 'Dark = amount')}</span>` : '';
+  return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}${W('溫度', 'Temperature')} <span class="l-temp">${W('溫度', 'Temp')}</span><span class="l-feels">${W('體感', 'Feels')}</span></p>${temp}</div>
+    <div class="wx-dch${dry ? ' is-dry' : ''}"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}${W('降雨機率', 'Chance of rain')} ${rainNote}</p>${rain}</div>
+    ${uv ? `<div class="wx-dch"><p class="wx-dch-h">${glyph('sun', { size: 16 })}${W('紫外線', 'UV')}</p>${uv}</div>` : ''}
     <i class="ch-xh" hidden></i><i class="ch-dh" hidden></i>`;
 }
 
@@ -321,12 +322,12 @@ export function scrubHtml(h, { tz, aqi = null } = {}) {
   const cell = (k, v, sub = '') => `<div><span>${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
   const deg = v => (v == null ? '–' : `${Math.round(v)}°`);
   const w = h.wind || {};
-  return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${h.place ? `${e(h.place)} · ` : ''}${e(h.condition?.text || '')}</span></div>
+  return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${h.place ? `${e(h.place)} · ` : ''}${e(conditionText(h.condition?.code, h.condition?.text))}</span></div>
     <div class="wx-scrub-vals">
-      ${cell('溫度', deg(h.temp), `體感 ${deg(h.feels)}`)}
-      ${cell('降雨', h.pop == null ? '–' : `${h.pop}%`, h.mm >= 0.1 ? `${h.mm} mm` : '')}
-      ${cell('紫外線', h.uv ?? '–', h.uv >= 3 ? '要防曬' : '')}
-      ${aqi ? cell('空氣', String(aqi.aqi), aqi.pm25 != null ? `PM2.5 ${aqi.pm25}` : '') : cell('濕度', h.humidity == null ? '–' : `${h.humidity}%`, w.speed != null ? `風 ${Math.round(w.speed)} km/h` : '')}
+      ${cell(W('溫度', 'Temp'), deg(h.temp), `${W('體感', 'Feels')} ${deg(h.feels)}`)}
+      ${cell(W('降雨', 'Rain'), h.pop == null ? '–' : `${h.pop}%`, h.mm >= 0.1 ? `${h.mm} mm` : '')}
+      ${cell(W('紫外線', 'UV'), h.uv ?? '–', h.uv >= 3 ? W('要防曬', 'cover up') : '')}
+      ${aqi ? cell(W('空氣', 'Air'), String(aqi.aqi), aqi.pm25 != null ? `PM2.5 ${aqi.pm25}` : '') : cell(W('濕度', 'Humidity'), h.humidity == null ? '–' : `${h.humidity}%`, w.speed != null ? `${W('風', 'Wind')} ${Math.round(w.speed)} km/h` : '')}
     </div>`;
 }
 
@@ -334,9 +335,9 @@ export function scrubHtml(h, { tz, aqi = null } = {}) {
 export function readout(kind, col, tz) {
   if (!col) return '';
   const when = col.t == null ? `${col.label}${col.date ? ` ${shortDate(col.date)}` : ''}` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.place ? ` · ${col.place}` : ''}`;
-  if (kind === 'uv') return col.t == null ? `${when} · 最高 UV ${col.uvMax ?? '–'}` : `${when} · 紫外線 ${col.uv ?? '–'}`;
-  if (kind === 'rain') return `${when} · 降雨機率 ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · ${col.t == null ? '約 ' : '雨量 '}${col.mm} mm` : ''}`;
-  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${AQI_NAMES.find(([m]) => col.aqi <= m)[1]}` : ''}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}${col.main ? ` · 主要 ${col.main}` : ''}`;
+  if (kind === 'uv') return col.t == null ? `${when} · ${W('最高 UV', 'Peak UV')} ${col.uvMax ?? '–'}` : `${when} · ${W('紫外線', 'UV')} ${col.uv ?? '–'}`;
+  if (kind === 'rain') return `${when} · ${W('降雨機率', 'Rain')} ${col.pop ?? '–'}%${col.mm >= 0.1 ? ` · ${col.t == null ? W('約 ', '~') : W('雨量 ', '')}${col.mm} mm` : ''}`;
+  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${AQI_NAMES.find(([m]) => col.aqi <= m)[1]}` : ''}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}${col.main ? ` · ${W('主要', 'mainly')} ${col.main}` : ''}`;
   return when;
 }
-const AQI_NAMES = [[50, '良好'], [100, '普通'], [150, '對敏感族群不健康'], [200, '不健康'], [300, '非常不健康'], [Infinity, '危害']];
+const AQI_NAMES = [[50, W('良好', 'Good')], [100, W('普通', 'Moderate')], [150, W('對敏感族群不健康', 'Unhealthy for some')], [200, W('不健康', 'Unhealthy')], [300, W('非常不健康', 'Very unhealthy')], [Infinity, W('危害', 'Hazardous')]];

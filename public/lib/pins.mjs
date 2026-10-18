@@ -3,6 +3,8 @@
 // pin's hours shows that pin; any other time, the current location.
 // Saved on the Quadra Pass (the app's payload), newest wins.
 
+import { W, en } from './lang.mjs';
+
 export const MAX_PINS = 8;
 const DAY_MS = 86_400_000;
 const TPE = 8 * 3_600_000;
@@ -28,7 +30,7 @@ export function cleanPin(p) {
   const days = [...new Set((Array.isArray(p.days) ? p.days : []).map(Number).filter(d => Number.isInteger(d) && d >= 0 && d <= 6))].sort();
   return {
     id: String(p.id),
-    name: String(p.name || '').trim().slice(0, 20) || '釘選地點',
+    name: String(p.name || '').trim().slice(0, 20) || W('釘選地點', 'Pinned place'),
     lat: Math.round(lat * 1e5) / 1e5,
     lon: Math.round(lon * 1e5) / 1e5,
     county: String(p.county || '').slice(0, 10),
@@ -71,12 +73,13 @@ export const placeAt = (pins, t) => activePin(pins, t) || (pins || []).find(p =>
 
 // A pin's hours in words: 「週一至週五 07:00–17:00」.
 const WEEK = '日一二三四五六';
+const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function scheduleText(pin) {
-  if (pin?.home && !pin.days?.length) return '其他時間';
-  if (!pin?.days?.length) return '不自動開啟';
+  if (pin?.home && !pin.days?.length) return W('其他時間', 'Other times');
+  if (!pin?.days?.length) return W('不自動開啟', 'Not automatic');
   const d = pin.days;
   const key = d.join('');
-  const days = key === '12345' ? '週一至週五' : key === '06' ? '週末' : key === '0123456' ? '每天' : d.map(x => '週' + WEEK[x]).join('、');
+  const days = key === '12345' ? W('週一至週五', 'Mon–Fri') : key === '06' ? W('週末', 'Weekends') : key === '0123456' ? W('每天', 'Every day') : en ? d.map(x => WEEK_EN[x]).join(', ') : d.map(x => '週' + WEEK[x]).join('、');
   return `${days} ${pin.from}–${pin.to}`;
 }
 
@@ -87,7 +90,7 @@ export function scheduleText(pin) {
 // back; the cards' order and the hidden ones from the newer copy).
 
 // The cards under the top, in the owner's order; `hidden` ones left out.
-export const CARDS = { metrics: '天氣指標（降雨・紫外線・空氣）', advice: '建議', days: '10 天預報', info: '更多資訊' };
+export const CARDS = { metrics: W('天氣指標（降雨・紫外線・空氣）', 'Conditions'), advice: W('建議', 'Advice'), days: W('10 天預報', 'Forecast'), info: W('更多資訊', 'Details') };
 export const DEFAULT_LAYOUT = Object.keys(CARDS);
 // (The old separate rain / UV / air cards are the metrics now, where the first stood.)
 const OLD = { uv: 'metrics', rain: 'metrics', air: 'metrics' };
@@ -158,7 +161,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       const pin = activePin(pins, t) || homePin;
       const p = pin || here;
       if (p && t > now && items.filter(x => x.kind === 'brief').length < days) {
-        items.push({ at: t, kind: 'brief', title: pin ? `${pin.name} 今天天氣` : '{place}今天天氣', tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
+        items.push({ at: t, kind: 'brief', title: pin ? W(`${pin.name} 今天天氣`, `${pin.name} today`) : W('{place}今天天氣', '{place} today'), tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
       }
     }
     if (rainOn && i < days) {
@@ -182,7 +185,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: homePin });
       for (const s of all) {
         if (s.to <= now) continue;
-        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? `${s.pin.name} 快下雨了` : '{place}快下雨了', tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
+        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon at {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
       }
     }
   }
