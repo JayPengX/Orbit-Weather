@@ -17,6 +17,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
   again only if GPS lands in another ~1 km cell. iOS is asked for the
   position unprompted once, never at every opening.
 - **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
+- **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a swipe, and each minute while on screen).
 - **A page:** where and now → next 24 hours → 紫外線 / 降雨機率 / 空氣品質
