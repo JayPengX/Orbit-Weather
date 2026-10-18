@@ -52,3 +52,8 @@ test("the proxy's advice in English; what can't be read is left out, never half 
   assert.doesNotMatch(page, /wx-say/);
   assert.match(page, /Feels 27° · Rain 10% · Humidity 94%/);
 });
+
+test('an old copy says "Not updated" and "3 h old", short enough to sit beside Today', async () => {
+  const { staleText } = await import('../public/lib/format.mjs');
+  assert.equal(staleText(0, 3 * 3_600_000), '3 h old');
+});

@@ -5,6 +5,7 @@
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
 import { W, en } from './lang.mjs';
 import { adviceEn } from './advice-en.mjs';
+import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, moonArt, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
@@ -57,6 +58,16 @@ const fxHtml = sky => {
   return `<div class="wx-fx" aria-hidden="true">${Array.from({ length: n }, (_, k) => i(k)).join('')}</div>`;
 };
 
+// The heads-up under the numbers: rain starting (or easing) within 2 hours.
+export function soonLine(f, now, tz) {
+  const r = rainSoon(f, now);
+  if (!r) return '';
+  const near = r.mins <= 60;
+  const at = hh(hourOf(r.at, tz));
+  const text = r.kind === 'start' ? (near ? W(`約 ${r.mins} 分鐘後下雨 · ${r.pop}%`, `Rain in ~${r.mins} min · ${r.pop}%`) : W(`${at}起下雨 · ${r.pop}%`, `Rain from ${at} · ${r.pop}%`)) : near ? W(`雨約 ${r.mins} 分鐘後減弱`, `Easing in ~${r.mins} min`) : W(`${at}後雨勢減弱`, `Easing by ${at}`);
+  return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(text)}</span></p>`;
+}
+
 export function topArea(f, { page, now }) {
   const n = f?.now || {};
   const d = f ? today(f, now) : null;
@@ -76,7 +87,7 @@ export function topArea(f, { page, now }) {
   // when the read failed, tap to try again.
   const old = f && f.at && now - f.at > OLD_MS;
   const stale = old
-    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Waiting to update')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
+    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
   return `
   <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
@@ -91,6 +102,7 @@ export function topArea(f, { page, now }) {
     <p class="wx-cond"><span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 34 })}</span><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
     <p class="wx-hl">${W('最高', 'H')} ${deg(d?.hi)}<i></i>${W('最低', 'L')} ${deg(d?.lo)}</p>
     <p class="wx-feel">${W('體感', 'Feels')} ${deg(n.feels)} · ${W('降雨', 'Rain')} ${pct(h0?.pop)} · ${W('濕度', 'Humidity')} ${pct(n.humidity)}</p>
+    ${old ? '' : soonLine(f, now, f.tz)}
     <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
@@ -115,8 +127,9 @@ export function hourStrip(f, { now, key }) {
         const hr = hourOf(h.t, f.tz);
         // A new day: a line before it, and its name.
         const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
-        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column.)
-        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, `${weekday(date)} ${hr}`) : hh(hr);
+        // (In English the day by its short name: "Tomorrow 2:00" ran into the next column;
+        // at midnight the name alone, not "Mon 0".)
+        const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, hr === 0 ? weekday(date) : `${weekday(date)} ${hr}`) : hh(hr);
         return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}

@@ -120,7 +120,8 @@ export function ago(ms, now) {
 
 // The top's line under the numbers: when they were made, and an old copy's age.
 export const updatedText = (at, now) => W(`更新於 ${ago(at, now)}`, `Updated ${ago(at, now)}`);
-export const staleText = (at, now) => W(`${ago(at, now)}的資料`, `Data from ${ago(at, now)}`);
+// (English short, "3 h old": "Waiting to update · Data from 3 h ago" ran into the Today button.)
+export const staleText = (at, now) => W(`${ago(at, now)}的資料`, ago(at, now).replace(/ ago$/, ' old'));
 
 // A condition's words in the reader's language: Google's (or CWA's) Chinese,
 // or in English from Google's code (PARTLY_CLOUDY: Partly cloudy); the

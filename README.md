@@ -16,6 +16,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
   Location: a quick Wi-Fi/cell fix first, GPS after; the forecast is asked
   again only if GPS lands in another ~1 km cell. iOS is asked for the
   position unprompted once, never at every opening.
+- **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a swipe, and each minute while on screen).
 - **A page:** where and now → next 24 hours → 紫外線 / 降雨機率 / 空氣品質
@@ -52,7 +53,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 | `public/lib/api.mjs` | The proxy, the device's position, this device's copies |
 | `public/lib/cards.mjs` | A page's sections |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
-| `public/lib/pins.mjs`, `plan.mjs` | Pins; 我的行程 |
+| `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
 | `public/lib/lang.mjs`, `advice-en.mjs` | English; the proxy's advice turned over |
 | `public/lib/pass-sync.mjs` | Keeping the pins in step with the Pass (the same file as Orbit Words') |
