@@ -1,22 +1,24 @@
 // The proxy's advice in English: its sentences are short and few, so a
 // phrase table turns them over; any piece it can't read comes back null
-// (and its tile is left out rather than shown half Chinese).
+// (and its tile is left out rather than shown half Chinese). Hours as
+// "19–21h": a tile's one line holds about 16 characters ("Today
+// 19:00–21:00" was cut).
 
 const DAYS = { 日: 'Sun', 一: 'Mon', 二: 'Tue', 三: 'Wed', 四: 'Thu', 五: 'Fri', 六: 'Sat' };
 const UV = { 低: 'low', 中: 'moderate', 高: 'high', 過量: 'very high', 危險: 'extreme' };
 const RULES = [
   [/^(\d+)時 (\d+)% 會下雨$/, 'Rain $2% at $1:00'],
   [/^摺疊傘，(\d+)時 (\d+)%$/, 'Folding one, $2% at $1:00'],
-  [/^(\d+)–(\d+)時 UV ([\d.]+) (低|中|高|過量|危險)$/, (m, a, b, uv, lv) => `UV ${uv} ${UV[lv]}, ${a}:00–${b}:00`],
+  [/^(\d+)–(\d+)時 UV ([\d.]+) (低|中|高|過量|危險)$/, (m, a, b, uv, lv) => `UV ${uv} ${UV[lv]}, ${a}–${b}h`],
   [/^明早 (-?\d+)°，低 (\d+)°$/, 'Tomorrow morning $1°, $2° colder'],
   [/^明早 (-?\d+)°，高 (\d+)°$/, 'Tomorrow morning $1°, $2° warmer'],
-  [/^(\d+)–(\d+)時可能打雷$/, 'Thunder likely $1:00–$2:00'],
+  [/^(\d+)–(\d+)時可能打雷$/, 'Thunder likely $1–$2h'],
   [/^(\d+)時陣風 (\d+) km\/h$/, 'Gusts $2 km/h at $1:00'],
   [/^(\d+)時能見度 ([\d.]+) 公里$/, 'Visibility $2 km at $1:00'],
   [/^空氣(很差|不佳)，AQI (\d+)$/, (m, how, aqi) => `Air ${how === '很差' ? 'very poor' : 'poor'}, AQI ${aqi}`],
   [/^濕度 (\d+)%，衣物易潮$/, 'Humidity $1%, clothes stay damp'],
   [/^今晚 (-?\d+)°，(.+)$/, (m, v, how) => `Tonight ${v}°, ${{ 開冷氣: 'AC on', 開除濕: 'dehumidifier on', 開電扇: 'fan on', 舒適: 'comfortable', 蓋薄被: 'light blanket', 蓋厚被: 'thick blanket' }[how] ?? how}`],
-  [/^體感 (-?\d+)°，多喝水$/, 'Feels $1°, drink water'],
+  [/^體感 (-?\d+)°，多喝水$/, 'Feels $1°, drink up'],
   // A kind the week needs but today doesn't (weather.js weekAdvice).
   [/^不太會下雨$/, 'Unlikely today'],
   [/^紫外線不強$/, 'UV low today'],
@@ -24,7 +26,7 @@ const RULES = [
   [/^空氣還可以$/, 'Air OK today']
 ];
 const WORDS = [
-  [/(\d+)–(\d+)時/g, '$1:00–$2:00'],
+  [/(\d+)–(\d+)時/g, '$1–$2h'],
   [/(\d+)時/g, '$1:00'],
   [/週([日一二三四五六])/g, (m, d) => DAYS[d]],
   [/早晚加件/g, 'layer up at night'],
