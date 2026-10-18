@@ -8,7 +8,8 @@ import { pageHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard, cols
 import { readout } from '../public/lib/graph.mjs';
 import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText } from '../public/lib/format.mjs';
 import { cleanPin, mergeData, emptyData, encodeData, decodeData } from '../public/lib/pins.mjs';
-import { passSync } from '../public/lib/pass-sync.mjs';
+// PASS_SYNC=kit runs these against the kit's shared module instead of this app's own copy (the fallback).
+const { passSync } = await import(process.env.PASS_SYNC === 'kit' ? '#kit/pass-sync.mjs' : '../public/lib/pass-sync.mjs');
 import { adviceEn } from '../public/lib/advice-en.mjs';
 import { routeForecast } from '../public/lib/plan.mjs';
 

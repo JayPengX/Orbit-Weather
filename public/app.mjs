@@ -17,7 +17,7 @@ import { escapeHtml as e, dateOf, updatedText, staleText } from './lib/format.mj
 import { W, en, lang } from './lib/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
-import { passSync } from './lib/pass-sync.mjs';
+import { passSync as localPassSync } from './lib/pass-sync.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -378,6 +378,8 @@ const keepData = () => {
   state.local.data = encodeData(state.data);
   saveLocal(state.local);
 };
+// The kit's shared Pass sync; this app's own copy (lib/pass-sync.mjs) when an older kit lacks it.
+const passSync = (await import('#kit/pass-sync.mjs').catch(() => null))?.passSync ?? localPassSync;
 const pass = passSync(q, {
   decode: decodeData,
   encode: () => encodeData(state.data),
