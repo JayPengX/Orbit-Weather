@@ -354,17 +354,22 @@ async function placeHere(here, pos) {
           .ensureToken()
           .then(token => fetchWhere(pos.lat, pos.lon, token))
           .then(w => {
-            if (!w?.county || state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
+            if (state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
+            if (!w?.county) throw new Error('no name');
             state.local.here.place = here.place = w;
             saveLocal(state.local);
           })
-          .catch(() => {})
+          // (No name to be had: said under the title, not left as if it were coming.)
+          .catch(() => {
+            if (!here.place?.town) here.note = [here.note, W('地名暫時讀不到', 'Area name unavailable')].filter(Boolean).join(' · ');
+          })
       : null;
   await loadPage(here, { naming });
-  // (A forecast already kept for the cell: the name, once it's in.)
+  // (A forecast already kept for the cell: the name, once it's in, or that it isn't.)
   if (naming) {
+    const note = here.note;
     await naming;
-    if (here.drawn !== drawnSig(here)) renderPage(here);
+    if (here.drawn !== drawnSig(here) || here.note !== note) renderPage(here);
   }
 }
 
