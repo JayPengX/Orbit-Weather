@@ -248,7 +248,7 @@ export function rainSummary(hours, tz, now, { short = false } = {}) {
   const next = list.find(h => h.pop >= 50);
   if (!next) {
     const top = list.reduce((a, h) => (h.pop > (a?.pop ?? -1) ? h : a), null);
-    if (short) return top && top.pop >= 30 ? W(`${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% at ${hourOf(top.t, tz)}`) : W('兩天內不太會下', 'Dry for 2 days');
+    if (short) return top && top.pop >= 30 ? W(`${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% at ${hourOf(top.t, tz)}`) : W('兩天內不太會下雨', 'Dry for 2 days');
     return top && top.pop >= 30 ? W(`${dayLabel(dateOf(top.t, tz), now, tz)} ${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% ${dayLabel(dateOf(top.t, tz), now, tz)} at ${hourOf(top.t, tz)}`) : W('兩天內不太會下雨', 'Little chance of rain for 2 days');
   }
   const top = peakFrom(next);
