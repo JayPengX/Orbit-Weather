@@ -1549,14 +1549,14 @@ svg.ch {
   font-size: 12px;
   font-weight: 700;
 }
-/* One line, never a second row (the words are kept short to fit). */
+/* The words wrap between words onto a second line rather than be cut ("Dry for 2 days" at 320). */
 .wx-metric-sub {
   color: var(--q-muted);
   font-size: 11px;
   line-height: 1.35;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: keep-all;
 }
 .wx-spark {
   display: block;
