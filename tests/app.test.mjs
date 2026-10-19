@@ -170,11 +170,11 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
 test('the page, top to bottom, one truth, nothing unescaped', () => {
   const page = { key: 'here', pin: null, place: { county: '臺北市', town: '信義區<b>', village: '西村里' }, lat: 25.034, lon: 121.565 };
   const html = pageHtml(forecast, page, { now: NOW });
-  // 今天: the sky, the advice; 預報: the indicators, the days. 更多資訊 is today's sheet's.
-  const order = ['wx-hero', '建議', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '10 天預報'].map(k => html.indexOf(k));
+  // 今天: the sky, the days, the panels, the advice (预報 has the indicators and the days again). 更多資訊 is today's sheet's.
+  const order = ['wx-hero', '10 天預報', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '建議'].map(k => html.indexOf(k));
   assert.ok(!html.includes('更多資訊'), 'the details are in today\'s sheet');
   assert.ok(!html.includes('<svg class="ch"'), 'no big graphs on the page: small cards, the graph in a sheet');
-  assert.equal((html.match(/class="wx-spark"/g) || []).length, 3);
+  assert.equal((html.match(/class="wx-spark"/g) || []).length, 6);
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
   assert.match(html, /信義區&lt;b&gt;/);
@@ -204,7 +204,7 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   // The app's own pictures, never emoji.
   assert.ok(!/\p{Extended_Pictographic}/u.test(html), 'no emoji: ' + (html.match(/\p{Extended_Pictographic}/u) || [])[0]);
   // The 10 days: each day's rain chance.
-  assert.equal((html.match(/class="wx-dpop"/g) || []).length, 10);
+  assert.equal((html.match(/class="wx-dpop"/g) || []).length, 20);
   assert.match(html, /現在陰，22 點前後/);
   assert.ok(!html.includes('西村里<b>'), 'the name escaped everywhere');
   for (const w of ['Google', 'CWA', '氣象署', 'MOENV', '環境部', 'radar', '雷達']) assert.ok(!html.includes(w), w);

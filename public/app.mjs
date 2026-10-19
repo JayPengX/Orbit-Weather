@@ -141,7 +141,7 @@ const pageSig = page =>
     : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}|${page.place?.town || ''}|${page.note || ''}|${page.askable ? 1 : 0}|${page.error || ''}`;
 const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
-  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}`;
+  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}${state.tab === 'week' ? '' : `|${state.pages.map(p => forecastOf(p)?.at || 0).join()}`}`;
 };
 function render() {
   const page = current();
@@ -155,7 +155,7 @@ function render() {
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
   if (state.tab === 'places') return void (panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 }));
-  const opts = { now, cards: state.data.cards, hidden: state.data.hidden };
+  const opts = { now, cards: state.data.cards, hidden: state.data.hidden, places: placeRows(page) };
   panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
 }
 

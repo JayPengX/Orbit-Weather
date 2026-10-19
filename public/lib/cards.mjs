@@ -134,7 +134,7 @@ export function heroHtml(f, { page, now }) {
 
 // A section: a 20px head (the kit's q-section-head, 全部 on its right when
 // there's more), then its body.
-const sec = (cls, title, body, more = '') => `<section class="q-section wx-section ${cls}"><div class="q-section-head"><h2>${title}</h2>${more}</div>${body}</section>`;
+const sec = (cls, title, body, more = '') => `<section class="q-section wx-section ${cls}"><div class="q-section-head q-shd"><h2>${title}</h2>${more}</div>${body}</section>`;
 
 // The next 24 hours, every 3 hours: a rail of small cards under the day's
 // sentence. A card opens its day.
@@ -534,7 +534,7 @@ export function infoCard(f, { now, lat, lon, page }) {
 const levelTag = (text, color) => (text ? `<span class="q-tag tint wx-lv" style="--t:color-mix(in srgb, ${color} 62%, var(--q-label))">${e(text)}</span>` : '');
 // A stat card: its colour tile and level, its name, a big number, one line,
 // a sparkline. With a graph to open (`key`), a button.
-const TILE_COLOR = { rain: 'blue', uv: 'orange', air: 'green', humidity: 'cyan', wind: 'teal' };
+const TILE_COLOR = { rain: 'blue', uv: 'orange', air: 'green', humidity: 'cyan', wind: 'teal', sun: 'orange', feels: 'red', vis: 'indigo' };
 const statCard = ({ kind, key = '', icon, title, value, sub, art = '', level = '' }) => {
   const tag = key ? 'button' : 'div';
   const open = key ? ` type="button" data-metric="${kind}" data-page="${e(key)}"` : '';
@@ -569,7 +569,7 @@ export function airTile(f, { now, key }) {
   const cols = airCols(f, now);
   return statCard({ kind: 'air', key, icon: glyph('air', { size: 18 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}`, level: levelTag(aqiLevel(a.level), aqiColor(a.aqi)), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
 }
-export function metricTiles(f, opts) {
+export function metricCards(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
   const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
@@ -590,8 +590,29 @@ export function metricTiles(f, opts) {
         })
       : ''
   ].filter(Boolean);
+  return cards;
+}
+export function metricTiles(f, opts) {
+  const cards = metricCards(f, opts);
   if (!cards.length) return '';
   return sec('wx-metrics-sec', W('指標', 'Conditions'), `<div class="q-rail wx-stats">${cards.join('')}</div>`);
+}
+// 今天's panel grid (Apple Weather's): the indicators and what else the forecast says, two to a row.
+export function panelGrid(f, opts) {
+  const n = f.now || {};
+  const d = today(f, opts.now);
+  const cards = metricCards(f, opts);
+  if (d?.sunrise && d?.sunset) cards.push(statCard({ kind: 'sun', icon: glyph('sunrise', { size: 18 }), title: W('日出', 'Sunrise'), value: clock(d.sunrise, f.tz), sub: `${W('日落', 'Sunset')} ${clock(d.sunset, f.tz)}` }));
+  if (n.feels != null) cards.push(statCard({ kind: 'feels', icon: glyph('thermo', { size: 18 }), title: W('體感', 'Feels like'), value: deg(n.feels), sub: n.temp != null ? (n.feels > n.temp + 1 ? W('比實際溫度悶熱', 'Warmer than the air') : n.feels < n.temp - 1 ? W('比實際溫度涼', 'Cooler than the air') : W('與實際溫度相近', 'About the air')) : '' }));
+  if (n.vis != null) cards.push(statCard({ kind: 'vis', icon: glyph('eye', { size: 18 }), title: W('能見度', 'Visibility'), value: `${n.vis}<small>${W('公里', 'km')}</small>`, sub: `${W('雲量', 'Cloud')} ${pct(n.cloud)}` }));
+  if (cards.length < 2) return '';
+  return sec('wx-panels-sec', W('今日數據', "Today's details"), `<div class="wx-panels">${cards.join('')}</div>`);
+}
+// 今天's places shelf: each place a card (its picture, name, temperature now); a tap goes there.
+export function placesShelf(rows) {
+  if (!rows || rows.length < 2) return '';
+  const card = r => `<button class="q-rail-card wx-place-card q-press${r.on ? ' is-on' : ''}" type="button" data-go-key="${e(r.key)}"><span class="q-tile" style="--t:var(--q-${r.color})">${r.glyph}</span><b class="wx-pc-temp">${r.temp != null ? deg(r.temp) : '–'}</b><span class="wx-pc-art">${r.art || ''}</span><small>${e(r.title)}</small></button>`;
+  return sec('wx-places-sec', W('我的地點', 'My places'), `<div class="q-rail wx-pcards">${rows.map(card).join('')}</div>`, `<button class="q-sh-more" type="button" data-act="places">${W('全部', 'All')}</button>`);
 }
 // The sheet a metric opens: its big graph, tabs and read-out.
 export const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
@@ -615,12 +636,12 @@ export const shownCards = (page, cards = DEFAULT_CARDS, hidden = []) => (page.pl
 const DEFAULT_CARDS = ['metrics', 'advice', 'days', 'info'];
 
 // 今天: the head (the place), the sky, the next hours, the advice.
-export function nowHtml(f, page, { now, cards, hidden } = {}) {
+export function nowHtml(f, page, { now, cards, hidden, places } = {}) {
   const head = headHtml(placeName(page).title, { place: true });
   const hero = heroHtml(f, { page, now });
   if (!f) return head + hero + (page.error ? failed(page) : waiting('wx-hours', 8));
   const show = shownCards(page, cards, hidden);
-  return head + hero + hourStrip(f, { now, key: page.key }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '');
+  return head + hero + hourStrip(f, { now, key: page.key }) + (show.includes('days') ? daysList(f, { now, key: page.key }) : '') + panelGrid(f, { now, key: page.key, page }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '') + placesShelf(places);
 }
 
 // 預報: the indicators and the days, in the owner's order.
