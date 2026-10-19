@@ -143,7 +143,8 @@ const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
   return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}`;
 };
-const dayLine = () => new Date().toLocaleDateString(en ? 'en-US' : 'zh-TW', { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' });
+// 今天's line over the place: the app's name and the date (Orbit Weather · 10月2日 星期五).
+const dayLine = () => `Orbit Weather · ${new Date().toLocaleDateString(en ? 'en-US' : 'zh-TW', en ? { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Asia/Taipei' } : { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' })}`;
 
 function render() {
   const page = current();
