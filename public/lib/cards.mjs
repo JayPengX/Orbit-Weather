@@ -147,7 +147,9 @@ export function hourStrip(f, { now, key }) {
   if (cols.length < 4) return '';
   const say = f.headline && (f.own || readable(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : '';
   const rail = cols
-    .map((h, i) => {
+    .map((col, i) => {
+      // 現在 is what the hero says (the same reading), not the hour's forecast.
+      const h = i === 0 && f.now && f.now.temp != null ? { ...col, temp: f.now.temp, condition: f.now.condition ?? col.condition, day: f.now.day ?? col.day } : col;
       const date = dateOf(h.t, f.tz);
       const hr = hourOf(h.t, f.tz);
       // A new day: its name before it.
