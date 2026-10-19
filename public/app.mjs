@@ -154,9 +154,10 @@ function render() {
   const sig = viewSig(page);
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
-  if (state.tab === 'places') return void (panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 }));
+  if (state.tab === 'places') return void ((panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 })), kitUI.wireNavTitles?.(panel));
   const opts = { now, cards: state.data.cards, hidden: state.data.hidden, places: placeRows(page) };
   panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
+  kitUI.wireNavTitles?.(panel);
 }
 
 // 地點's rows: each place's picture and colour, what it is, its temperature now.
@@ -455,7 +456,7 @@ async function pinSheet(pin = null) {
     if (!text) return (list.innerHTML = '');
     places ||= await fetchPlaces().catch(() => []);
     const rows = places.filter(([c, t]) => (c + t).includes(text)).slice(0, 30);
-    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || `<p class="q-cell wx-none">${W('找不到這個地區', 'No district found')}</p>`;
+    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || (kitUI.emptyHtml?.({ title: W('找不到這個地區', 'No district found') }) ?? `<p class="q-cell wx-none">${W('找不到這個地區', 'No district found')}</p>`);
   });
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');

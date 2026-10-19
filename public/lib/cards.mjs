@@ -12,6 +12,7 @@ import { rainSoon } from './soon.mjs';
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
 import { segHtml } from '#kit/ui.mjs';
+import * as kitUI from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines, OLD_MS } from './api.mjs';
@@ -84,7 +85,8 @@ export function placeName(page) {
 // A tab's head: its large title. The place's title
 // is a button: it opens 地點.
 export function headHtml(title, { place = false } = {}) {
-  const h1 = place ? `<button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button>` : e(title);
+  const h1 = !place && kitUI.navTitleHtml ? '' : place ? `<button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button>` : e(title);
+  if (!place && kitUI.navTitleHtml) return `<header class="q-page-head wx-head">${kitUI.navTitleHtml(title)}</header>`;
   return `<header class="q-page-head wx-head"><h1>${h1}</h1></header>`;
 }
 
@@ -626,7 +628,8 @@ export function metricSheet(kind, f, opts) {
 // Before the forecast: each tab's own shape, shimmering (the numbers take
 // their places as they come, nothing moves); a failure says so.
 const skelRail = (n, cls) => `<div class="q-rail ${cls}" aria-hidden="true">${Array.from({ length: n }, () => '<span class="wx-skel-card"><i class="sk sk-ic"></i><i class="sk sk-h"></i><i class="sk sk-line short"></i></span>').join('')}</div>`;
-const failed = page => `<section class="q-rowcard wx-empty"><p>${e(page.error)}</p><button class="q-btn tinted" type="button" data-act="retry" data-page="${e(page.key)}">${W('再試一次', 'Try again')}</button></section>`;
+const retryHtml = page => kitUI.emptyHtml?.({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } });
+const failed = page => retryHtml(page) ?? `<section class="q-rowcard wx-empty"><p>${e(page.error)}</p><button class="q-btn tinted" type="button" data-act="retry" data-page="${e(page.key)}">${W('再試一次', 'Try again')}</button></section>`;
 const waiting = (cls, n) => `<section class="q-section wx-section wx-skel ${cls}" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="q-section-head"><i class="sk sk-head"></i></div>${skelRail(n, cls === 'wx-hours' ? 'wx-rail' : 'wx-stats')}</section>`;
 
 // Which of the owner's cards go where: 建議 on 今天, 指標 and the days on
@@ -672,6 +675,6 @@ export function placesHtml(rows, { brief, editing = false, canAdd = true } = {})
       <label class="q-ritem wx-brief"><span class="q-tile" style="--t:var(--q-orange)">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="q-tile" style="--t:var(--q-indigo)">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
     </div>`;
-  const head = `<header class="q-page-head wx-head wx-head-row"><h1>${W('地點', 'Places')}</h1>${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
+  const head = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml?.(W('地點', 'Places')) ?? `<h1>${W('地點', 'Places')}</h1>`}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
   return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);
 }
