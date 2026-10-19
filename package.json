@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test && PASS_SYNC=kit node --test tests/rules.test.mjs",
+    "test": "node --test",
     "start": "npx --yes http-server public -p 8080 -c-1",
     "pretest": "test -e .kit || ln -s ../Shared-Proxy/kit .kit"
   },

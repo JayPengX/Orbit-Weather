@@ -5,9 +5,6 @@
    kit's tokens; the sky card stays a sky in both. */
 
 /* ==== The frame ==== */
-:root {
-  --q-accent: #3a7bf0;
-}
 body {
   margin: 0;
   background: var(--q-page);

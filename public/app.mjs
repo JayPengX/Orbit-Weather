@@ -5,6 +5,7 @@
 
 import { quadraSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
+import * as kitUI from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
@@ -17,7 +18,6 @@ import { escapeHtml as e, dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from './lib/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
-import { passSync as localPassSync } from './lib/pass-sync.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -361,14 +361,14 @@ async function placeHere(here, pos) {
 
 // The pins on the pass, kept in step with this device's copy: the pass's
 // read and merged in before anything is written over it, whenever it may
-// have changed (lib/pass-sync.mjs; a copy this version can't read is never
+// have changed (the kit's pass-sync.mjs; a copy this version can't read is never
 // written over).
 const keepData = () => {
   state.local.data = encodeData(state.data);
   saveLocal(state.local);
 };
-// The kit's shared Pass sync; this app's own copy (lib/pass-sync.mjs) when an older kit lacks it.
-const passSync = (await import('#kit/pass-sync.mjs').catch(() => null))?.passSync ?? localPassSync;
+// The kit's shared Pass sync (an older kit without it: this device's pins stay on this device).
+const passSync = (await import('#kit/pass-sync.mjs').catch(() => null))?.passSync ?? (() => ({ first: async () => {}, watch() {}, sync() {}, push() {}, keep() {}, changed() {} }));
 const pass = passSync(q, {
   decode: decodeData,
   encode: () => encodeData(state.data),
@@ -400,20 +400,21 @@ function sendNotices() {
 
 // ---- Sheets: a pin, the layout, a day, a metric, the advice ----------------------------------
 
-// A sheet (the kit's): up from the foot; down again on ×, a tap outside it,
-// Esc, or a drag down.
+// A sheet is the kit's (title centred, ✕ trailing, Esc and a tap outside close,
+// a drag down closes). `html` may start with its own simple head (a title and
+// a close button): that becomes the kit's head; a richer head (a tile, tabs)
+// or none (filled in later) stays as the content has it.
 function sheet(html, cls = '') {
-  const d = document.createElement('dialog');
-  d.className = `q-sheet wx-sheet ${cls}`;
-  d.innerHTML = html;
-  d.addEventListener('click', ev => (ev.target === d || ev.target.closest('[data-act="close"]')) && shut(d));
-  d.addEventListener('cancel', ev => {
-    ev.preventDefault();
-    shut(d);
-  });
-  d.addEventListener('close', () => d.remove());
-  document.body.append(d);
-  d.showModal();
+  const box = document.createElement('template');
+  box.innerHTML = html;
+  const first = box.content.firstElementChild;
+  const h2 = first?.classList.contains('q-sheet-head') && first.children.length === 2 && !first.querySelector('h2 *') ? first.querySelector('h2') : null;
+  const title = h2 ? h2.textContent : '';
+  if (h2) first.remove();
+  const k = kitUI.sheet({ title, body: [...box.content.childNodes], cls: `wx-sheet ${cls}`, closeLabel: W('關閉', 'Close') });
+  const d = k.el;
+  if (!h2) k.head.remove();
+  d.addEventListener('click', ev => ev.target.closest('[data-act="close"]') && shut(d));
   return d;
 }
 // Down to the foot as every sheet in the family goes (the kit's; dragged down, its sheetSwipe).
@@ -901,12 +902,14 @@ async function boot() {
   // (The pass's pins in: a notice's pin, or 我的行程, can be named now.)
   if (!state.started) state.key = hashPin() ?? state.pages[0].key;
   render();
+  // A first opening: the loading screen lifts when the first place's forecast
+  // is in (or after 4 s), not onto blank cards.
+  if (!used) await Promise.race([locate().catch(() => {}), new Promise(r => setTimeout(r, 4000))]);
   show();
   pass.watch();
   pass.sync();
   // (Already on its way when it was asked beside the sign-in.)
-  if (!used) locate();
-  else loadShown();
+  if (used) loadShown();
   sendNotices();
 }
 if (!gated) boot();
