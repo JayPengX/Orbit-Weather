@@ -81,11 +81,11 @@ export function placeName(page) {
   return { title, sub };
 }
 
-// A tab's head: a small grey line over its large title. The place's title
+// A tab's head: its large title. The place's title
 // is a button: it opens 地點.
-export function headHtml(over, title, { place = false } = {}) {
+export function headHtml(title, { place = false } = {}) {
   const h1 = place ? `<button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button>` : e(title);
-  return `<header class="q-page-head wx-head">${over ? `<p class="q-over">${e(over)}</p>` : ''}<h1>${h1}</h1></header>`;
+  return `<header class="q-page-head wx-head"><h1>${h1}</h1></header>`;
 }
 
 // The sky: where (the county, or the pin's place), now, the day's high and
@@ -124,7 +124,7 @@ export function heroHtml(f, { page, now }) {
       <span class="wx-pill wx-feel">${W('體感', 'Feels')} <b>${deg(n.feels)}</b></span>
     </div>
     ${old ? '' : soonLine(f, now, f.tz)}
-    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
+    <div class="wx-hero-foot">${stale || ''}<span class="wx-more">${W('今天', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
           : '<div class="wx-now wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><div class="wx-pills wx-skel-hero" aria-hidden="true"><i class="sk sk-pill"></i><i class="sk sk-pill"></i><i class="sk sk-pill"></i></div>'
@@ -614,9 +614,9 @@ const waiting = (cls, n) => `<section class="q-section wx-section wx-skel ${cls}
 export const shownCards = (page, cards = DEFAULT_CARDS, hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
 const DEFAULT_CARDS = ['metrics', 'advice', 'days', 'info'];
 
-// 今天: the head (the date over the place), the sky, the next hours, the advice.
-export function nowHtml(f, page, { now, over = '', cards, hidden } = {}) {
-  const head = headHtml(over, placeName(page).title, { place: true });
+// 今天: the head (the place), the sky, the next hours, the advice.
+export function nowHtml(f, page, { now, cards, hidden } = {}) {
+  const head = headHtml(placeName(page).title, { place: true });
   const hero = heroHtml(f, { page, now });
   if (!f) return head + hero + (page.error ? failed(page) : waiting('wx-hours', 8));
   const show = shownCards(page, cards, hidden);
@@ -626,7 +626,7 @@ export function nowHtml(f, page, { now, over = '', cards, hidden } = {}) {
 // 預報: the indicators and the days, in the owner's order.
 const WEEK = { metrics: metricTiles, days: daysList };
 export function weekHtml(f, page, { now, cards, hidden } = {}) {
-  const head = headHtml(placeName(page).title, W('預報', 'Forecast'));
+  const head = headHtml(placeName(page).title);
   if (!f) return head + (page.error ? failed(page) : waiting('wx-metrics-sec', 3));
   const opts = { now, key: page.key, page };
   return head + shownCards(page, cards, hidden).filter(k => WEEK[k]).map(k => WEEK[k](f, opts)).join('');
@@ -650,8 +650,7 @@ export function placesHtml(rows, { brief, editing = false, canAdd = true } = {})
   const settings = `<div class="q-rowcard">
       <label class="q-ritem wx-brief"><span class="q-tile" style="--t:var(--q-orange)">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="q-tile" style="--t:var(--q-indigo)">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
-    </div>
-    <p class="wx-foot">${W('通知的開關在右上角的帳戶裡。', 'Notifications are switched on in the account menu, top right.')}</p>`;
+    </div>`;
   const head = `<header class="q-page-head wx-head wx-head-row"><h1>${W('地點', 'Places')}</h1>${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
   return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);
 }

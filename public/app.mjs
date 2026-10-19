@@ -13,7 +13,7 @@ const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => nul
 if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
-import { escapeHtml as e, dateOf, updatedText, staleText, hereNote } from './lib/format.mjs';
+import { escapeHtml as e, dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from './lib/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
@@ -143,9 +143,6 @@ const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
   return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}`;
 };
-// 今天's line over the place: the app's name and the date (Orbit Weather · 10月2日 星期五).
-const dayLine = () => `Orbit Weather · ${new Date().toLocaleDateString(en ? 'en-US' : 'zh-TW', en ? { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'Asia/Taipei' } : { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' })}`;
-
 function render() {
   const page = current();
   if (!page) return;
@@ -158,7 +155,7 @@ function render() {
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
   if (state.tab === 'places') return void (panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 }));
-  const opts = { now, over: dayLine(), cards: state.data.cards, hidden: state.data.hidden };
+  const opts = { now, cards: state.data.cards, hidden: state.data.hidden };
   panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
 }
 
@@ -761,7 +758,6 @@ document.addEventListener('keydown', ev => {
 function tick() {
   if (document.visibilityState !== 'visible' || !state.started) return;
   const now = Date.now();
-  for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = updatedText(Number(el.dataset.at), now);
   for (const el of document.querySelectorAll('.wx-stale-age[data-at]')) el.textContent = staleText(Number(el.dataset.at), now);
   render();
   loadShown();

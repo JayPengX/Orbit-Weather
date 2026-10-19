@@ -36,7 +36,7 @@ body {
   font: var(--q-t-footnote);
 }
 
-/* A tab's head: the date over the place (a button: it opens 地點). */
+/* A tab's head: the place (a button: it opens 地點). */
 .wx-head h1 {
   min-width: 0;
 }
@@ -356,21 +356,6 @@ body {
   border-top: 0.5px solid rgba(255, 255, 255, 0.22);
   color: rgba(255, 255, 255, 0.8);
   font: 500 12.5px/18px var(--q-font);
-}
-.wx-age {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.is-loading .wx-age::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: wx-spin 0.8s linear infinite;
 }
 .wx-more {
   display: inline-flex;

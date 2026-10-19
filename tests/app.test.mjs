@@ -201,7 +201,6 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.equal((html.match(/class="wx-hr[ "]/g) || []).length, 8);
   assert.match(html, /<span class="wx-hr-t">現在<\/span>/);
   assert.match(html, /is-newday"[^]*?<span class="wx-hr-t">明天1時<\/span>/, 'the new day named');
-  assert.match(html, /class="wx-age" data-at="\d+">更新於 /);
   // The app's own pictures, never emoji.
   assert.ok(!/\p{Extended_Pictographic}/u.test(html), 'no emoji: ' + (html.match(/\p{Extended_Pictographic}/u) || [])[0]);
   // The 10 days: each day's rain chance.
@@ -479,7 +478,6 @@ test('an old forecast says so at the top: its now faded, 更新中 or 無法更�
   const old = topArea({ ...forecast, at: now - 2 * 3_600_000 }, { page, now });
   assert.match(old, /wx-hero[^"]*wx-old/);
   assert.match(old, /2 小時前的資料/);
-  assert.doesNotMatch(old, /class="wx-age"/);
   assert.match(topArea({ ...forecast, at: now - 2 * 3_600_000 }, { page: { ...page, error: 'x' }, now }), /無法更新/);
 });
 
