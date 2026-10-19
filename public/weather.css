@@ -1,93 +1,100 @@
-/* Orbit Weather on the Quadra kit (quadra.css): always dark
-   (html[data-theme=dark]), the app's accent, and its own pieces: the pages
-   swiped sideways (here, then each pin), the cards with their graphs. */
+/* Orbit Weather on the Quadra kit (quadra.css: tokens, tab bar, sheets,
+   lists, the premium layer). Organised by screen: the frame, 今天 (the sky,
+   the next hours, the advice), 預報 (the indicators, the days), 地點, then
+   the sheets, the graphs and the pictures. Light and dark come from the
+   kit's tokens; the sky card stays a sky in both. */
 
+/* ==== The frame ==== */
 :root {
-  --q-accent: #6366f1;
-  --q-status-bg: var(--q-page);
-  --wx-max: 600px;
-}
-html,
-body {
-  height: 100%;
+  --q-accent: #3a7bf0;
 }
 body {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
   background: var(--q-page);
-  color: var(--q-text);
-  font-family: var(--q-font);
+  color: var(--q-label);
 }
-.q-appbar {
-  flex: none;
-}
-
-/* The places: a chip each, the one in view pressed. */
-.wx-dots {
-  padding: 4px 16px 10px;
-  max-width: calc(var(--wx-max) + 32px);
+.wx-panel {
+  max-width: 640px;
   margin: 0 auto;
-  box-sizing: border-box;
-  width: 100%;
+  padding: 0 var(--q-margin, 16px) calc(var(--q-nav, 0px) + 32px);
 }
-.wx-dot[aria-pressed='true'] {
-  background: var(--q-accent);
-  border-color: var(--q-accent);
-  color: #fff;
+.wx-panel > .q-section,
+.wx-panel > .q-rowcard + .q-section {
+  margin-top: 28px;
 }
-.wx-add {
-  color: var(--q-muted);
+.wx-panel .q-section-head {
+  margin-bottom: 10px;
+}
+.wx-panel .q-section-head h2 {
+  font: 700 20px/26px var(--q-font);
+}
+.wx-panel .q-section-head button {
+  font-size: 17px;
+}
+.wx-foot {
+  margin: 8px 16px 0;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
 }
 
-/* The pages, sideways; each scrolls on its own. */
-.wx-pager {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-}
-.wx-pager::-webkit-scrollbar {
-  display: none;
-}
-.wx-page {
-  flex: 0 0 100%;
+/* A tab's head: the date over the place (a button: it opens 地點). */
+.wx-head h1 {
   min-width: 0;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior-y: contain;
-  box-sizing: border-box;
-  padding: 6px max(16px, calc((100% - var(--wx-max)) / 2)) calc(env(safe-area-inset-bottom) + 40px);
 }
-/* A plain column: each card its own height (Safari shrinks grid or flex
-   items that clip, inside a scrolling page). */
-.wx-page > * {
-  display: block;
-  margin: 0 0 14px;
+.wx-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.wx-page > .wx-section {
-  display: grid;
+.wx-title span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wx-title .wx-g {
+  margin-top: 4px;
+  color: var(--q-label-3);
+  stroke-width: 2.4;
+}
+.wx-title:active {
+  opacity: 0.6;
 }
 
-/* Top: where and now, on a sky that follows the weather (and moves with it:
-   rain falling, stars, drifting cloud). The whole top opens today. */
+/* Something that couldn't load: said, with a retry. */
+.wx-empty {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 28px 16px;
+  color: var(--q-label-2);
+  text-align: center;
+}
+.wx-empty p {
+  margin: 0;
+}
+
+/* ==== 今天: the sky ==== */
 .wx-hero {
+  --sky-glow: rgba(255, 255, 255, 0.26);
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: 18px 18px 12px;
-  border-radius: 28px;
+  padding: 16px 18px 14px;
+  border-radius: 24px;
   color: #fff;
-  background: var(--sky);
-  box-shadow: 0 18px 40px -20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 22px 40px -24px rgba(20, 50, 120, 0.7);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.16s ease;
 }
@@ -98,35 +105,38 @@ body {
   transform: scale(0.985);
 }
 .wx-hero:focus-visible {
-  outline: 2px solid #fff;
-  outline-offset: 2px;
+  outline: 2px solid var(--q-accent);
+  outline-offset: 3px;
 }
 .sky-clear.sky-day {
-  --sky: linear-gradient(165deg, #1d64d8 0%, #3c8df0 52%, #79bdf6 100%);
+  --sky: linear-gradient(165deg, #174fb8 0%, #2c78e0 55%, #5aa2ee 100%);
+  --sky-glow: rgba(255, 226, 140, 0.5);
 }
 .sky-part.sky-day {
-  --sky: linear-gradient(165deg, #2f5fae 0%, #5a88cc 55%, #93b2da 100%);
+  --sky: linear-gradient(165deg, #264e94 0%, #4676ba 55%, #7898c6 100%);
 }
 .sky-cloud.sky-day {
   --sky: linear-gradient(165deg, #414d64 0%, #5e6b84 58%, #8090a8 100%);
 }
-.sky-rain.sky-day,
-.sky-rain.sky-night {
+.sky-rain {
   --sky: linear-gradient(165deg, #172235 0%, #263a57 60%, #375377 100%);
+  --sky-glow: rgba(150, 180, 255, 0.22);
 }
-.sky-storm.sky-day,
-.sky-storm.sky-night {
+.sky-storm {
   --sky: linear-gradient(165deg, #161126 0%, #2b224b 60%, #45367a 100%);
+  --sky-glow: rgba(150, 180, 255, 0.22);
 }
 .sky-clear.sky-night,
 .sky-part.sky-night {
   --sky: linear-gradient(165deg, #060a22 0%, #131d52 62%, #2b2f78 100%);
+  --sky-glow: rgba(120, 130, 255, 0.28);
 }
 .sky-cloud.sky-night {
   --sky: linear-gradient(165deg, #0f1218 0%, #1d232d 62%, #2d3441 100%);
+  --sky-glow: rgba(120, 130, 255, 0.2);
 }
 
-/* The sky's moving layer. Each <i> is placed by --x, --y and timed by --d. */
+/* The sky's moving layer: each <i> placed by --x, --y and timed by --d, --s. */
 .wx-fx {
   position: absolute;
   inset: 0;
@@ -200,9 +210,6 @@ body {
   }
 }
 @keyframes wx-drift {
-  from {
-    transform: translateX(0);
-  }
   to {
     transform: translateX(220%);
   }
@@ -238,86 +245,123 @@ body {
     transform: translateY(-5px);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .wx-fx i,
-  .wx-fx::after,
-  .wx-icon .wx-art-i {
-    animation: none !important;
-  }
-}
 
-.wx-place {
+/* The sky's words: where, now, the day's high and low. */
+.wx-eyebrow {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-height: 26px;
   margin: 0;
-  font: 750 21px/1.25 var(--q-font);
+  color: rgba(255, 255, 255, 0.85);
+  font: 600 13px/18px var(--q-font);
+  letter-spacing: 0.02em;
 }
-.wx-place .wx-g {
+.wx-eyebrow > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wx-relocate {
+  display: inline-flex;
   flex: none;
-  opacity: 0.9;
-}
-.wx-sub {
-  margin: 3px 0 0;
-  color: rgba(255, 255, 255, 0.76);
-  font-size: 13px;
-}
-.wx-sched {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 8px;
+  align-items: center;
+  gap: 3px;
+  min-height: 26px;
+  margin-left: auto;
+  padding: 0 10px;
+  border: 0;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.22);
   color: #fff;
-  font-size: 12px;
+  font: 600 12px/1 var(--q-font);
+  cursor: pointer;
+}
+.wx-now {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
 }
 .wx-temp {
-  font: 200 92px/1 var(--q-font);
-  letter-spacing: -5px;
-  text-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
-}
-.wx-cond {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 4px 0 0 4px;
-}
-.wx-cond b {
-  font-size: 18px;
-}
-.wx-cond span {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 13.5px;
+  font: 300 88px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -4px;
+  text-shadow: 0 4px 22px rgba(0, 0, 0, 0.16);
 }
 .wx-icon {
-  margin: -6px -10px 0 0;
+  flex: none;
   line-height: 0;
 }
 .wx-icon .wx-art-i {
-  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.25));
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22));
   animation: wx-float 6s ease-in-out infinite;
 }
-.wx-headline {
-  margin: 12px 0 0;
-  font-size: 14.5px;
-  line-height: 1.55;
-  color: rgba(255, 255, 255, 0.95);
+.wx-cond {
+  margin: 2px 0 0;
+  font: 700 20px/26px var(--q-font);
+}
+.wx-pills {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.wx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.86);
+  font: 600 12.5px/1 var(--q-font);
+  white-space: nowrap;
+}
+.wx-pill b {
+  color: #fff;
+  font: 700 14px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+}
+/* The rain heads-up under the numbers (cards.mjs soonLine). */
+.wx-soon {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 10px 0 0;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font: 600 13.5px/18px var(--q-font);
+  white-space: nowrap;
+}
+.wx-soon svg {
+  flex: none;
+}
+.wx-soon-stop {
+  background: rgba(255, 255, 255, 0.12);
+  font-weight: 500;
 }
 .wx-hero-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 14px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 12.5px;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.8);
+  font: 500 12.5px/18px var(--q-font);
 }
 .wx-age {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 .is-loading .wx-age::before {
   content: '';
@@ -328,10 +372,20 @@ body {
   border-radius: 50%;
   animation: wx-spin 0.8s linear infinite;
 }
-/* An old copy on the top (cards.mjs topArea): what it is, said plainly,
-   and its "now" faded so it isn't read as now. */
+.wx-more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  font-weight: 650;
+}
+/* An old copy (cards.mjs heroHtml): what it is, said plainly in the
+   更新於 line's place, its "now" faded so it isn't read as now. */
 .wx-stale {
-  /* In the 更新於 line's place: nothing moves when it goes. */
   position: relative;
   z-index: 2;
   display: inline-flex;
@@ -343,15 +397,17 @@ body {
   border: 0;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.32);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
   color: #fff;
-  font: inherit;
-  font-size: 13px;
+  font: 13px/18px var(--q-font);
   white-space: nowrap;
+  cursor: pointer;
 }
-.wx-stale b { font-weight: 700; }
-.wx-stale .wx-stale-age { color: rgba(255, 255, 255, 0.78); }
+.wx-stale b {
+  font-weight: 700;
+}
+.wx-stale-age {
+  color: rgba(255, 255, 255, 0.78);
+}
 .wx-stale .wx-spin {
   width: 11px;
   height: 11px;
@@ -360,506 +416,28 @@ body {
   border-radius: 50%;
   animation: wx-spin 0.8s linear infinite;
 }
-.wx-stale .wx-stale-busy { display: none; }
-.is-loading .wx-stale .wx-stale-busy { display: inline; }
-.is-loading .wx-stale .wx-stale-failed { display: none; }
-.wx-stale:not(.failed) .wx-spin { display: none; }
-.is-loading .wx-stale .wx-spin { display: inline-block; }
-.wx-stale.failed { background: rgba(160, 30, 30, 0.55); }
-.is-loading .wx-stale.failed { background: rgba(0, 0, 0, 0.32); }
-.wx-stale.failed .wx-spin { display: none; }
-.is-loading .wx-stale.failed .wx-spin { display: inline-block; }
+.wx-stale .wx-spin,
+.wx-stale .wx-stale-busy,
+.is-loading .wx-stale .wx-stale-failed {
+  display: none;
+}
+.is-loading .wx-stale .wx-stale-busy {
+  display: inline;
+}
+.is-loading .wx-stale .wx-spin {
+  display: inline-block;
+}
+.wx-stale.failed {
+  background: rgba(160, 30, 30, 0.55);
+}
+.is-loading .wx-stale.failed {
+  background: rgba(0, 0, 0, 0.32);
+}
 .wx-old .wx-temp,
 .wx-old .wx-cond,
-.wx-old .wx-hl,
-.wx-old .wx-feel { opacity: 0.42; transition: opacity 0.3s; }
-.wx-old .wx-hero-foot .wx-age::before { display: none; }
-.wx-more {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  color: #fff;
-  font-weight: 650;
-}
-/* The cards with graphs. */
-.wx-card {
-  padding: 14px 16px 10px;
-  min-width: 0;
-}
-.wx-card-head {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-}
-.wx-ic {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  background: var(--q-sunken);
-  font-size: 19px;
-}
-.wx-card-title {
-  min-width: 0;
-}
-.wx-card-title p {
-  margin: 2px 0 0;
-  color: var(--q-muted);
-  font-size: 12.5px;
-  line-height: 1.4;
-}
-.wx-big {
-  font: 750 30px/1 var(--q-font);
-  color: var(--c, var(--q-text));
-  white-space: nowrap;
-  text-align: right;
-}
-.wx-big small {
-  margin-left: 3px;
-  font-size: 13px;
-  font-weight: 650;
-}
-.wx-rain-big {
-  color: #60a5fa;
-}
-.wx-graphbox {
-  position: relative;
-  margin: 12px -16px 0;
-}
-.wx-when {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  left: 12px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--q-surface) 88%, transparent);
-  border: 1px solid var(--q-border);
-  font-size: 11.5px;
-  font-weight: 700;
-  pointer-events: none;
-}
-.wx-when:empty {
-  display: none;
-}
-.wx-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 0 16px;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-}
-.wx-scroll::-webkit-scrollbar {
-  display: none;
-}
-.wx-readout {
-  min-height: 18px;
-  margin: 6px 0 0;
-  color: var(--q-muted);
-  font-size: 12.5px;
-}
-.wx-foot {
-  margin: 8px 0 0;
-  color: var(--q-muted);
-  font-size: 12.5px;
-}
-
-/* A timeline: a column per hour (or day), each a button. */
-.tl {
-  display: flex;
-  width: max-content;
-  padding-top: 24px;
-}
-.tl-col {
-  position: relative;
-  flex: 0 0 34px;
-  width: 34px;
-  height: 214px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.tl-odd {
-  background: color-mix(in srgb, var(--q-text) 3.5%, transparent);
-}
-.tl-start {
-  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--q-text) 16%, transparent);
-}
-.tl-plot {
-  position: absolute;
-  inset: 0 0 46px;
-  border-bottom: 1px solid var(--q-border);
-}
-.tl-bar {
-  position: absolute;
-  bottom: 0;
-  left: 5px;
-  right: 5px;
-  display: block;
-  border-radius: 6px 6px 2px 2px;
-  overflow: hidden;
-}
-.tl-fc {
-  opacity: 0.6;
-}
-.tl-inner {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: block;
-  background: #1e3a8a;
-  opacity: 0.8;
-}
-.tl-zero {
-  position: absolute;
-  bottom: 0;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  border-radius: 1px;
-  background: color-mix(in srgb, var(--q-text) 18%, transparent);
-}
-.tl-none {
-  position: absolute;
-  bottom: 2px;
-  left: 0;
-  right: 0;
-  color: var(--q-muted);
-  font-style: normal;
-  font-size: 11px;
-  text-align: center;
-}
-.tl-val {
-  position: absolute;
-  left: -4px;
-  right: -4px;
-  margin-bottom: 3px;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-  white-space: nowrap;
-}
-.tl-t {
-  position: absolute;
-  left: -8px;
-  right: -8px;
-  bottom: 26px;
-  color: var(--q-muted);
-  font-size: 11.5px;
-  font-weight: 500;
-  text-align: center;
-  white-space: nowrap;
-}
-.tl-strong {
-  color: var(--q-text);
-  font-weight: 750;
-}
-.tl-date {
-  position: absolute;
-  left: 4px;
-  bottom: 6px;
-  z-index: 1;
-  font-style: normal;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.tl-wide {
-  flex-basis: 60px;
-  width: 60px;
-}
-.tl-now .tl-plot {
-  background: color-mix(in srgb, var(--q-accent) 9%, transparent);
-  border-radius: 8px 8px 0 0;
-}
-.tl-sel .tl-plot {
-  background: color-mix(in srgb, var(--q-accent) 30%, transparent);
-  border-radius: 8px 8px 0 0;
-}
-
-/* The one-day graph (the day sheet). */
-.graph text {
-  font-family: var(--q-font);
-}
-.g-time {
-  fill: var(--q-muted);
-  font-size: 11px;
-  text-anchor: middle;
-}
-.g-base {
-  stroke: var(--q-border);
-}
-.g-val {
-  fill: var(--q-text);
-  font-size: 10.5px;
-  font-weight: 650;
-  text-anchor: middle;
-}
-.g-temp {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.g-feels {
-  fill: none;
-  stroke: #fbbf24;
-  stroke-width: 2;
-  stroke-dasharray: 4 3;
-}
-
-/* What to do: today, and the week. */
-.wx-section {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-}
-.wx-advice {
-  display: grid;
-  gap: 10px;
-}
-.wx-tag {
-  display: inline-block;
-  margin-right: 6px;
-  padding: 0 6px;
-  border-radius: 6px;
-  background: var(--q-sunken);
-  color: var(--q-muted);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 18px;
-  vertical-align: 1px;
-}
-.wx-strip {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-}
-.wx-sd {
-  display: grid;
-  justify-items: center;
-  gap: 3px;
-  padding: 6px 0 5px;
-  border-radius: 10px;
-  background: var(--q-sunken);
-}
-.wx-sd small {
-  color: var(--q-muted);
-  font-size: 11px;
-  font-weight: 650;
-}
-.wx-sd i {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--q-text) 14%, transparent);
-}
-.wx-sd em {
-  min-height: 14px;
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 650;
-}
-.m-yes i {
-  background: #42a5f5;
-}
-.m-maybe i {
-  background: #90caf9;
-}
-.m-bad i {
-  background: #ef5350;
-}
-.m-good i {
-  background: #3dd598;
-}
-.m-coat i {
-  background: #60a5fa;
-}
-.m-jacket i {
-  background: #5eead4;
-}
-.m-sleeves i {
-  background: #c4b5fd;
-}
-.m-light i {
-  background: #fb923c;
-}
-.m-yes,
-.m-bad,
-.m-good,
-.m-maybe {
-  background: color-mix(in srgb, var(--q-text) 7%, var(--q-sunken));
-}
-
-/* The days. */
-.wx-days {
-  padding: 4px 14px;
-}
-.wx-day {
-  display: grid;
-  grid-template-columns: 44px 30px 46px 30px minmax(30px, 1fr) 32px 22px;
-  gap: 8px;
-  align-items: center;
-  width: 100%;
-  min-height: 54px;
-  padding: 0;
-  border: 0;
-  border-top: 1px solid var(--q-divider);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.wx-day:first-child {
-  border-top: 0;
-}
-.wx-dname {
-  display: grid;
-  font-weight: 700;
-  line-height: 1.15;
-}
-.wx-dname small {
-  color: var(--q-muted);
-  font-weight: 500;
-  font-size: 11px;
-}
-.wx-dicon {
-  display: grid;
-  justify-items: center;
-  font-size: 22px;
-  line-height: 1.1;
-}
-.wx-dpop {
-  display: grid;
-  gap: 3px;
-}
-.wx-dpop b {
-  color: #93c5fd;
-  font-size: 13px;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-}
-.wx-dpop i {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #42a5f5 var(--p), var(--q-sunken) var(--p));
-}
-.wx-dlo {
-  text-align: right;
-  color: var(--q-muted);
-}
-.wx-dhi {
-  font-weight: 700;
-}
-.wx-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--q-sunken);
-}
-.wx-bar i {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #7dd3fc, #fbbf24, #fb923c);
-}
-.wx-duv {
-  border-radius: 7px;
-  background: var(--c);
-  color: #111;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 20px;
-  text-align: center;
-}
-
-/* Everything else. */
-.wx-info {
-  padding: 14px;
-}
-.wx-tiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.wx-tile {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 14px;
-  background: var(--q-sunken);
-}
-.wx-tile span {
-  color: var(--q-muted);
-  font-size: 12px;
-}
-.wx-tile b {
-  font-size: 16px;
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-.wx-tile small {
-  color: var(--q-muted);
-  font-size: 11.5px;
-}
-.wx-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 14px;
-  margin-top: 14px;
-}
-.wx-grid div {
-  display: grid;
-  min-width: 0;
-  align-content: start;
-}
-.wx-grid span,
-.wx-grid small {
-  color: var(--q-muted);
-  font-size: 12px;
-}
-.wx-grid b {
-  font-size: 16px;
-  font-weight: 650;
-  overflow-wrap: anywhere;
-}
-.wx-compass {
-  display: inline-block;
-  transform: rotate(calc(var(--d) + 90deg));
-}
-.wx-edit {
-  width: fit-content;
-  margin: 4px auto 14px !important;
-}
-.wx-empty {
-  padding: 36px 16px;
-  text-align: center;
-}
-.wx-spin {
-  width: 30px;
-  height: 30px;
-  margin: 0 auto 10px;
-  border: 3px solid var(--q-border);
-  border-top-color: var(--q-accent);
-  border-radius: 50%;
-  animation: wx-spin 0.9s linear infinite;
+.wx-old .wx-pills {
+  opacity: 0.42;
+  transition: opacity 0.3s;
 }
 @keyframes wx-spin {
   to {
@@ -867,74 +445,394 @@ body {
   }
 }
 
-/* Sheets: a pin, the settings, a day. */
-.wx-legend {
+/* ==== 今天: the next 24 hours, a rail of small cards ==== */
+.wx-say {
+  margin: -2px 0 12px;
+  color: var(--q-label-2);
+  font: var(--q-t-subhead);
+}
+.wx-rail {
+  --q-rail-w: 64px;
+  gap: 8px;
+}
+.wx-hr {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 0 8px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--q-surface);
+  color: var(--q-label);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+.wx-hr.is-now {
+  background: var(--q-accent);
+  color: #fff;
+}
+.wx-hr-t {
+  color: var(--q-label-2);
+  font: 600 12px/16px var(--q-font);
+  white-space: nowrap;
+}
+.wx-hr.is-newday .wx-hr-t {
+  color: var(--q-accent);
+}
+.wx-hr.is-now .wx-hr-t {
+  color: rgba(255, 255, 255, 0.9);
+}
+.wx-hr-v {
+  margin-top: 6px;
+  font: 700 17px/22px var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+}
+.wx-hr-p {
+  min-height: 15px;
+  color: var(--q-blue);
+  font: 700 11px/15px var(--q-font);
+}
+.wx-hr.is-now .wx-hr-p {
+  color: #fff;
+}
+
+/* ==== 今天: the advice, rows with colour tiles (also in the sheets) ==== */
+/* The tile, the name with its tag beside it, what to do across the row. */
+.wx-life {
+  display: grid;
+  grid-template-columns: 40px auto minmax(0, 1fr);
+  grid-template-areas: 'tile title tag' 'tile text text';
+  align-items: center;
+  gap: 2px 10px;
+  min-height: 60px;
+  padding: 10px 12px;
+}
+.wx-life > .q-tile {
+  grid-area: tile;
+}
+.wx-life .q-ritem-text {
+  display: contents;
+}
+.wx-life .q-ritem-title {
+  grid-area: title;
+}
+.wx-life .q-ritem-text small {
+  grid-area: text;
+}
+.wx-life > .q-tag {
+  grid-area: tag;
+  justify-self: start;
+}
+.wx-life .q-ritem-title {
+  font: 600 16px/21px var(--q-font);
+}
+.wx-life .q-ritem-text small {
+  display: block;
+  font: var(--q-t-subhead);
+  overflow-wrap: anywhere;
+}
+
+/* ==== 預報: the indicators, a rail of stat cards ==== */
+.wx-stats {
+  --q-rail-w: 150px;
+}
+.wx-stat {
+  gap: 2px;
+  padding: 14px 14px 10px;
+  border: 0;
+  font: inherit;
+  text-align: left;
+}
+button.wx-stat {
+  cursor: pointer;
+}
+.wx-stat-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 16px 0 6px;
-  color: var(--q-muted);
-  font-size: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
 }
-.wx-legend span::before {
-  content: '';
-  display: inline-block;
-  width: 14px;
-  height: 4px;
-  margin-right: 4px;
-  vertical-align: middle;
-  border-radius: 2px;
+.wx-lv {
+  min-width: 0;
+  overflow: hidden;
 }
-.l-temp::before {
-  background: #fff;
+.wx-stat-val {
+  font: 700 30px/34px var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
-.l-feels::before {
-  background: repeating-linear-gradient(90deg, #fbbf24 0 4px, transparent 4px 7px);
+.wx-stat-val small {
+  margin-left: 2px;
+  color: var(--q-label-2);
+  font: 600 13px/1 var(--q-font);
+  letter-spacing: 0;
 }
-.l-uv::before {
-  background: linear-gradient(90deg, #4caf50, #f5c518, #ff8c1a, #e53935, #8e24aa);
+.wx-stat-sub {
+  min-height: 16px;
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: 12px/16px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
-.l-rain::before {
-  background: #42a5f5;
-  height: 8px !important;
-}
-.l-air::before {
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: #4caf50;
-}
-.wx-dayg .graph {
+.wx-spark {
+  display: block;
   width: 100%;
-  height: auto;
+  height: 30px;
+  margin-top: 6px;
+}
+.wx-compass {
+  display: inline-grid;
+  transform: rotate(calc(var(--d) + 135deg));
+}
+
+/* ==== 預報: the days, a row each; the whole row opens the day ==== */
+.wx-day {
+  position: relative;
+  display: grid;
+  grid-template-columns: 42px 28px 40px 28px minmax(24px, 1fr) 30px 20px;
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--q-label);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wx-day + .wx-day::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 0;
+  border-top: var(--q-hairline, 0.5px) solid var(--q-sep);
+}
+.wx-day:active {
+  background: var(--q-fill-4);
+}
+.wx-dname {
+  display: grid;
+  font: 600 15px/19px var(--q-font);
+  white-space: nowrap;
+}
+.wx-dname small {
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: 500 11px/14px var(--q-font);
+  text-overflow: ellipsis;
+}
+.wx-dicon {
+  display: grid;
+  justify-items: center;
+  line-height: 0;
+}
+.wx-dpop {
+  display: grid;
+  gap: 3px;
+}
+.wx-dpop b {
+  color: var(--q-blue);
+  font: 700 13px/1 var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.wx-dpop i {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--q-blue) var(--p), var(--q-fill-3) var(--p));
+}
+.wx-dlo,
+.wx-dhi {
+  font: 600 15px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+}
+.wx-dlo {
+  color: var(--q-label-2);
+  text-align: right;
+}
+.wx-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--q-fill-3);
+}
+.wx-bar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #5ac8fa, #ffd43b, #ff9f0a);
+}
+.wx-duv {
+  border-radius: 7px;
+  background: var(--c);
+  color: #111;
+  font: 750 11px/20px var(--q-font);
+  text-align: center;
+}
+.wx-duv:empty {
+  background: none;
+}
+
+/* ==== 地點: the places, the settings ==== */
+.wx-place-row {
+  cursor: pointer;
+}
+.wx-place-row:active {
+  background: var(--q-fill-4);
+  transition-duration: 0s;
+}
+.wx-place-row .q-ritem-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wx-on {
+  flex: none;
+  color: var(--q-accent);
+  stroke-width: 2.6;
+}
+.wx-place-now {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+.wx-place-now b {
+  min-width: 34px;
+  font: 600 20px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.wx-place-row.is-still {
+  cursor: default;
+  opacity: 0.45;
+}
+@media (max-width: 359px) {
+  .wx-place-now .wx-art-i {
+    display: none;
+  }
+}
+.wx-head-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.wx-head-btn {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--q-accent);
+  font: 400 17px/1 var(--q-font);
+  cursor: pointer;
+}
+.wx-add .q-ritem-title {
+  color: var(--q-accent);
+}
+.wx-brief {
+  cursor: default;
+}
+.wx-brief .q-ritem-text {
+  flex: none;
+}
+.wx-brief .wx-time {
+  min-width: 0;
+  margin-left: auto;
+}
+.wx-time {
+  flex: none;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--q-fill-3);
+  color: var(--q-label);
+  font: var(--q-t-body);
+}
+
+/* ==== Sheets: a day, a metric, the advice, a pin, the layout ==== */
+.wx-sheet .q-rowcard {
+  margin-top: 4px;
+}
+.q-sheet-head h2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* A day: the days either side, its read-out, its charts, its advice, its halves. */
+.wx-day-sheet {
+  touch-action: pan-y;
+}
+.wx-day-sheet .q-sheet-head:has(> h2) {
+  grid-template-columns: 36px minmax(0, 1fr) 36px 44px;
+}
+.wx-day-sheet .q-sheet-head > .q-close {
+  grid-column: 4;
+}
+.wx-day-sheet .q-sheet-head h2 {
+  gap: 6px;
+  font-size: 17px;
+}
+.wx-day-icon {
+  line-height: 0;
+}
+.wx-nav {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--q-fill-3);
+  color: var(--q-label);
+  cursor: pointer;
+}
+.wx-nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.wx-day-sheet.slide-l > :not(.q-sheet-head) {
+  animation: wx-in-l 0.26s ease;
+}
+.wx-day-sheet.slide-r > :not(.q-sheet-head) {
+  animation: wx-in-r 0.26s ease;
+}
+@keyframes wx-in-l {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes wx-in-r {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
 }
 .wx-dayg {
   margin-top: 4px;
-  padding: 6px 8px 8px;
-  border-radius: 16px;
-  background: var(--q-sunken);
-}
-.wx-dayg .wx-legend {
-  margin: 6px 0 4px;
-}
-.wx-order-row.is-off .wx-order-name {
-  color: var(--q-muted);
-  text-decoration: line-through;
-}
-.wx-day-sheet .q-sheet-head {
-  justify-content: flex-start;
-  gap: 8px;
-}
-.wx-day-sheet .q-sheet-head h2 {
-  flex: 1;
-  text-align: center;
-  font-size: 17px;
+  padding: 8px 10px 10px;
+  border-radius: 18px;
+  background: var(--q-surface);
 }
 .wx-scrub {
   display: grid;
   gap: 6px;
   padding: 6px 4px 8px;
-  border-bottom: 1px solid var(--q-border);
+  border-bottom: 0.5px solid var(--q-sep);
 }
 .wx-scrub-time {
   display: flex;
@@ -942,17 +840,21 @@ body {
   gap: 8px;
 }
 .wx-scrub-time b {
-  font: 750 20px/1.1 var(--q-font);
+  font: 700 20px/1.1 var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
 }
 .wx-scrub-time span {
-  color: var(--q-muted);
+  color: var(--q-label-2);
   font-size: 13px;
 }
 .wx-scrub-vals {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+.wx-scrub-vals.is-sum {
+  grid-template-columns: repeat(4, auto);
+  justify-content: space-between;
 }
 .wx-scrub-vals div {
   display: grid;
@@ -960,514 +862,14 @@ body {
 }
 .wx-scrub-vals span,
 .wx-scrub-vals small {
-  color: var(--q-muted);
+  color: var(--q-label-2);
   font-size: 11px;
   white-space: nowrap;
 }
 .wx-scrub-vals b {
-  font-size: 17px;
+  font: 700 16px/1.3 var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
-}
-.wx-dayg-plot {
-  touch-action: pan-y;
-  cursor: crosshair;
-  user-select: none;
-  -webkit-user-select: none;
-}
-.g-cross {
-  stroke: var(--q-text);
-  stroke-width: 1.2;
-  stroke-dasharray: 3 3;
-  opacity: 0.8;
-}
-.g-dot-t {
-  fill: #fff;
-  stroke: var(--q-page);
-  stroke-width: 2;
-}
-.g-dot-f {
-  fill: #fbbf24;
-  stroke: var(--q-page);
-  stroke-width: 2;
-}
-.wx-legend em {
-  margin-left: auto;
-  font-style: normal;
-}
-.wx-scroll.is-scrub {
-  overflow-x: hidden;
-}
-.wx-scroll.is-scrub .tl-sel .tl-plot {
-  background: color-mix(in srgb, var(--q-accent) 42%, transparent);
-}
-.tl-col {
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-/* Advice: the day's tiles, then the week's table. */
-.wx-weekgrid {
-  display: grid;
-  gap: 4px;
-  padding: 10px;
-}
-.wx-wg-row {
-  display: grid;
-  grid-template-columns: 52px repeat(var(--n), minmax(0, 1fr));
-  gap: 3px;
-  align-items: center;
-}
-.wx-wg-head span {
-  display: grid;
-  justify-items: center;
-  font-size: 13px;
-  font-weight: 700;
-}
-.wx-wg-head small {
-  color: var(--q-muted);
-  font-size: 10px;
-  font-weight: 500;
-}
-.wx-wg-head .is-best {
-  color: #3dd598;
-}
-.wx-wg-head .is-worst {
-  color: var(--q-bad);
-}
-.wx-wg-name {
-  color: var(--q-muted);
-  font-size: 12px;
   white-space: nowrap;
-}
-.wx-wg-cell {
-  display: grid;
-  place-items: center;
-  min-height: 28px;
-  border-radius: 8px;
-  background: var(--q-sunken);
-  font-size: 11.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-}
-.wx-wg-cell.m-yes,
-.k-umbrella .wx-wg-cell.m-yes {
-  background: #1e5fae;
-  color: #fff;
-}
-.k-umbrella .wx-wg-cell.m-maybe {
-  background: #24456e;
-}
-.wx-wg-cell.m-bad {
-  background: color-mix(in srgb, var(--q-bad) 55%, var(--q-sunken));
-  color: #fff;
-}
-.wx-wg-cell.m-good {
-  background: color-mix(in srgb, var(--q-good) 40%, var(--q-sunken));
-}
-.k-sun .wx-wg-cell.m-maybe {
-  background: color-mix(in srgb, #f5c518 35%, var(--q-sunken));
-}
-.k-sun .wx-wg-cell.m-yes {
-  background: color-mix(in srgb, #ff8c1a 55%, var(--q-sunken));
-}
-.k-mask .wx-wg-cell.m-maybe {
-  background: color-mix(in srgb, #f5c518 35%, var(--q-sunken));
-}
-.k-laundry .wx-wg-cell.m-maybe {
-  background: color-mix(in srgb, #f5c518 25%, var(--q-sunken));
-}
-.k-wear .m-coat {
-  background: color-mix(in srgb, #60a5fa 40%, var(--q-sunken));
-}
-.k-wear .m-jacket {
-  background: color-mix(in srgb, #5eead4 30%, var(--q-sunken));
-}
-.k-wear .m-light {
-  background: color-mix(in srgb, #fb923c 35%, var(--q-sunken));
-}
-.wx-wg-foot {
-  margin: 4px 2px 0;
-  color: var(--q-muted);
-  font-size: 12px;
-}
-
-/* 我的行程 */
-.wx-stays {
-  padding: 2px 12px;
-}
-.wx-stays-day {
-  margin-bottom: 8px;
-}
-.wx-stays-h {
-  margin: 8px 2px 0;
-  font-weight: 750;
-}
-.wx-stays-h small {
-  margin-left: 4px;
-  color: var(--q-muted);
-  font-weight: 500;
-}
-.wx-stay {
-  display: grid;
-  grid-template-columns: 50px minmax(0, 1fr) 28px 72px 40px 24px;
-  gap: 6px;
-  align-items: center;
-  width: 100%;
-  min-height: 50px;
-  padding: 0;
-  border: 0;
-  border-top: 1px solid var(--q-divider);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.wx-stays > .wx-stay:first-child,
-.wx-stays-h + .wx-stay {
-  border-top: 0;
-}
-.wx-stay-time {
-  display: grid;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-}
-.wx-stay-time small {
-  color: var(--q-muted);
-  font-weight: 500;
-  font-size: 11px;
-}
-.wx-stay-place {
-  overflow: hidden;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wx-stay-icon {
-  font-size: 20px;
-  text-align: center;
-}
-.wx-stay-temp {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.wx-stay-rain {
-  text-align: right;
-  font-size: 13px;
-  font-weight: 750;
-}
-.wx-stay-uv {
-  border-radius: 6px;
-  background: var(--c);
-  color: #111;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 20px;
-  text-align: center;
-}
-.wx-stay-uv:empty {
-  background: none;
-}
-.tl-place {
-  color: var(--q-accent);
-  color: color-mix(in srgb, var(--q-accent) 55%, #fff);
-}
-
-/* The charts: smooth areas, a piece a day. */
-.ch {
-  position: relative;
-  display: flex;
-  width: max-content;
-}
-.ch-seg {
-  display: block;
-  flex: none;
-  overflow: hidden;
-}
-.ch-seg text {
-  font-family: var(--q-font);
-}
-.ch-band {
-  fill: color-mix(in srgb, var(--q-text) 3%, transparent);
-}
-.ch-grid {
-  stroke: color-mix(in srgb, var(--q-text) 9%, transparent);
-  stroke-dasharray: 2 5;
-}
-.ch-base {
-  stroke: color-mix(in srgb, var(--q-text) 16%, transparent);
-}
-.ch-area {
-  opacity: 1;
-}
-.ch-line {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.ch-area.ch-fc {
-  opacity: 0.5;
-}
-.ch-line.ch-fc {
-  stroke-dasharray: 5 5;
-  stroke-width: 2.5;
-}
-.ch-inner {
-  fill: #1d4ed8;
-  opacity: 0.85;
-}
-.ch-dbar {
-  opacity: 0.85;
-}
-.ch-pt {
-  stroke: var(--q-surface);
-  stroke-width: 2;
-}
-.ch-val {
-  fill: var(--q-text);
-  font-size: 13px;
-  font-weight: 750;
-  text-anchor: middle;
-  paint-order: stroke;
-  stroke: var(--q-surface);
-  stroke-width: 4px;
-  stroke-linejoin: round;
-}
-.ch-now-val {
-  fill: var(--q-text);
-}
-.ch-now {
-  stroke: var(--q-text);
-  stroke-width: 1.2;
-  stroke-dasharray: 2 3;
-  opacity: 0.55;
-}
-.ch-t {
-  fill: var(--q-muted);
-  font-size: 12px;
-  text-anchor: middle;
-}
-.ch-strong {
-  fill: var(--q-text);
-  font-weight: 750;
-}
-.ch-date {
-  fill: var(--q-text);
-  font-size: 12.5px;
-  font-weight: 750;
-}
-.ch-move {
-  stroke: color-mix(in srgb, var(--q-accent) 70%, #fff);
-  stroke-width: 1.5;
-  stroke-dasharray: 4 3;
-}
-.ch-place {
-  fill: color-mix(in srgb, var(--q-accent) 45%, #fff);
-  font-size: 12px;
-  font-weight: 750;
-}
-.ch-cross {
-  position: absolute;
-  top: 26px;
-  left: 0;
-  width: 0;
-  height: 180px;
-  border-left: 1.5px solid color-mix(in srgb, var(--q-text) 75%, transparent);
-  pointer-events: none;
-}
-.ch-dot {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border: 3px solid var(--q-surface);
-  border-radius: 50%;
-  background: var(--q-text);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--q-text) 40%, transparent);
-  pointer-events: none;
-}
-.ch-cross[hidden],
-.ch-dot[hidden] {
-  display: none;
-}
-.wx-card .wx-readout {
-  min-height: 22px;
-  margin: 10px 0 0;
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: var(--q-sunken);
-  color: var(--q-muted);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-.wx-card .wx-readout.is-on {
-  color: var(--q-text);
-  font-weight: 650;
-}
-.wx-graphbox {
-  margin-top: 6px;
-}
-.wx-when {
-  top: 6px;
-}
-
-/* The fitted graphs (they replace the sideways ones). */
-svg.ch {
-  display: block;
-  width: 100%;
-  height: auto;
-  touch-action: pan-y;
-  cursor: crosshair;
-  user-select: none;
-  -webkit-user-select: none;
-  -webkit-touch-callout: none;
-}
-.wx-graphbox {
-  margin: 8px -4px 0;
-}
-.ch-x {
-  stroke: var(--q-text);
-  stroke-width: 1.5;
-  opacity: 0.85;
-}
-.ch-d {
-  fill: var(--q-text);
-  stroke: var(--q-surface);
-  stroke-width: 3;
-}
-.ch-bar {
-  opacity: 0.9;
-}
-.ch-day {
-  stroke: color-mix(in srgb, var(--q-text) 18%, transparent);
-  stroke-dasharray: 3 4;
-}
-.ch-sub {
-  font-size: 10.5px;
-}
-.g-hl {
-  fill: #fff;
-  stroke: var(--q-surface);
-  stroke-width: 2;
-}
-.g-big {
-  font-size: 13px;
-  font-weight: 800;
-}
-.wx-dayg-plot .graph {
-  width: 100%;
-  height: auto;
-}
-
-/* The metrics: three small cards in a row; each opens its graph. */
-.wx-metrics {
-  display: grid;
-  grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr));
-  gap: 8px;
-}
-.wx-metric {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  min-width: 0;
-  padding: 10px 10px 6px;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s;
-}
-.wx-metric:active {
-  transform: scale(0.97);
-}
-.wx-metric-head {
-  color: var(--q-muted);
-  font-size: 12px;
-  font-weight: 650;
-  white-space: nowrap;
-}
-.wx-metric-val {
-  color: var(--c, var(--q-text));
-  font: 800 26px/1.1 var(--q-font);
-  white-space: nowrap;
-}
-.wx-metric-val small {
-  margin-left: 2px;
-  font-size: 12px;
-  font-weight: 700;
-}
-/* The words wrap between words onto a second line rather than be cut ("Dry for 2 days" at 320). */
-.wx-metric-sub {
-  color: var(--q-muted);
-  font-size: 11px;
-  line-height: 1.35;
-  white-space: normal;
-  overflow-wrap: break-word;
-  word-break: keep-all;
-}
-.wx-spark {
-  display: block;
-  width: 100%;
-  height: 36px;
-  margin-top: 2px;
-}
-
-/* A metric's sheet: the card's body, its title in the sheet's head. */
-.wx-metric-sheet .wx-card {
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-}
-.wx-metric-sheet .wx-card-title h3 {
-  display: none;
-}
-.wx-metric-sheet .wx-card-title p {
-  margin: 0;
-  color: var(--q-text);
-  font-size: 14px;
-}
-
-/* The crosshair over a graph: moved by transform, no redraw. */
-.wx-graphbox {
-  position: relative;
-}
-.ch-xh,
-.ch-dh {
-  position: absolute;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  will-change: transform;
-}
-.ch-xh {
-  width: 0;
-  border-left: 1.5px solid color-mix(in srgb, var(--q-text) 80%, transparent);
-}
-.ch-dh {
-  width: 14px;
-  height: 14px;
-  margin: -7px 0 0 -7px;
-  border: 3px solid var(--q-surface);
-  border-radius: 50%;
-  background: var(--q-text);
-}
-.ch-xh[hidden],
-.ch-dh[hidden] {
-  display: none;
-}
-
-/* The day sheet's charts: temperature big, rain and UV under it. */
-.wx-dayg {
-  padding: 8px 10px 10px;
-  background: var(--q-sunken);
 }
 .wx-dayg-plot {
   position: relative;
@@ -1484,11 +886,10 @@ svg.ch {
   align-items: center;
   gap: 10px;
   margin: 4px 2px 0;
-  font-size: 13px;
-  font-weight: 750;
+  font: 700 13px/18px var(--q-font);
 }
 .wx-dch-h span {
-  color: var(--q-muted);
+  color: var(--q-label-2);
   font-size: 11.5px;
   font-weight: 550;
 }
@@ -1505,7 +906,7 @@ svg.ch {
   background: linear-gradient(90deg, #4fd1c5, #ffd43b, #ff9f0a);
 }
 .wx-dch-h .l-feels::before {
-  background: repeating-linear-gradient(90deg, rgb(255 255 255 / 0.6) 0 4px, transparent 4px 7px);
+  background: repeating-linear-gradient(90deg, var(--q-label-3) 0 4px, transparent 4px 7px);
 }
 .wx-dch-h .l-mm::before {
   height: 8px;
@@ -1513,7 +914,7 @@ svg.ch {
 }
 .wx-dch-h .wx-dch-note {
   margin-left: auto;
-  color: var(--q-text);
+  color: var(--q-label);
   font-size: 13px;
   font-weight: 650;
 }
@@ -1523,179 +924,32 @@ svg.ch {
 .wx-dch.is-dry {
   margin-top: 10px;
   padding: 10px 2px 2px;
-  border-top: 1px solid var(--q-border);
+  border-top: 0.5px solid var(--q-sep);
 }
 .wx-dch.is-dry .wx-dch-h {
   margin: 0;
 }
-.ch-tline,
-.ch-uline {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.ch-fline {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.55);
-  stroke-width: 1.6;
-  stroke-dasharray: 4 4;
-  stroke-linecap: round;
-}
-.ch-hl {
-  fill: #fff;
-  stroke: var(--q-sunken);
-  stroke-width: 2.5;
-}
-.ch-big {
-  font-size: 13.5px;
-  font-weight: 800;
-}
-.ch-ax {
-  fill: var(--q-muted);
-  font-size: 10.5px;
-  text-anchor: end;
-  font-variant-numeric: tabular-nums;
-}
-.ch-rbar {
-  opacity: 0.9;
-}
 .wx-hint {
   margin: 4px 2px 0;
-  font-size: 12px;
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
   text-align: center;
 }
-.wx-day-icon {
-  margin-left: 4px;
-}
-
-/* ---- Pictures and glyphs (lib/icons.mjs) ---- */
-.wx-g,
-.wx-art-i,
-.wx-moon {
-  display: inline-block;
-  flex: none;
-  vertical-align: middle;
-}
-.wx-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-/* The next 24 hours: eight columns, the temperatures as a gentle curve. */
-.wx-hours {
+.wx-grid {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  padding: 8px 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: var(--q-surface);
 }
-.wx-hr {
-  display: grid;
-  justify-items: center;
-  gap: 1px;
-  min-width: 0;
-  padding: 6px 0 4px;
-  border: 0;
-  border-radius: 14px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s;
-}
-.wx-hr:active {
-  background: var(--q-sunken);
-}
-.wx-hr.is-newday {
-  box-shadow: inset 1px 0 0 var(--q-divider);
-  border-radius: 0 14px 14px 0;
-}
-.wx-hr-t {
-  color: var(--q-muted);
-  font-size: 11.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.wx-hr.is-now .wx-hr-t {
-  color: var(--q-text);
-  font-weight: 800;
-}
-.wx-hr-v {
-  margin-top: 14px;
-  font-size: 15px;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-}
-.wx-hr-p {
-  min-height: 15px;
-  color: #7cc0ff;
-  font-size: 11px;
-  font-weight: 750;
-}
-
-/* The metrics' small cards: their glyph in their colour, an arrow to the graph. */
-.wx-metric-head {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.wx-metric-go {
-  margin-left: auto;
-  opacity: 0.45;
-}
-.wx-card-head .wx-ic {
-  color: var(--q-text);
-}
-.wx-metric-sheet .q-sheet-head h2,
-.wx-day-sheet .q-sheet-head h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Advice: the level as a colour (warning amber, maybe blue, good green). */
-/* A tile: its glyph and name on one row, what to do on one line under them
-   (the texts are written to fit; an ellipsis only as a last resort). An odd
-   last tile takes the row, so none stands alone half-width. */
-
-/* The days: the whole row presses. */
-.wx-days {
-  padding: 4px 0;
-}
-.wx-day {
-  box-sizing: border-box;
-  padding: 0 14px;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.12s;
-}
-.wx-day:active {
-  background: var(--q-sunken);
-}
-.wx-dicon {
-  line-height: 0;
-}
-
-/* Everything else: a glyph before each name. */
-.wx-tile span {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-.wx-tile .wx-g {
-  opacity: 0.85;
-}
-.wx-compass {
-  display: inline-grid;
-  transform: rotate(calc(var(--d) + 135deg));
-}
-
-/* A day's sheet: its halves (day, night) and the sun with their pictures. */
-.wx-grid .wx-half {
+.wx-half {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   column-gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 .wx-half > svg {
   grid-row: 1 / span 3;
@@ -1703,153 +957,93 @@ svg.ch {
 .wx-half > :not(svg) {
   grid-column: 2;
 }
-.wx-nav {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--q-sunken);
-  color: var(--q-text);
-  cursor: pointer;
+.wx-half span,
+.wx-half small {
+  color: var(--q-label-2);
+  font-size: 12px;
 }
-.wx-nav:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-.wx-day-sheet .q-sheet-head h2 {
-  justify-content: center;
-  gap: 6px;
-}
-.wx-day-icon {
-  line-height: 0;
-}
-.wx-scrub-vals b {
+.wx-half b {
   font-size: 16px;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+/* 更多資訊 (today's sheet): a row each, the value on the right. */
+.wx-info-row .q-ritem-title {
+  white-space: nowrap;
+}
+.wx-info-row .q-ritem-text {
+  flex: 1 1 auto;
+}
+.wx-info-row .q-ritem-text small {
+  display: block;
+  font-size: 12px;
+}
+.wx-info-row .q-ritem-value {
+  flex: 0 1 auto;
+  color: var(--q-label);
+  font-weight: 600;
   white-space: nowrap;
 }
 
-/* (The grabber is the kit's, .q-sheet::before: one, not two.) */
-.wx-day-sheet {
-  touch-action: pan-y;
-}
-.wx-day-sheet.slide-l > :not(.q-sheet-head) {
-  animation: wx-in-l 0.26s ease;
-}
-.wx-day-sheet.slide-r > :not(.q-sheet-head) {
-  animation: wx-in-r 0.26s ease;
-}
-@keyframes wx-fade {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes wx-in-l {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-}
-@keyframes wx-in-r {
-  from {
-    opacity: 0;
-    transform: translateX(-28px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .wx-day-sheet > * {
-    animation: none !important;
-  }
-}
-.wx-home-row > span > b {
-  display: inline-flex;
+/* A metric (降雨, 紫外線, 空氣): the line, its number, the day tabs, the graph. */
+.wx-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
 }
-.wx-row .q-btn .wx-g {
-  margin-right: 4px;
+.wx-card-head .wx-ic,
+.wx-card-title h3 {
+  display: none;
 }
-.wx-hr.is-newday .wx-hr-t {
-  color: color-mix(in srgb, var(--q-accent) 50%, #fff);
-  font-size: 10.5px;
-  letter-spacing: -0.2px;
-}
-/* The day's summary: the high / low needs the room. */
-.wx-scrub-vals {
-  grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
-}
-
-/* The next hours, today's sentence on top of them (as iOS's Weather). */
-.wx-say {
-  grid-column: 1 / -1;
-  margin: 2px 8px 8px;
-  padding-bottom: 10px;
-  border-bottom: 0.5px solid rgba(255, 255, 255, 0.18);
-  font-size: 14px;
-  line-height: 1.5;
-}
-.wx-hours {
-  padding: 12px 6px 8px;
-}
-
-/* ---- Before the forecast: the page's shape, shimmering; then it comes in ---- */
-.sk { display: block; border-radius: 8px; background: linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.16) 50%, rgba(255, 255, 255, 0.07) 100%); background-size: 200% 100%; animation: wx-sk 1.4s ease-in-out infinite; }
-@keyframes wx-sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-.sk-temp { width: 132px; height: 72px; margin: 6px auto 4px; border-radius: 18px; }
-.sk-cond { width: 92px; height: 20px; margin: 0 auto; }
-.sk-hl { width: 140px; height: 16px; margin: 4px auto 0; }
-.wx-skel .wx-hr { display: grid; justify-items: center; gap: 8px; padding: 6px 0; }
-.sk-t { width: 26px; height: 12px; }
-.sk-ic { width: 30px; height: 30px; border-radius: 50%; }
-.sk-v { width: 24px; height: 14px; }
-.wx-skel-card { display: grid; gap: 12px; padding: 18px 16px; }
-.sk-h { width: 38%; height: 14px; }
-.sk-line { width: 100%; height: 12px; }
-.sk-line.short { width: 62%; }
-/* In: rising into place one after another, the hero's numbers settling. */
-.wx-in { animation: wx-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--in, 0) * 70ms); }
-@keyframes wx-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } }
-.wx-in-hero .wx-temp, .wx-in-hero .wx-cond, .wx-in-hero .wx-hl, .wx-in-hero .wx-feel, .wx-in-hero .wx-hero-foot { animation: wx-in-num 0.6s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.wx-in-hero .wx-cond { animation-delay: 60ms; }
-.wx-in-hero .wx-hl, .wx-in-hero .wx-feel { animation-delay: 120ms; }
-@keyframes wx-in-num { from { opacity: 0; transform: translateY(8px); filter: blur(6px); } }
-@media (prefers-reduced-motion: reduce) { .sk, .wx-in, .wx-in-hero * { animation: none !important; } }
-/* 定位: the phone asked where it is now (left on the last place). */
-.wx-relocate { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 2px 9px; border: 1px solid transparent; border-radius: 999px; background: rgba(255, 255, 255, 0.2); color: inherit; font: inherit; font-size: 12px; font-weight: 650; vertical-align: 1px; }
-.wx-relocate:active { transform: scale(0.97); }
-.wx-dayg .ch-val {
-  stroke: var(--q-sunken);
-}
-/* The day's summary: each column as wide as its words (the air's level is long). */
-.wx-scrub-vals.is-sum {
-  grid-template-columns: repeat(4, auto);
-  justify-content: space-between;
-}
-.ch-pt {
-  fill: var(--q-text);
-}
-/* Hours that stay dry: the words instead of a graph. */
-.wx-dry {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  aspect-ratio: 340 / 218;
+.wx-card-title p {
   margin: 0;
-  color: var(--q-muted);
-  font-size: 15px;
-  font-weight: 650;
+  font: var(--q-t-subhead);
 }
-/* Air's level is long (對敏感族群不健康): under the number, so the line beside it stays one line. */
+.wx-big {
+  color: var(--c, var(--q-label));
+  font: 700 32px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.wx-big small {
+  margin-left: 3px;
+  font: 650 13px/1 var(--q-font);
+}
 .wx-air .wx-big small {
   display: block;
   margin: 4px 0 0;
 }
+.wx-rain-big {
+  color: var(--q-blue);
+}
+.wx-tabs {
+  margin-top: 14px;
+}
+.wx-card .wx-readout {
+  min-height: 22px;
+  margin: 12px 0 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--q-fill-3);
+  color: var(--q-label-2);
+  font: 13px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.wx-card .wx-readout.is-on {
+  color: var(--q-label);
+  font-weight: 650;
+}
+.wx-graphbox {
+  position: relative;
+  margin: 10px -4px 0;
+  padding: 8px 6px 2px;
+  border-radius: 18px;
+  background: var(--q-surface);
+}
 
-/* ---- The sheets' forms: the kit's lists, fields, switches and buttons (quadra.css) ---- */
+/* A pin's sheet and the layout: the kit's lists, fields, switches, buttons. */
 .wx-cell-input {
   flex: 1 1 auto;
   min-width: 0;
@@ -1857,17 +1051,9 @@ svg.ch {
   border: 0;
   outline: 0;
   background: none;
-  color: var(--q-text);
+  color: var(--q-label);
   font: var(--q-t-body);
   text-align: right;
-}
-.wx-time {
-  padding: 4px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--q-fill-3);
-  color: var(--q-text);
-  font: var(--q-t-body);
 }
 .wx-week {
   flex: 1 1 auto;
@@ -1883,17 +1069,17 @@ svg.ch {
 .wx-here {
   margin-top: 12px;
 }
-.wx-list:empty {
-  display: none;
-}
 .wx-list {
   max-height: 260px;
   margin-top: 10px;
   overflow-y: auto;
 }
+.wx-list:empty {
+  display: none;
+}
 .wx-none {
   margin: 0;
-  color: var(--q-muted);
+  color: var(--q-label-2);
 }
 .wx-actions {
   display: grid;
@@ -1902,21 +1088,37 @@ svg.ch {
   gap: 10px;
   margin-top: 24px;
 }
-.wx-order-row.is-off .wx-order-name {
-  color: var(--q-muted);
+.q-cell > .q-cell-text:first-child:not(.wx-order-name) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.q-cell:has(> .wx-cell-input) > .q-cell-text,
+.q-cell:has(> .wx-time) > .q-cell-text {
+  flex: none;
+  white-space: nowrap;
+}
+.wx-order-row {
+  gap: 8px;
+  padding-inline: 12px;
 }
 .wx-order-row .q-cell-icon {
   --q-cell-tint: var(--q-accent);
 }
+.wx-order-name small {
+  white-space: nowrap;
+}
+.wx-order-row.is-off .wx-order-name {
+  color: var(--q-label-2);
+  text-decoration: line-through;
+}
 .wx-mini {
-  width: 32px;
-  height: 32px;
   flex: none;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: var(--q-fill-3);
-  color: var(--q-text);
+  color: var(--q-label);
   font: 600 15px/1 var(--q-font);
 }
 .wx-mini:disabled {
@@ -1925,557 +1127,241 @@ svg.ch {
 .wx-reset {
   margin: 4px 0 0 16px;
 }
-.wx-tabs {
-  margin-top: 12px;
-}
 
-/* Pin and settings sheets at 375 px: labels keep their line, long text gives way */
-.q-cell > .q-cell-text:first-child:not(.wx-order-name) { grid-template-columns: minmax(0, 1fr); }
-.q-cell > .q-cell-text:only-of-type { min-width: 0; }
-.q-cell:has(> .wx-cell-input) > .q-cell-text,
-.q-cell:has(> .wx-time) > .q-cell-text { flex: none; white-space: nowrap; }
-.wx-order-name small { white-space: nowrap; overflow-wrap: normal; word-break: keep-all; }
-.wx-order-name > span { overflow-wrap: anywhere; }
-.wx-order-row { gap: 8px; padding-inline: 12px; }
-.wx-order-row .wx-mini { width: 28px; }
-.wx-tile b:has(> .wx-compass) { display: flex; align-items: center; gap: 4px; letter-spacing: -0.01em; }
-.wx-tile b > .wx-compass { flex: none; }
-/* The rain heads-up under the hero's numbers (cards.mjs soonLine). */
-.wx-soon {
+/* ==== The graphs (lib/graph.mjs): one frame, fitted to the width ==== */
+svg.ch {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+  cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.ch text {
+  font-family: var(--q-font);
+}
+.ch-grid {
+  stroke: color-mix(in srgb, var(--q-label) 9%, transparent);
+  stroke-dasharray: 2 5;
+}
+.ch-base {
+  stroke: color-mix(in srgb, var(--q-label) 16%, transparent);
+}
+.ch-line,
+.ch-tline {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ch-area.ch-fc {
+  opacity: 0.5;
+}
+.ch-line.ch-fc {
+  stroke-dasharray: 5 5;
+  stroke-width: 2.5;
+}
+.ch-fline {
+  fill: none;
+  stroke: var(--q-label-3);
+  stroke-width: 1.6;
+  stroke-dasharray: 4 4;
+  stroke-linecap: round;
+}
+.ch-bar {
+  opacity: 0.9;
+}
+.ch-inner {
+  fill: #1d4ed8;
+  opacity: 0.85;
+}
+.ch-pt {
+  fill: var(--q-label);
+  stroke: var(--q-surface);
+  stroke-width: 2;
+}
+.ch-hl {
+  fill: var(--q-label);
+  stroke: var(--q-surface);
+  stroke-width: 2.5;
+}
+.ch-val {
+  fill: var(--q-label);
+  font-size: 13px;
+  font-weight: 750;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--q-surface);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+.ch-big {
+  font-size: 13.5px;
+  font-weight: 800;
+}
+.ch-now {
+  stroke: var(--q-label);
+  stroke-width: 1.2;
+  stroke-dasharray: 2 3;
+  opacity: 0.55;
+}
+.ch-t {
+  fill: var(--q-label-2);
+  font-size: 12px;
+  text-anchor: middle;
+}
+.ch-sub {
+  font-size: 10.5px;
+}
+.ch-strong {
+  fill: var(--q-label);
+  font-weight: 750;
+}
+.ch-ax {
+  fill: var(--q-label-2);
+  font-size: 10.5px;
+  text-anchor: end;
+  font-variant-numeric: tabular-nums;
+}
+.ch-date {
+  fill: var(--q-label);
+  font-size: 12.5px;
+  font-weight: 750;
+}
+.ch-day {
+  stroke: color-mix(in srgb, var(--q-label) 18%, transparent);
+  stroke-dasharray: 3 4;
+}
+.ch-move {
+  stroke: var(--q-accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.ch-place {
+  fill: var(--q-accent);
+  font-size: 12px;
+  font-weight: 750;
+}
+/* The crosshair over a graph: HTML moved by transform, no redraw. */
+.ch-xh,
+.ch-dh {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.ch-xh {
+  width: 0;
+  border-left: 1.5px solid color-mix(in srgb, var(--q-label) 80%, transparent);
+}
+.ch-dh {
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border: 3px solid var(--q-surface);
+  border-radius: 50%;
+  background: var(--q-label);
+}
+.ch-xh[hidden],
+.ch-dh[hidden] {
+  display: none;
+}
+/* Hours that stay dry: the words instead of a graph. */
+.wx-dry {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  max-width: 100%;
-  margin: 10px auto 0;
-  padding: 6px 12px;
-  width: fit-content;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-  font-size: 13.5px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.wx-soon svg { flex: none; }
-.wx-soon-stop { background: rgba(255, 255, 255, 0.12); font-weight: 500; }
-
-/* ==== Premium layer: Weather in the family's look (quadra.css "Premium layer") ====
-   Tokens are the kit's, so light and dark both come free. The sky hero is
-   the app's own element: a gradient card with the sky's moving layer inside. */
-:root {
-  --q-accent: #3a7bf0;
-}
-.wx-pager,
-.q-appbar {
-  --q-shadow-sm: none;
-}
-.wx-dots {
-  padding-bottom: 6px;
-}
-.wx-add {
-  color: var(--q-label-2);
-}
-.wx-page {
-  padding-top: 4px;
-}
-.wx-page > * {
-  margin: 0 0 14px;
-}
-.wx-page > .q-section {
-  margin: 22px 0 0;
-}
-.wx-page > .wx-hero + .q-section {
-  margin-top: 22px;
-}
-.q-section-head h2 {
-  font: 700 20px/26px var(--q-font);
-}
-.wx-section .wx-foot {
-  margin: 8px 4px 0;
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-}
-
-/* The hero: where and now, on the sky. */
-.wx-hero {
-  --sky-glow: rgba(255, 255, 255, 0.28);
-  display: block;
-  padding: 18px 18px 14px;
-  border-radius: 26px;
-  text-align: left;
-  text-shadow: none;
-  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 22px 40px -22px color-mix(in srgb, #1d4fb8 70%, transparent);
-}
-.wx-hero .wx-fx {
-  inset: 0;
-}
-.wx-where {
-  display: grid;
-  justify-items: start;
-  gap: 2px;
-}
-.wx-place {
-  justify-content: flex-start;
-  font: 700 22px/28px var(--q-font);
-  letter-spacing: -0.01em;
-}
-.wx-place span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.wx-sub {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.82);
-  font: 500 14px/20px var(--q-font);
-}
-.wx-now {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  margin: 6px 0 0;
-}
-.wx-temp {
+  aspect-ratio: 340 / 218;
   margin: 0;
-  font: 300 92px/1 var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -4px;
-  text-shadow: 0 4px 22px rgba(0, 0, 0, 0.16);
+  color: var(--q-label-2);
+  font: 650 15px/1 var(--q-font);
 }
-.wx-temp.wx-skel-hero {
-  margin: 6px 0;
-}
-.wx-icon {
+
+/* ==== Pictures and glyphs (lib/icons.mjs) ==== */
+.wx-g,
+.wx-art-i,
+.wx-moon {
+  display: inline-block;
   flex: none;
-  margin: 0 -4px 0 0;
-}
-.wx-icon .wx-art-i {
-  width: 76px;
-  height: 76px;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22));
-}
-.wx-cond {
-  display: block;
-  margin: 0;
-  text-align: left;
-}
-.wx-cond b {
-  font: 700 20px/26px var(--q-font);
-}
-.wx-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 10px 0 0;
-}
-.wx-pill {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  min-height: 32px;
-  padding: 0 12px;
-  align-items: center;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.86);
-  font: 600 13px/1 var(--q-font);
-  white-space: nowrap;
-}
-.wx-pill b {
-  color: #fff;
-  font: 700 15px/1 var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-}
-.wx-soon {
-  margin: 12px 0 0;
-  justify-content: flex-start;
-  background: rgba(255, 255, 255, 0.22);
-}
-.wx-hero-foot {
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 10px;
-  border-top: 0.5px solid rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.8);
-}
-.wx-more {
-  padding: 4px 6px 4px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-}
-.wx-relocate {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-/* Night and storm: richer, deeper glow. Day: a soft sun. */
-.sky-night {
-  --sky-glow: rgba(120, 130, 255, 0.28);
-}
-.sky-rain,
-.sky-storm {
-  --sky-glow: rgba(150, 180, 255, 0.22);
-}
-.sky-clear.sky-day {
-  --sky-glow: rgba(255, 226, 140, 0.5);
-}
-.sky-cloud.sky-day,
-.sky-part.sky-day {
-  --sky-glow: rgba(255, 255, 255, 0.26);
-}
-
-/* The next 24 hours: a rail of small cards. */
-.wx-say {
-  margin: 0 0 10px;
-  color: var(--q-label-2);
-  font: var(--q-t-subhead);
-}
-.wx-rail {
-  --q-rail-w: 68px;
-  gap: 8px;
-}
-.wx-hr {
-  gap: 2px;
-  padding: 10px 0 8px;
-  border-radius: 18px;
-  background: var(--q-surface);
-  color: var(--q-label);
-  text-align: center;
-}
-.wx-hr:active {
-  background: var(--q-fill-4);
-}
-.wx-hr.is-now {
-  background: var(--q-accent);
-  color: #fff;
-}
-.wx-hr.is-newday {
-  box-shadow: none;
-  border-radius: 18px;
-}
-.wx-hr-t,
-.wx-hr.is-newday .wx-hr-t {
-  color: var(--q-label-2);
-  font-size: 12px;
-  letter-spacing: 0;
-}
-.wx-hr.is-now .wx-hr-t {
-  color: rgba(255, 255, 255, 0.9);
-}
-.wx-hr-v {
-  margin-top: 8px;
-  font: 700 17px/22px var(--q-font-rounded, var(--q-font));
-}
-.wx-hr-p {
-  color: var(--q-blue);
-}
-.wx-hr.is-now .wx-hr-p {
-  color: #fff;
-}
-.wx-skel .wx-hr {
-  display: grid;
-  justify-items: center;
-  min-height: 112px;
-}
-
-/* 天氣指標: stat cards with colour tiles. */
-.wx-metrics {
-  gap: 12px;
-}
-.wx-metric {
-  gap: 2px;
-  padding: 14px 14px 10px;
-  border: 0;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.wx-plain {
-  cursor: default;
-}
-.wx-metric-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
-  color: inherit;
-}
-.wx-metric .q-tile {
-  margin: 0;
-}
-.wx-metric small {
-  color: var(--q-label-2);
-  font: 600 13px/18px var(--q-font);
-}
-.wx-metric-val {
-  color: var(--q-label);
-  font: 700 30px/34px var(--q-font-rounded, var(--q-font));
-  letter-spacing: -0.02em;
-}
-.wx-metric-val small {
-  margin-left: 2px;
-  color: var(--q-label-2);
-  font: 600 13px/1 var(--q-font);
-  letter-spacing: 0;
-}
-.wx-metric-sub {
-  min-height: 15px;
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-  font-size: 12px;
-  line-height: 16px;
-}
-.wx-metric .wx-spark {
-  height: 30px;
-  margin-top: 6px;
-}
-.wx-wide {
-  grid-column: 1 / -1;
-}
-.wx-lv {
-  min-height: 22px;
-  max-width: 100%;
-  overflow: hidden;
-}
-.wx-compass {
-  display: inline-grid;
-  transform: rotate(calc(var(--d) + 135deg));
-}
-.wx-skel-stats {
-  margin-top: 22px;
-}
-.wx-skel-stats .q-stat {
-  gap: 10px;
-  min-height: 112px;
-}
-.wx-skel-stats .sk-ic {
-  border-radius: 10px;
-}
-
-/* 今天的建議: row cards with colour tiles. */
-.wx-lifegrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-}
-.wx-life {
-  display: flex;
-  min-height: 60px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 0;
-  background: none;
-  cursor: default;
-}
-.wx-life .q-ritem-text small {
-  display: block;
-  color: var(--q-label-2);
-  font: var(--q-t-subhead);
-  overflow-wrap: anywhere;
-  -webkit-line-clamp: unset;
-}
-.wx-life .q-ritem-title {
-  font: 600 16px/21px var(--q-font);
-}
-.wx-life .q-tile {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-}
-.wx-life .q-tile svg {
-  width: 22px;
-  height: 22px;
-}
-.wx-life.lv-none .q-ritem-text small {
-  color: var(--q-label-2);
-}
-.wx-life > .q-tag {
-  flex: none;
-}
-.wx-more-advice {
-  margin-top: 12px;
-}
-.wx-more-advice summary {
-  min-height: 48px;
-  padding: 0 16px;
-  border-radius: 18px;
-  background: var(--q-surface);
-  color: var(--q-accent);
-  font-weight: 600;
-}
-.wx-more-advice[open] summary {
-  margin-bottom: 12px;
-}
-.wx-more-advice summary span {
-  background: var(--q-fill-3);
-}
-.wx-sheet .wx-life,
-.q-sheet .wx-life {
-  background: none;
-}
-.q-sheet .wx-lifegrid {
-  background: var(--q-surface);
-}
-
-/* The days and the details: row cards. */
-.wx-days {
-  display: grid;
-  padding: 0;
-}
-.wx-day {
-  position: relative;
-  min-height: 58px;
-  padding: 0 14px;
-  border-top: 0;
-}
-.wx-day + .wx-day::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 14px;
-  right: 0;
-  border-top: var(--q-hairline, 0.5px) solid var(--q-sep, var(--q-divider));
-}
-.wx-day:active {
-  background: var(--q-fill-4);
-}
-.wx-dname {
-  font-weight: 600;
-}
-.wx-dpop b {
-  color: var(--q-blue);
-}
-.wx-duv {
-  color: #111;
-}
-.wx-info {
-  padding: 0;
-}
-.wx-info-row .q-ritem-title {
-  white-space: nowrap;
-}
-.wx-info-row .q-ritem-value {
-  max-width: 52%;
-  color: var(--q-label);
-  font-weight: 600;
-  text-align: right;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.wx-info-row .q-ritem-text small {
-  display: block;
-}
-.wx-edit {
-  margin-top: 22px;
-}
-.q-stats.wx-metrics {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.wx-hours,
-.wx-hours.wx-skel {
-  display: block;
-  padding: 0;
-  background: none;
+  vertical-align: middle;
 }
 .q-tile .wx-g {
   color: #fff;
   stroke-width: 2;
 }
-.wx-page > .wx-hours {
+
+/* ==== Before the forecast: each tab's shape, shimmering ==== */
+.sk {
   display: block;
+  border-radius: 8px;
+  background: linear-gradient(100deg, var(--q-fill-3) 30%, var(--q-fill-4) 50%, var(--q-fill-3) 70%) 0 0 / 300% 100%;
+  animation: wx-sk 1.4s ease-in-out infinite;
 }
-.wx-more-advice summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  list-style: none;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
+.wx-hero .sk {
+  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0.1) 30%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 70%);
 }
-.wx-more-advice summary::-webkit-details-marker {
-  display: none;
+@keyframes wx-sk {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }
-.wx-more-advice summary span {
-  padding: 0 8px;
+.sk-temp {
+  width: 132px;
+  height: 72px;
+  margin: 8px 0;
+  border-radius: 18px;
+}
+.sk-cond {
+  width: 72px;
+  height: 22px;
+}
+.sk-pill {
+  width: 76px;
+  height: 32px;
   border-radius: 999px;
-  color: var(--q-label-2);
-  font-size: 12px;
-  line-height: 22px;
 }
-.wx-more-advice summary .wx-g {
-  margin-left: auto;
-  color: var(--q-label-3);
-  transition: transform 0.2s;
+.wx-skel-hero.wx-pills {
+  margin-bottom: 42px;
 }
-.wx-more-advice[open] summary .wx-g {
-  transform: rotate(90deg);
+.sk-head {
+  width: 120px;
+  height: 22px;
 }
-.wx-say {
-  padding-bottom: 0;
-  border: 0;
+.wx-skel-card {
+  display: grid;
+  gap: 10px;
+  min-height: 112px;
+  padding: 14px;
+  border-radius: 18px;
+  background: var(--q-surface);
 }
-.wx-info-row .q-ritem-text small {
-  font-size: 12px;
-  white-space: nowrap;
+.sk-ic {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
 }
-.wx-info-row .q-ritem-text {
-  flex: 1 1 auto;
+.sk-h {
+  width: 60%;
+  height: 22px;
 }
-.wx-info-row .q-ritem-value {
-  flex: 0 1 auto;
+.sk-line {
+  width: 80%;
+  height: 12px;
 }
-.sky-clear.sky-day {
-  --sky: linear-gradient(165deg, #174fb8 0%, #2c78e0 55%, #5aa2ee 100%);
-}
-.sky-part.sky-day {
-  --sky: linear-gradient(165deg, #264e94 0%, #4676ba 55%, #7898c6 100%);
-}
-.wx-info-row .q-ritem-text small {
-  white-space: normal;
-}
-.wx-info-row .q-ritem-value {
-  max-width: none;
-  white-space: nowrap;
-}
-.wx-pills {
-  flex-wrap: nowrap;
-  gap: 6px;
-}
-.wx-pill {
-  padding: 0 10px;
-  gap: 4px;
-  font-size: 12.5px;
-}
-.wx-pill b {
-  font-size: 14px;
-}
-@media (max-width: 340px) {
-  .wx-info-row .q-ritem-value {
-    font-size: 14px;
-  }
-  .wx-info-row {
-    gap: 10px;
-  }
-}
-@media (max-width: 340px) {
-  .wx-info-row .q-ritem-text small {
-    font-size: 11.5px;
-    letter-spacing: -0.2px;
-  }
-}
-@media (max-width: 340px) {
-  .wx-info-row .q-tile {
-    display: none;
-  }
-  .wx-info-row {
-    --q-ritem-sep: 12px;
+
+@media (prefers-reduced-motion: reduce) {
+  .wx-fx i,
+  .wx-fx::after,
+  .wx-icon .wx-art-i,
+  .sk,
+  .wx-day-sheet > * {
+    animation: none !important;
   }
 }

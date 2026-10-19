@@ -3,33 +3,36 @@
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
+import { quadraSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, MAX_PINS, CARDS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen (an older kit: none, at once).
 const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => null), new Promise(r => setTimeout(r, 1500, null))]);
 if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
-import { pageHtml, daySheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
+import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf, updatedText, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from './lib/lang.mjs';
-import { ICON_DEFS, glyph, placeGlyph } from './lib/icons.mjs';
+import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
 import { passSync as localPassSync } from './lib/pass-sync.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
 document.documentElement.lang = en ? 'en' : 'zh-Hant';
-if (en) $('dots')?.setAttribute('aria-label', 'Places');
 const q = quadraSession('weather', { lang });
 
 const state = {
   local: loadLocal(),
   data: emptyData(),
   pages: [],
-  index: 0,
+  // The place shown (a page's key) and the tab: 今天, 預報, 地點.
+  key: null,
+  tab: 'now',
+  // 地點 in 編輯: the pins' rows open their sheets.
+  editing: false,
   permission: 'unknown',
   // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
   cols: {},
@@ -43,7 +46,7 @@ const state = {
   })()
 };
 
-// ---- Pages: here, then each pin --------------------------------------------------------
+// ---- Pages: 我的行程, here, then each pin; one shown at a time ---------------------------
 
 function buildPages() {
   const here = state.local.here;
@@ -85,116 +88,97 @@ const forecastFor = key => {
   return page && !page.plan ? forecastOf(page) : null;
 };
 
-// The place chips: built when the places change, else only the pressed one
-// moves (rebuilding them under a finger loses the tap on a phone, and
-// throws the row back to its start).
-function renderDots() {
-  const dots = $('dots');
-  const sig = state.pages.map(p => `${p.key}:${p.pin?.name || ''}:${p.pin?.home ? 1 : 0}`).join('|');
-  if (dots.dataset.sig !== sig) {
-    dots.dataset.sig = sig;
-    dots.innerHTML = state.pages
-      .map((p, i) => `<button class="q-chip wx-dot" type="button" data-go="${i}" aria-pressed="false">${placeGlyph(p, { size: 15 })}${p.plan ? W('行程', 'My route') : e(p.pin ? p.pin.name : W('目前位置', 'Here'))}</button>`)
-      .join('') + `<button class="q-chip wx-dot wx-add" type="button" data-act="add-pin" aria-label="${W('新增釘選地點', 'Add a pinned place')}">${glyph('plus', { size: 15 })}${W('釘選', 'Pin')}</button>`;
-  }
-  for (const b of dots.querySelectorAll('[data-go]')) {
-    const on = Number(b.dataset.go) === state.index;
-    if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
-  }
-  paintSky();
-  const on = dots.querySelector(`[data-go="${state.index}"]`);
-  if (on) {
-    // Into view inside the row only (scrollIntoView would move the page too).
-    const l = on.offsetLeft - dots.offsetLeft;
-    if (l < dots.scrollLeft || l + on.offsetWidth > dots.scrollLeft + dots.clientWidth) dots.scrollTo({ left: Math.max(0, l - 16), behavior: 'smooth' });
-  }
+const current = () => pageOf(state.key) || state.pages[0];
+
+// 我的行程 says where the route has you now (the head, the sky, its row in 地點).
+function notePlan(now) {
+  const page = state.pages.find(p => p.plan);
+  if (!page) return;
+  const cur = liveRoute(now) ? null : placeAt(state.data.pins, now);
+  page.pin = cur;
+  page.place = cur ? { county: cur.county, town: cur.town } : pageOf('here')?.place || null;
 }
 
-const pageEl = page => document.querySelector(`.wx-page[data-key="${page.key}"]`);
-// The sky of the place in view fills the screen, as iOS's Weather does: the
-// body takes the page's sky classes, Safari's bar its top colour.
-function paintSky() {
-  const page = state.pages[state.index];
-  const hero = page && pageEl(page)?.querySelector('.wx-hero');
-  const m = /sky-(\w+) sky-(day|night)/.exec(hero?.className || '');
-  const want = m ? `sky-${m[1]} sky-${m[2]}` : '';
-  const body = document.body;
-  if (body.dataset.sky === want) return;
-  for (const c of [...body.classList]) if (c.startsWith('sky-')) body.classList.remove(c);
-  if (want) body.classList.add(...want.split(' '));
-  body.dataset.sky = want;
-  const meta = document.querySelector('meta[name="theme-color"]');
-  // (The kit keeps Safari's bar the page's own colour, light or dark.)
+// ---- Tabs: 今天, 預報, 地點 (the kit's bar; one place shared by all) -------------------------
 
+const TABS = ['now', 'week', 'places'];
+const tabs = tabBar({
+  tabs: [
+    { id: 'now', label: W('今天', 'Today'), icon: '<circle cx="9" cy="8.5" r="3.2"/><path d="M9 2.5v1.2M3 8.5h1.2M4.8 4.3l.9.9M13.2 4.3l-.9.9"/><path d="M8 20.5a4 4 0 0 1-.4-8 5.2 5.2 0 0 1 9.9 1.3 3.4 3.4 0 0 1-.3 6.7z"/>' },
+    { id: 'week', label: W('預報', 'Forecast'), icon: 'calendar' },
+    { id: 'places', label: W('地點', 'Places'), icon: '<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/>' }
+  ],
+  // (The address: #tab=week, #pin=<id>, kept by the app.)
+  hash: () => null,
+  onSelect: id => showTab(id),
+  label: W('分頁', 'Tabs')
+});
+function showTab(id, { top = false, load = true } = {}) {
+  state.tab = TABS.includes(id) ? id : 'now';
+  if (state.tab !== 'places') state.editing = false;
+  tabs.select(state.tab, { top });
+  render();
+  if (load) loadShown();
 }
-function renderPage(page) {
-  const el = pageEl(page);
-  if (!el) return;
-  const now = Date.now();
-  if (page.plan) {
-    // Where the route has you now, for the top.
-    const cur = liveRoute(now) ? null : placeAt(state.data.pins, now);
-    page.pin = cur;
-    page.place = cur ? { county: cur.county, town: cur.town } : pageOf('here')?.place || null;
-  }
-  const f = forecastOf(page);
-  const top = el.scrollTop;
-  // What was on the page: its sections by kind, and whether it had a forecast.
-  const before = new Set([...el.querySelectorAll(':scope > section')].map(sectionKind));
-  const had = el.dataset.has === '1';
-  requestAnimationFrame(() => settleSegs(el));
-  el.innerHTML = pageHtml(f, page, { now, cards: state.data.cards, hidden: state.data.hidden, ranges: state.ranges }) + (page.pin && !page.plan ? `<button class="q-btn wx-edit" type="button" data-act="edit-pin" data-pin="${e(page.pin.id)}">${W(`編輯「${e(page.pin.name)}」`, `Edit “${e(page.pin.name)}”`)}</button>` : '');
-  el.scrollTop = top;
-  el.dataset.has = f ? '1' : '';
-  // The forecast's first answer in: the page comes in, top to bottom. Then
-  // each part as it follows (the 10 days, the air): only that part comes in.
-  if (f && (!had || before.size)) {
-    let k = 0;
-    for (const sec of el.querySelectorAll(':scope > section')) {
-      if (had && before.has(sectionKind(sec))) continue;
-      sec.style.setProperty('--in', k++);
-      sec.classList.add('wx-in');
-    }
-    if (!had) el.querySelector('.wx-hero')?.classList.add('wx-in-hero');
-  }
-  page.drawn = drawnSig(page);
-  paintSky();
+// A place chosen (地點, a notice's tap): its 今天, from the top.
+function choose(key) {
+  if (!pageOf(key)) return;
+  state.key = key;
+  showTab('now', { top: true });
+}
+// What the tab in view needs: the place's forecast; on 地點, every place's.
+function loadShown() {
+  if (state.tab !== 'places') return loadPage(current());
+  for (const p of state.pages) if (!p.plan) loadPage(p);
 }
 
-// A section's kind (its first class past q-card), to tell a new one from one already shown.
-const sectionKind = sec => [...sec.classList].filter(c => c !== 'q-card' && !c.startsWith('wx-in') && !c.startsWith('sky-')).join(' ');
+// ---- Drawing the tab in view ---------------------------------------------------------------
 
-const planPage = () => state.pages.find(p => p.plan);
 // What a page was drawn from: drawn again only when it changes (or the hour turns).
-const drawnSig = page => {
-  const f = page.plan ? `${state.pages.filter(p => !p.plan).map(p => `${forecastOf(p)?.at || 0}${forecastOf(p)?.more ? '+' : ''}`).join()}|${liveRoute() ? 'here' : ''}` : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}`;
-  return `${f}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}|${page.place?.town || ''}|${page.note || ''}`;
+const pageSig = page =>
+  page.plan
+    ? `${state.pages.filter(p => !p.plan).map(p => `${forecastOf(p)?.at || 0}${forecastOf(p)?.more ? '+' : ''}`).join()}|${liveRoute() ? 'here' : ''}`
+    : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}|${page.place?.town || ''}|${page.note || ''}|${page.askable ? 1 : 0}|${page.error || ''}`;
+const viewSig = page => {
+  const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
+  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}`;
 };
+const dayLine = () => new Date().toLocaleDateString(en ? 'en-US' : 'zh-TW', { month: 'long', day: 'numeric', weekday: 'long', timeZone: 'Asia/Taipei' });
 
-
-function renderAll() {
-  const pager = $('pager');
-  const keys = state.pages.map(p => p.key).join();
-  if (pager.dataset.keys !== keys) {
-    pager.innerHTML = state.pages.map(p => `<article class="wx-page" data-key="${e(p.key)}"></article>`).join('');
-    pager.dataset.keys = keys;
-  }
-  state.pages.forEach(renderPage);
-  renderDots();
+function render() {
+  const page = current();
+  if (!page) return;
+  const now = Date.now();
+  notePlan(now);
+  const panel = $(`panel-${state.tab}`);
+  // (更新中 on the sky while the place's forecast is asked.)
+  panel.classList.toggle('is-loading', Boolean(page.loading));
+  const sig = viewSig(page);
+  if (panel.dataset.sig === sig) return;
+  panel.dataset.sig = sig;
+  if (state.tab === 'places') return void (panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 }));
+  const opts = { now, over: dayLine(), cards: state.data.cards, hidden: state.data.hidden };
+  panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
 }
 
-// A chip tapped: straight there (a smooth scroll fights the pages' snapping
-// in Safari), the chips at once, the page's data after the frame.
-let jumping = false;
-function goTo(i) {
-  state.index = Math.max(0, Math.min(state.pages.length - 1, i));
-  const pager = $('pager');
-  jumping = true;
-  pager.scrollLeft = state.index * pager.clientWidth;
-  renderDots();
-  requestAnimationFrame(() => {
-    jumping = false;
-    loadPage(state.pages[state.index]);
+// 地點's rows: each place's picture and colour, what it is, its temperature now.
+const PLACE_COLOR = page => (page.plan ? 'indigo' : page.pin?.home ? 'orange' : page.pin ? 'pink' : 'blue');
+function placeRows(shown) {
+  return state.pages.map(p => {
+    const n = forecastOf(p)?.now;
+    const name = placeName(p);
+    return {
+      key: p.key,
+      title: name.title,
+      // (A pin's township is on its sky; here, its hours.)
+      sub: p.pin && !p.plan ? scheduleText(p.pin) : name.sub,
+      temp: n?.temp ?? null,
+      art: n ? conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 28 }) : '',
+      on: p === shown,
+      pin: p.pin && !p.plan ? p.pin.id : '',
+      glyph: placeGlyph(p, { size: 22 }),
+      color: PLACE_COLOR(p)
+    };
   });
 }
 
@@ -207,14 +191,14 @@ async function loadPage(page, { force = false, naming = null } = {}) {
   if (page.loading) return void (page.again = true);
   // The plan needs every place: all asked at once, the plan redrawn as they come.
   if (page.plan) {
-    if (page.drawn !== drawnSig(page)) renderPage(page);
+    render();
     await Promise.all(state.pages.filter(x => !x.plan).map(p => loadPage(p, { force })));
-    return page.drawn === drawnSig(page) ? undefined : renderPage(page);
+    return render();
   }
   const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
-  if (!force && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return page.drawn === drawnSig(page) ? undefined : renderPage(page);
+  if (!force && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return render();
   page.loading = true;
-  pageEl(page)?.classList.add('is-loading');
+  render();
   try {
     const token = await q.ensureToken();
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
@@ -233,14 +217,11 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     page.error = err.status === 429 ? W('請求太頻繁，請稍候再試。', 'Too many requests. Try again shortly.') : W('暫時無法取得天氣，請檢查網路。', 'Can’t get the weather right now. Check your connection.');
   } finally {
     page.loading = false;
-    pageEl(page)?.classList.remove('is-loading');
     if (page.again) {
       page.again = false;
       setTimeout(() => loadPage(page), 0);
     }
-    renderPage(page);
-    const plan = planPage();
-    if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
+    render();
   }
 }
 
@@ -269,9 +250,7 @@ function follow(page, cell, rest) {
       const had = cell ? cachedForecast(state.local, cell)?.f : page.ipForecast;
       if ((Number(g.at) || 0) < (Number(had?.at) || 0) || (!cell && page.lat != null)) return;
       take(page, cell, g);
-      renderPage(page);
-      const plan = planPage();
-      if (plan && plan.drawn !== drawnSig(plan)) renderPage(plan);
+      render();
       return;
     }
     if ((page.mores = (page.mores || 0) + 1) <= MORE_TRIES) page.retry = setTimeout(() => loadPage(page, { force: true }), page.mores === 1 ? MORE_FIRST_MS : MORE_MS);
@@ -295,7 +274,7 @@ async function locate({ force = false } = {}) {
     here.askable = true;
     here.note = state.local.here ? W('上次的位置', 'Last location') : W('大約位置', 'Approximate');
     if (!state.local.here) here.lat = here.lon = null;
-    renderPage(here);
+    render();
     return loadPage(here);
   }
   if (may === 'denied') {
@@ -328,7 +307,7 @@ async function locateNow(here) {
       state.local.here = { ...state.local.here, lat: pos.lat, lon: pos.lon, at: Date.now() };
       saveLocal(state.local);
       Object.assign(here, { lat: pos.lat, lon: pos.lon });
-      if (here.note !== note) ((here.note = note), renderPage(here));
+      if (here.note !== note) ((here.note = note), render());
     } else await placeHere(here, pos);
   } else if (quick.error) {
     if (pos.error === 'denied') state.permission = 'denied';
@@ -376,7 +355,7 @@ async function placeHere(here, pos) {
   // the forecast loaded is drawn too.)
   if (naming) {
     await naming;
-    if (here.drawn !== drawnSig(here)) renderPage(here);
+    render();
   }
 }
 
@@ -402,7 +381,7 @@ const pass = passSync(q, {
     keepData();
     if (!state.started) return;
     buildPages();
-    renderAll();
+    render();
     sendNotices();
   }
 });
@@ -410,7 +389,7 @@ async function saveData() {
   state.data.t = Date.now();
   keepData();
   buildPages();
-  renderAll();
+  render();
   sendNotices();
   pass.changed();
   await pass.sync();
@@ -421,7 +400,7 @@ function sendNotices() {
   schedulePush(q, planNotices({ pins: state.data.pins, brief: state.data.brief, here: here ? { lat: here.lat, lon: here.lon } : null }));
 }
 
-// ---- Sheets: a pin, the settings, a day --------------------------------------------------
+// ---- Sheets: a pin, the layout, a day, a metric, the advice ----------------------------------
 
 // A sheet (the kit's): up from the foot; down again on ×, a tap outside it,
 // Esc, or a drag down.
@@ -452,7 +431,7 @@ async function pinSheet(pin = null) {
     <div class="q-list">
       <label class="q-cell"><span class="q-cell-text">${W('名稱', 'Name')}</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="${W('例如：學校、家', 'e.g. School, Home')}" value="${e(draft.name)}"></label>
       <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
-      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span><small>${W('沒有其他行程的時間，就當作在這裡', 'Any time not in another pin')}</small></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
+      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span><small>${W('其他時間都在這裡', 'Any other time')}</small></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
     </div>
     ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(here.place.town)})`) : ''}</button>` : ''}
     <h3 class="q-list-head">${W('或搜尋鄉鎮市區', 'Or search a district')}</h3>
@@ -517,7 +496,6 @@ async function pinSheet(pin = null) {
       state.data.gone[pin.id] = Date.now();
       d.close();
       await saveData();
-      goTo(0);
     }
     if (act === 'save') {
       draft.name = d.querySelector('#pin-name').value;
@@ -532,36 +510,36 @@ async function pinSheet(pin = null) {
       else state.data.pins.push(clean);
       d.close();
       await saveData();
-      goTo(state.pages.findIndex(p => p.key === clean.id));
+      // A new place: its weather.
+      if (at < 0) choose(clean.id);
     }
   });
 }
 
-// The settings: the cards' order and which show, the morning brief's time.
-const CARD_ICONS = { metrics: 'chart', advice: 'bulb', days: 'calendar', info: 'list' };
-function settingsSheet() {
+// 版面: the owner's cards, where each now lives, in their order, each shown or
+// not (kept on the Pass). 建議 is 今天's; 指標 and the days are 預報's, in this
+// order; 更多資訊 is in today's sheet.
+const CARD_ROWS = { metrics: ['chart', W('指標', 'Conditions'), W('預報', 'Forecast')], advice: ['bulb', W('建議', 'Advice'), W('今天', 'Today')], days: ['calendar', W('10 天預報', '10-day forecast'), W('預報', 'Forecast')], info: ['list', W('更多資訊', 'Details'), W('今天的詳情', 'Today’s sheet')] };
+function layoutSheet() {
   const rows = () =>
     state.data.cards
       .map((k, i, all) => {
         const on = !state.data.hidden.includes(k);
+        const [icon, name, where] = CARD_ROWS[k];
         return `<div class="q-cell wx-order-row${on ? '' : ' is-off'}">
-          <span class="q-cell-icon" aria-hidden="true">${glyph(CARD_ICONS[k], { size: 18 })}</span>
-          <span class="q-cell-text wx-order-name">${(([t, sub]) => `<span>${e(t)}</span>${sub ? `<small>${e(sub)}</small>` : ''}`)(CARDS[k].split(/[（）]/))}</span>
-          <button class="wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="${W('上移', 'Move up ')}${e(CARDS[k])}" ${i ? '' : 'disabled'}>↑</button>
-          <button class="wx-mini" type="button" data-move="${k}" data-by="1" aria-label="${W('下移', 'Move down ')}${e(CARDS[k])}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
-          <button class="q-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="${W('顯示', 'Show ')}${e(CARDS[k])}"></button>
+          <span class="q-cell-icon" aria-hidden="true">${glyph(icon, { size: 18 })}</span>
+          <span class="q-cell-text wx-order-name"><span>${e(name)}</span><small>${e(where)}</small></span>
+          <button class="wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="${W('上移', 'Move up ')}${e(name)}" ${i ? '' : 'disabled'}>↑</button>
+          <button class="wx-mini" type="button" data-move="${k}" data-by="1" aria-label="${W('下移', 'Move down ')}${e(name)}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
+          <button class="q-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="${W('顯示', 'Show ')}${e(name)}"></button>
         </div>`;
       })
       .join('');
   const d = sheet(`
-    <div class="q-sheet-head"><h2>${W('設定', 'Settings')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
-    <h3 class="q-list-head">${W('卡片順序', 'Card order')}</h3>
+    <div class="q-sheet-head"><h2>${W('版面', 'Layout')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
     <div class="q-list wx-order" id="card-order">${rows()}</div>
-    <p class="q-list-foot">${W('最上面的地點和現在天氣固定在頂端；其他卡片可以上下移動，或關掉不顯示。每個地點的頁面都一樣，跟著 Quadra Pass 同步。', 'The place and current weather stay on top; move the other cards or turn them off. Every place shares this order, synced with Quadra Pass.')}</p>
-    <button class="q-btn plain wx-reset" type="button" data-reset="1">${W('恢復預設順序', 'Reset order')}</button>
-    <h3 class="q-list-head">${W('通知', 'Notifications')}</h3>
-    <div class="q-list"><label class="q-cell"><span class="q-cell-text">${W('早晨天氣的時間', 'Morning weather at')}</span><input id="brief-time" class="wx-time" type="time" value="${state.data.brief}"></label></div>
-    <p class="q-list-foot">${W('早晨天氣和降雨提醒的開關，在右上角的帳戶裡（Quadra Pass 的通知設定）。早晨天氣以那時的釘選地點為準，沒有的話以最後打開本 App 的位置為準。', 'Turn morning weather and rain alerts on or off in the account menu, top right (Quadra Pass notifications). Morning weather uses the pin for that hour, else where you last opened the app.')}</p>`);
+    <p class="q-list-foot">${W('每個地點都一樣，跟著 Quadra Pass 同步。', 'The same for every place, synced with Quadra Pass.')}</p>
+    <button class="q-btn plain wx-reset" type="button" data-reset="1">${W('恢復預設', 'Reset')}</button>`);
   const redraw = () => (d.querySelector('#card-order').innerHTML = rows());
   d.addEventListener('click', ev => {
     const move = ev.target.closest('[data-move]');
@@ -589,13 +567,13 @@ function settingsSheet() {
     if (move) d.querySelector(`[data-move="${move.dataset.move}"][data-by="${move.dataset.by}"]`)?.focus();
     saveData();
   });
-  d.querySelector('#brief-time').addEventListener('change', ev => {
-    if (/^\d{2}:\d{2}$/.test(ev.target.value)) {
-      state.data.brief = ev.target.value;
-      saveData();
-    }
-  });
 }
+// The morning brief's time, in 地點 (the notice's own switch is the account's).
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'brief-time' || !/^\d{2}:\d{2}$/.test(ev.target.value)) return;
+  state.data.brief = ev.target.value;
+  saveData();
+});
 
 // A metric's sheet: its big graph, tabs and read-out.
 function openMetric(key, kind) {
@@ -613,13 +591,23 @@ function openMetric(key, kind) {
   d.redraw();
 }
 
+// 全部: every piece of advice.
+function openAdvice(key) {
+  const page = pageOf(key);
+  const f = page && forecastOf(page);
+  if (f) sheet(adviceSheet(f, { now: Date.now() }), 'wx-advice-sheet');
+}
+
 function openDay(key, date) {
   const page = pageOf(key);
   const f = page && forecastOf(page);
   if (!f) return;
   const d = sheet('', 'wx-day-sheet');
   const show = when => {
-    d.innerHTML = daySheet(f, when, { now: Date.now(), lat: page.lat, lon: page.lon });
+    const now = Date.now();
+    // Today's sheet also holds 更多資訊 (not on the move, nor when hidden).
+    const info = when === dateOf(now, f.tz) && !page.plan && !state.data.hidden.includes('info') ? infoCard(f, { now, lat: page.lat, lon: page.lon, page }) : '';
+    d.innerHTML = daySheet(f, when, { now, lat: page.lat, lon: page.lon }) + info;
     d.scrollTop = 0;
     armScrub(d, f, when);
   };
@@ -724,7 +712,7 @@ function armScrub(d, f, date) {
   });
 }
 
-// ---- Taps and swipes --------------------------------------------------------------------
+// ---- Taps --------------------------------------------------------------------------------
 
 document.addEventListener('click', ev => {
   const tab = ev.target.closest('[data-range]');
@@ -741,40 +729,41 @@ document.addEventListener('click', ev => {
   const metric = ev.target.closest('[data-metric]');
   if (metric) return openMetric(metric.dataset.page, metric.dataset.metric);
   if (ev.target.closest('.ch')) return;
-  const go = ev.target.closest('[data-go]');
-  if (go) return goTo(Number(go.dataset.go));
-  const stay = ev.target.closest('[data-go-key]');
-  if (stay) return goTo(state.pages.findIndex(p => p.key === stay.dataset.goKey));
-  // The old-copy chip on the top: asked again now (not today's sheet).
+  // The old-copy chip on the sky: asked again now (not today's sheet).
   const stale = ev.target.closest('.wx-stale');
   if (stale) return void (ev.stopPropagation(), loadPage(pageOf(stale.dataset.page), { force: true }));
-  const day = ev.target.closest('[data-day][data-page]');
-  if (day) return openDay(day.dataset.page, day.dataset.day);
   const act = ev.target.closest('[data-act]')?.dataset.act;
   if (act === 'add-pin') return pinSheet();
   if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
+  if (act === 'places') return showTab('places');
+  if (act === 'edit-places') return void ((state.editing = !state.editing), render());
+  if (act === 'advice') return openAdvice(ev.target.closest('[data-page]').dataset.page);
+  if (act === 'layout') return layoutSheet();
+  const go = ev.target.closest('[data-go-key]');
+  if (go) return choose(go.dataset.goKey);
+  const day = ev.target.closest('[data-day][data-page]');
+  if (day) return openDay(day.dataset.page, day.dataset.day);
 });
 
-// The top (a role="button"): Enter or space opens today too.
+// The sky and a place's row are role="button": Enter or space opens them too.
 document.addEventListener('keydown', ev => {
-  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day]')) return;
+  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day], [data-go-key]')) return;
   ev.preventDefault();
-  openDay(ev.target.dataset.page, ev.target.dataset.day);
+  if (ev.target.dataset.goKey) choose(ev.target.dataset.goKey);
+  else openDay(ev.target.dataset.page, ev.target.dataset.day);
 });
 
-// While the app is on screen: every minute the 「更新於」 times move on, a
-// page is redrawn when the hour turns, and the page in view is asked again
-// once its forecast is FRESH_MS old (loadPage does nothing before).
+// While the app is on screen: every minute the 「更新於」 times move on, the
+// tab is redrawn when the hour turns, and what it shows is asked again once
+// its forecast is FRESH_MS old (loadPage does nothing before).
 function tick() {
   if (document.visibilityState !== 'visible' || !state.started) return;
   const now = Date.now();
   for (const el of document.querySelectorAll('.wx-age[data-at]')) if (el.dataset.at) el.textContent = updatedText(Number(el.dataset.at), now);
   for (const el of document.querySelectorAll('.wx-stale-age[data-at]')) el.textContent = staleText(Number(el.dataset.at), now);
-  const page = state.pages[state.index];
-  if (!page) return;
-  if (page.drawn !== drawnSig(page)) renderPage(page);
-  loadPage(page);
+  render();
+  loadShown();
   // Left open for hours, carried about: where you are, again every 10 minutes.
   if (now - (state.locatedAt || 0) > 10 * 60_000) locate();
 }
@@ -855,39 +844,24 @@ document.addEventListener('pointerout', ev => {
   if (ev.pointerType === 'mouse' && ev.target.matches?.('svg.ch') && !ev.target.contains(ev.relatedTarget)) unpick(ev.target);
 });
 
-// The page in view, once a swipe settles.
-let settle = 0;
-$('pager').addEventListener('scroll', () => {
-  if (jumping) return;
-  clearTimeout(settle);
-  settle = setTimeout(() => {
-    const pager = $('pager');
-    const i = Math.round(pager.scrollLeft / Math.max(1, pager.clientWidth));
-    if (i !== state.index) {
-      state.index = i;
-      renderDots();
-      loadPage(state.pages[i]);
-    }
-  }, 120);
-});
-window.addEventListener('resize', () => goTo(state.index));
-
 // Back on screen: fresh again, where the device is now.
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !state.started) return;
   locate();
-  loadPage(state.pages[state.index]);
+  loadShown();
 });
 
-// A notice's tap (#pin=<id>) opens that pin.
-function openFromHash() {
+// The address: a notice's tap (#pin=<id>) opens that pin; #tab=week or
+// #tab=places a tab.
+const hashPin = () => {
   const m = /pin=(p[a-z0-9]+)/.exec(location.hash);
-  const i = m ? state.pages.findIndex(p => p.key === m[1]) : -1;
-  return i >= 0 ? i : null;
-}
+  return m && pageOf(m[1]) ? m[1] : null;
+};
+const hashTab = () => /tab=(week|places)/.exec(location.hash)?.[1] || null;
 window.addEventListener('hashchange', () => {
-  const i = openFromHash();
-  if (i != null) goTo(i);
+  const key = hashPin();
+  if (key) return choose(key);
+  if (hashTab()) showTab(hashTab());
 });
 
 // ---- Start --------------------------------------------------------------------------------
@@ -896,22 +870,16 @@ window.__fxStarted = true;
 document.body.insertAdjacentHTML('afterbegin', ICON_DEFS);
 const gated = installGate('weather', 'zh');
 watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-', busy: () => Boolean(document.querySelector('dialog[open]')) });
-topActions(q, { refresh: () => loadPage(state.pages[state.index], { force: true }) });
-// The app's own buttons beside the kit's: add a place, the settings.
-const extra = document.createElement('button');
-extra.className = 'q-icon-btn';
-extra.type = 'button';
-extra.setAttribute('aria-label', W('設定', 'Settings'));
-extra.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2"/></svg>';
-extra.addEventListener('click', settingsSheet);
-$('top-actions').prepend(extra);
+topActions(q, { refresh: () => (state.tab === 'places' ? state.pages.filter(p => !p.plan).forEach(p => loadPage(p, { force: true })) : loadPage(current(), { force: true })) });
 
 async function boot() {
   // This device's copy first (paints at once), then the pass's.
   state.data = decodeData(state.local.data) || emptyData();
   buildPages();
-  renderAll();
-  const start = openFromHash() ?? 0;
+  // 我的行程 when there are pins (it shows where you are now), else here; a
+  // notice's pin; the tab the address names.
+  state.key = hashPin() ?? state.pages[0].key;
+  state.tab = hashTab() ?? 'now';
   // A phone that has opened Weather before: its last forecast up at once and
   // the phone asked where it is beside the sign-in, not after it (the sign-in's
   // round trip, then the fix, then the forecast, one after another, was the
@@ -922,7 +890,7 @@ async function boot() {
     if (state.started) return;
     $('loading').hidden = true;
     state.started = true;
-    goTo(start);
+    showTab(state.tab, { load: false });
   };
   if (used) {
     show();
@@ -933,14 +901,15 @@ async function boot() {
   await pass.first(first, { local: Boolean(state.data.pins.length || state.data.t) });
   keepData();
   buildPages();
-  renderAll();
-  // 我的行程 when there are pins (it shows where you are now), else here.
+  // (The pass's pins in: a notice's pin, or 我的行程, can be named now.)
+  if (!state.started) state.key = hashPin() ?? state.pages[0].key;
+  render();
   show();
   pass.watch();
   pass.sync();
   // (Already on its way when it was asked beside the sign-in.)
   if (!used) locate();
-  else loadPage(state.pages[state.index]);
+  else loadShown();
   sendNotices();
 }
 if (!gated) boot();

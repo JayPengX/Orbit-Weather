@@ -1,6 +1,8 @@
-// One place's page, top to bottom: where and now; then the cards in the
-// owner's order (default: UV, rain and air, each with its graph; what to do,
-// today and this week; the days; everything else). One truth: one value for each thing, no sources named.
+// One place's weather, drawn for the app's three tabs: 今天 (the head, the
+// sky, the next hours, the advice), 預報 (the indicators, the days) and
+// 地點 (the places, the settings); and the sheets they open (a day, a
+// metric's graph, all the advice). One truth: one value for each thing, no
+// sources named.
 
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
 import { W, en } from './lang.mjs';
@@ -13,7 +15,6 @@ import { segHtml } from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines, OLD_MS } from './api.mjs';
-import { scheduleText } from './pins.mjs';
 
 const HOUR = 3_600_000;
 
@@ -44,9 +45,7 @@ export function skyOf(n) {
   return `sky-${kind} ${n?.day === false ? 'sky-night' : 'sky-day'}`;
 }
 
-// ---- Top: where, and now -----------------------------------------------------------
-//
-// The whole top is a button: today's sheet (its hours, its advice).
+// ---- 今天: the head, the sky, the next hours, the advice ------------------------------
 
 // The sky's moving layer (rain, stars, drifting cloud), behind the words.
 const FX = { clear: 3, part: 3, cloud: 3, rain: 14, storm: 14 };
@@ -68,60 +67,77 @@ export function soonLine(f, now, tz) {
   return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(text)}</span></p>`;
 }
 
-export function topArea(f, { page, now }) {
-  const n = f?.now || {};
-  const d = f ? today(f, now) : null;
+// What a page is called and what's said under it, one rule for the head's
+// title, the hero's eyebrow and the 地點 row.
+export function placeName(page) {
   const place = placeLines(page.place);
-  // 我的行程: the route's title, where you are now under it.
   const title = page.plan ? W('我的行程', 'My day') : page.pin ? page.pin.name : place.main || W('目前位置', 'Current location');
   // (Here with no township's name yet: the title already says 目前位置, so not again under it.)
-  const sub = page.plan ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}` : page.pin ? [place.main, place.sub].filter(Boolean).join(' · ') : [place.sub, page.note || (place.main ? W('目前位置', 'Current location') : '')].filter(Boolean).join(' · ');
-  // (No warning banner under the hero: 陸上強風特報 and the like sat there
-  // most days and said little; the advice tiles speak of wind and rain.)
-  const h0 = f ? hoursFrom(f, now)[0] : null;
+  const sub = page.plan
+    ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}`
+    : page.pin
+      ? [place.main, place.sub].filter(Boolean).join(' · ')
+      : [place.sub, page.note || (place.main ? W('目前位置', 'Current location') : '')].filter(Boolean).join(' · ');
+  return { title, sub };
+}
+
+// A tab's head: a small grey line over its large title. The place's title
+// is a button: it opens 地點.
+export function headHtml(over, title, { place = false } = {}) {
+  const h1 = place ? `<button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button>` : e(title);
+  return `<header class="q-page-head wx-head">${over ? `<p class="q-over">${e(over)}</p>` : ''}<h1>${h1}</h1></header>`;
+}
+
+// The sky: where (the county, or the pin's place), now, the day's high and
+// low; the whole card opens today's sheet. No warning banner under it:
+// 陸上強風特報 and the like sat there most days and said little; the advice
+// rows speak of wind and rain.
+export function heroHtml(f, { page, now }) {
+  const n = f?.now || {};
+  const d = f ? today(f, now) : null;
+  const { sub } = placeName(page);
   const sky = f ? skyOf(n) : 'sky-cloud sky-day';
   const date = f ? d?.date || dateOf(now, f.tz) : null;
   const open = f ? ` role="button" tabindex="0" data-day="${e(date)}" data-page="${e(page.key)}" aria-label="${W('今天的詳細預報', "Today's full forecast")}"` : '';
-  // An old copy (OLD_MS) says so at the top and fades its "now" until the
-  // new one is in: 更新中 while asked (the page's .is-loading), 無法更新
+  // An old copy (OLD_MS) says so in the foot and fades its "now" until the
+  // new one is in: 更新中 while asked (the panel's .is-loading), 無法更新
   // when the read failed, tap to try again.
   const old = f && f.at && now - f.at > OLD_MS;
   const stale = old
     ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
+  const locate = page.askable && !page.pin && !page.plan ? `<button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : '';
   return `
-  <section class="wx-hero q-hero-card ${sky}${old ? ' wx-old' : ''}"${open}>
+  <section class="wx-hero ${sky}${old ? ' wx-old' : ''}"${open}>
     ${fxHtml(sky)}
-    <div class="wx-where">
-      <h2 class="wx-place">${placeGlyph(page, { size: 18 })}<span>${e(title)}</span></h2>
-      <p class="wx-sub">${e(sub) || '&nbsp;'}${page.pin && !page.plan ? ` <span class="wx-sched">${e(scheduleText(page.pin))}</span>` : ''}${page.askable && !page.pin && !page.plan ? ` <button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : ''}</p>
-    </div>
+    <p class="wx-eyebrow">${placeGlyph(page, { size: 14 })}<span>${e(sub) || '&nbsp;'}</span>${locate}</p>
     ${
       f
         ? `<div class="wx-now">
       <div class="wx-temp" data-q-live="wx:temp">${deg(n.temp)}</div>
       <span class="wx-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 76 })}</span>
     </div>
-    <p class="wx-cond"><b>${e(conditionText(n.condition?.code, n.condition?.text))}</b></p>
+    <p class="wx-cond">${e(conditionText(n.condition?.code, n.condition?.text))}</p>
     <div class="wx-pills">
       <span class="wx-pill">${W('最高', 'H')} <b>${deg(d?.hi)}</b></span>
       <span class="wx-pill">${W('最低', 'L')} <b>${deg(d?.lo)}</b></span>
       <span class="wx-pill wx-feel">${W('體感', 'Feels')} <b>${deg(n.feels)}</b></span>
     </div>
     ${old ? '' : soonLine(f, now, f.tz)}
-    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天詳情', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
+    <div class="wx-hero-foot">${stale || `<span class="wx-age" data-at="${Number(f.at) || ''}">${f.at ? e(updatedText(f.at, now)) : ''}</span>`}<span class="wx-more">${W('今天', 'Today')}${glyph('chevR', { size: 14 })}</span></div>`
         : page.error
           ? ''
-          : '<div class="wx-temp wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><p class="wx-hl wx-skel-hero" aria-hidden="true"><i class="sk sk-hl"></i></p>'
+          : '<div class="wx-now wx-skel-hero" aria-hidden="true"><i class="sk sk-temp"></i></div><p class="wx-cond wx-skel-hero" aria-hidden="true"><i class="sk sk-cond"></i></p><div class="wx-pills wx-skel-hero" aria-hidden="true"><i class="sk sk-pill"></i><i class="sk sk-pill"></i><i class="sk sk-pill"></i></div>'
     }
-  </section>${f ? hourStrip(f, { now, key: page.key }) : ''}`;
+  </section>`;
 }
 
-// A section: a 20px head (the kit's q-section-head), then its body.
-const sec = (cls, title, body) => `<section class="q-section wx-section ${cls}"><div class="q-section-head"><h2>${title}</h2></div>${body}</section>`;
+// A section: a 20px head (the kit's q-section-head, 全部 on its right when
+// there's more), then its body.
+const sec = (cls, title, body, more = '') => `<section class="q-section wx-section ${cls}"><div class="q-section-head"><h2>${title}</h2>${more}</div>${body}</section>`;
 
-// The next 24 hours at a glance, every 3 hours, fitted to the width (the
-// page swipes sideways, so nothing in it does). A column opens its day.
+// The next 24 hours, every 3 hours: a rail of small cards under the day's
+// sentence. A card opens its day.
 export function hourStrip(f, { now, key }) {
   const hours = hoursFrom(f, now);
   const cols = [];
@@ -134,10 +150,10 @@ export function hourStrip(f, { now, key }) {
       const hr = hourOf(h.t, f.tz);
       // A new day: its name before it.
       const newDay = i > 0 && dateOf(cols[i - 1].t, f.tz) !== date;
-      // (In English the day by its short name: "Tomorrow 2:00" ran into the next column;
+      // (In English the day by its short name: "Tomorrow 2:00" ran into the next card;
       // at midnight the name alone, not "Mon 0".)
       const label = i === 0 ? W('現在', 'Now') : newDay ? W(`${dayLabel(date, now, f.tz)}${hr}時`, hr === 0 ? weekday(date) : `${weekday(date)} ${hr}`) : hh(hr);
-      return `<button class="wx-hr${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
+      return `<button class="wx-hr q-press${i === 0 ? ' is-now' : ''}${newDay ? ' is-newday' : ''}" type="button" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}`)}">
           <span class="wx-hr-t">${e(label)}</span>
           ${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 34 })}
           <b class="wx-hr-v">${deg(h.temp)}</b>
@@ -145,18 +161,13 @@ export function hourStrip(f, { now, key }) {
         </button>`;
     })
     .join('');
-  return `
-  <section class="q-section wx-section wx-hours" aria-label="${W('接下來 24 小時', 'Next 24 hours')}">
-    <div class="q-section-head"><h2>${W('接下來 24 小時', 'Next 24 hours')}</h2></div>
-    ${say}
-    <div class="q-rail wx-rail">${rail}</div>
-  </section>`;
+  return sec('wx-hours', W('接下來 24 小時', 'Next 24 hours'), `${say}<div class="q-rail wx-rail">${rail}</div>`);
 }
 
-// ---- The cards with graphs --------------------------------------------------------------
+// ---- The metrics' sheets: a graph each --------------------------------------------------------------
 //
-// Each graph fits the card (no sideways scrolling inside a page that swipes
-// sideways); tabs pick the range. The app keeps the choice (`ranges`).
+// A metric's sheet: its graph fitted to the width (no sideways scrolling);
+// tabs pick the range. The app keeps the choice (`ranges`).
 
 // Every sheet's tabs are days, the way a day is thought of: 今天 (now to
 // midnight; from 18:00 it's 今晚, on to 07:00: the night and the way out in
@@ -180,7 +191,7 @@ export function dayHours(list, range, tz, now) {
 const dayTabs = (kind, now, tz) => RANGES[kind].map(([k, name]) => [k, name || tonightName(now, tz)]);
 
 const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) => `
-  <section class="q-card wx-card wx-${cls}">
+  <section class="wx-card wx-${cls}">
     <header class="wx-card-head">
       <span class="wx-ic">${icon}</span>
       <div class="wx-card-title"><h3>${title}</h3><p>${summary}</p></div>
@@ -307,7 +318,7 @@ export function airCard(f, { now, ranges }) {
   return card({ cls: 'air', icon: glyph('air'), title: W('空氣品質', 'Air quality'), summary, big, tabs: hourly ? tabsHtml('air', dayTabs('air', now, f.tz), range) : '', graph: airGraph(cols, { tz: f.tz, daily, fromNow: range === 'd0' }), foot: daily ? W('按住圖表滑動，看每天', 'Hold and slide for each day') : W('按住圖表滑動，看每小時', 'Hold and slide for each hour') });
 }
 
-// ---- What to do: today, and the week -------------------------------------------------------
+// ---- What to do: the advice rows -----------------------------------------------------------
 
 const LIFE = {
   umbrella: W('雨傘', 'Umbrella'), commute: W('通勤', 'Commute'), wear: W('穿著', 'Clothes'), sun: W('防曬', 'Sun'), run: W('跑步', 'Running'), laundry: W('曬衣', 'Laundry'), sleep: W('睡覺', 'Sleep'), window: W('開窗', 'Windows'), mask: W('口罩', 'Mask'), heat: W('炎熱', 'Heat'), carwash: W('洗車', 'Car wash'),
@@ -326,26 +337,33 @@ export const lifeTile = ({ kind, level, title, text }) => {
   const tag = LEVEL_TAG[level];
   return `<div class="q-ritem wx-life lv-${e(level)} k-${e(kind)}"><span class="q-tile wx-life-icon" style="--t:var(--q-${KIND_COLOR[kind] || 'indigo'})">${glyph(ADVICE_GLYPH[kind] || 'bulb', { size: 22 })}</span><span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small>${e(text)}</small></span>${tag ? `<span class="q-tag ${tag[0]}">${tag[1]}</span>` : ''}</div>`;
 };
-// The rows: the first few, the rest behind 「更多建議」.
-const lifeGrid = tiles => {
-  const rest = tiles.slice(SHOWN);
-  return `<div class="q-rowcard wx-lifegrid">${tiles.slice(0, SHOWN).join('')}</div>${rest.length ? `<details class="wx-more-advice"><summary>${W('更多建議', 'More')}<span>${rest.length}</span>${glyph('chevR', { size: 16 })}</summary><div class="q-rowcard wx-lifegrid">${rest.join('')}</div></details>` : ''}`;
-};
-
-export function adviceCards(f, { now } = {}) {
-  // (The proxy writes these in Chinese; in English, what adviceEn can read.)
+// The advice, most pressing first ({ list, tomorrow }): the proxy's words
+// (in English, what adviceEn can read), and whose day they are: today, or
+// tomorrow once today's outing hours are over.
+function adviceList(f, now) {
   const list = (f.advice || [])
     .map(a => ({ ...a, text: a.text.replace(/^[^：]+：/, '') }))
     // (The route's own advice, `own`, is in the reader's language already.)
     .map(a => (en && !a.own ? { ...a, text: adviceEn(a.text) } : a))
     .filter(a => LIFE[a.kind] && a.text)
     .sort((a, b) => (URGENT[a.level] ?? 3) - (URGENT[b.level] ?? 3) || ORDER.indexOf(a.kind) - ORDER.indexOf(b.kind));
-  if (!list.length) return '';
-  // Whose day: today, or tomorrow once today's outing hours are over.
   const first = list.find(a => a.week?.days?.length)?.week.days[0].date;
-  const tomorrow = first && now != null && first !== dateOf(now, f.tz);
-  const tiles = list.map(a => lifeTile({ kind: a.kind, level: a.level, title: LIFE[a.kind], text: a.text }));
-  return sec('wx-advice-sec', tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'), lifeGrid(tiles));
+  return { list, tomorrow: Boolean(first && now != null && first !== dateOf(now, f.tz)) };
+}
+const adviceTitle = tomorrow => (tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'));
+const adviceRows = list => list.map(a => lifeTile({ kind: a.kind, level: a.level, title: LIFE[a.kind], text: a.text })).join('');
+
+// The section: the first few rows; 全部 opens the sheet with every one.
+export function adviceCards(f, { now, key = '' } = {}) {
+  const { list, tomorrow } = adviceList(f, now);
+  if (!list.length) return '';
+  const more = list.length > SHOWN ? `<button type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}</button>` : '';
+  return sec('wx-advice-sec', adviceTitle(tomorrow), `<div class="q-rowcard wx-lifegrid">${adviceRows(list.slice(0, SHOWN))}</div>`, more);
+}
+// The sheet: every row.
+export function adviceSheet(f, { now } = {}) {
+  const { list, tomorrow } = adviceList(f, now);
+  return `<div class="q-sheet-head"><h2>${adviceTitle(tomorrow)}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div><div class="q-rowcard wx-lifegrid">${adviceRows(list)}</div>`;
 }
 
 // ---- The days ------------------------------------------------------------------------------
@@ -357,10 +375,10 @@ export function daysList(f, { now, key }) {
   const hi = Math.max(...days.map(d => d.hi ?? -Infinity));
   const span = Math.max(1, hi - lo);
   const pop = d => dayPop(f, d, now);
-  return `
-  <section class="q-section wx-section">
-    <div class="q-section-head"><h2>${W(`${days.length} 天預報`, `${days.length}-day forecast`)}</h2></div>
-    <div class="q-rowcard wx-days">
+  return sec(
+    'wx-days-sec',
+    W(`${days.length} 天預報`, `${days.length}-day forecast`),
+    `<div class="q-rowcard wx-days">
       ${days
         .map(d => {
           const left = (((d.lo ?? lo) - lo) / span) * 100;
@@ -377,8 +395,8 @@ export function daysList(f, { now, key }) {
           </button>`;
         })
         .join('')}
-    </div>
-  </section>`;
+    </div>`
+  );
 }
 
 // A day's recommendations, from its own hours (today's: the hours still
@@ -469,7 +487,7 @@ export function daySheet(f, date, { now, lat, lon }) {
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
       ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot">${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
     </div>
-    ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
+    ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="q-rowcard wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid">
       ${d?.day ? `<div class="wx-half">${conditionArt(d.day.condition?.code, d.day.condition?.text, true, { size: 40 })}<span>${W('白天', 'Day')}</span><b>${e(conditionText(d.day.condition?.code, d.day.condition?.text))}</b><small>${W('降雨', 'Rain')} ${pct(d.day.pop)}</small></div>` : ''}
       ${d?.night ? `<div class="wx-half">${conditionArt(d.night.condition?.code, d.night.condition?.text, false, { size: 40 })}<span>${W('晚上', 'Night')}</span><b>${e(conditionText(d.night.condition?.code, d.night.condition?.text))}</b><small>${W('降雨', 'Rain')} ${pct(d.night.pop)}</small></div>` : ''}
@@ -477,7 +495,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>`;
 }
 
-// ---- Everything else ------------------------------------------------------------------------
+// ---- Everything else (today's sheet, under the day) ---------------------------------------
 
 export function infoCard(f, { now, lat, lon, page }) {
   const n = f.now || {};
@@ -507,41 +525,33 @@ export function infoCard(f, { now, lat, lon, page }) {
     [glyph('pin'), W('位置', 'Location'), where.main ? e(where.main) : '–', where.sub ? e(where.sub) : '', 'red']
   ];
   const rows = items.map(([icon, k, v, sub, color]) => `<div class="q-ritem wx-info-row"><span class="q-tile sm" style="--t:var(--q-${color})">${icon}</span><span class="q-ritem-text"><span class="q-ritem-title">${k}</span>${sub ? `<small>${sub}</small>` : ''}</span><span class="q-ritem-value">${v}</span></div>`).join('');
-  return `
-  <section class="q-section wx-section wx-info-sec">
-    <div class="q-section-head"><h2>${W('更多資訊', 'More details')}</h2></div>
-    <div class="q-rowcard wx-info">${rows}</div>
-    <p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${e(updatedText(f.at, now))}</p>
-  </section>`;
+  return `<h3 class="q-sheet-h">${W('更多資訊', 'More details')}</h3><div class="q-rowcard wx-info">${rows}</div><p class="wx-foot">${f.partial ? W('部分資料稍舊 · ', 'Some data a little old · ') : ''}${e(updatedText(f.at, now))}</p>`;
 }
 
-// ---- The metrics: a small card each, the big graph in a sheet ------------------------------
+// ---- 預報: the indicators, a rail of stat cards; the big graph in a sheet ----------------
 
 // A level's word on a stat: a tag in the level's colour, kept readable on light and dark.
 const levelTag = (text, color) => (text ? `<span class="q-tag tint wx-lv" style="--t:color-mix(in srgb, ${color} 62%, var(--q-label))">${e(text)}</span>` : '');
-// A stat card: its colour tile and name, a big number, one line, a sparkline.
-const tile = ({ kind, key, icon, title, value, color, sub, art, level = '', tint = '' }) => `
-  <button class="q-stat q-press wx-metric k-${kind}" type="button" data-metric="${kind}" data-page="${e(key)}" style="--c:${color}">
-    <span class="wx-metric-head"><span class="q-tile sm" style="--t:${tint || `var(--q-${{ rain: 'blue', uv: 'orange', air: 'green' }[kind]})`}">${icon}</span>${level}</span>
+// A stat card: its colour tile and level, its name, a big number, one line,
+// a sparkline. With a graph to open (`key`), a button.
+const TILE_COLOR = { rain: 'blue', uv: 'orange', air: 'green', humidity: 'cyan', wind: 'teal' };
+const statCard = ({ kind, key = '', icon, title, value, sub, art = '', level = '' }) => {
+  const tag = key ? 'button' : 'div';
+  const open = key ? ` type="button" data-metric="${kind}" data-page="${e(key)}"` : '';
+  return `<${tag} class="q-rail-card wx-stat k-${kind}${key ? ' q-press' : ''}"${open}>
+    <span class="wx-stat-head"><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${icon}</span>${level}</span>
     <small>${title}</small>
-    <strong class="wx-metric-val">${value}</strong>
-    <span class="wx-metric-sub">${sub}</span>
+    <strong class="wx-stat-val">${value}</strong>
+    <span class="wx-stat-sub">${sub}</span>
     ${art}
-  </button>`;
-// A stat with no graph to open (the humidity, the wind).
-const plainStat = ({ kind, icon, color, title, value, sub, wide = false, extra = '' }) => `
-  <div class="q-stat wx-metric wx-plain k-${kind}${wide ? ' wx-wide' : ''}">
-    <span class="wx-metric-head"><span class="q-tile sm" style="--t:var(--q-${color})">${icon}</span>${extra}</span>
-    <small>${title}</small>
-    <strong class="wx-metric-val">${value}</strong>
-    <span class="wx-metric-sub">${sub}</span>
-  </div>`;
+  </${tag}>`;
+};
 
 export function rainTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
   if (!hours.length) return '';
   const next = hours.slice(0, 24);
-  return tile({ kind: 'rain', key, icon: glyph('umbrella', { size: 18 }), title: W('降雨', 'Rain'), value: `${hours[0].pop ?? '–'}<small>%</small>`, color: '#60a5fa', sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
+  return statCard({ kind: 'rain', key, icon: glyph('umbrella', { size: 18 }), title: W('降雨', 'Rain'), value: `${hours[0].pop ?? '–'}<small>%</small>`, sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
 }
 export function uvTile(f, { now, key }) {
   const hours = hoursFrom(f, now);
@@ -551,61 +561,97 @@ export function uvTile(f, { now, key }) {
   const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
   const nowUv = f.now?.uv ?? hours[0]?.uv;
   const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, day.date === dateOf(now, f.tz) ? `Peak ${peak.uv} at ${hourOf(peak.t, f.tz)}` : `${weekday(day.date)} peak ${peak.uv}`) : '';
-  return tile({ kind: 'uv', key, icon: glyph('sun', { size: 18 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}`, level: levelTag(uvLevel(nowUv), uvColor(nowUv)), color: uvColor(nowUv), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
+  return statCard({ kind: 'uv', key, icon: glyph('sun', { size: 18 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}`, level: levelTag(uvLevel(nowUv), uvColor(nowUv)), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
 }
 export function airTile(f, { now, key }) {
   const a = f.air;
   if (!a) return '';
   const cols = airCols(f, now);
-  return tile({ kind: 'air', key, icon: glyph('air', { size: 18 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}`, level: levelTag(aqiLevel(a.level), aqiColor(a.aqi)), color: aqiColor(a.aqi), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
+  return statCard({ kind: 'air', key, icon: glyph('air', { size: 18 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}`, level: levelTag(aqiLevel(a.level), aqiColor(a.aqi)), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
 }
 export function metricTiles(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
   const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
   const dew = n.dew ?? hoursFrom(f, opts.now)[0]?.dew;
-  const tiles = [
+  const cards = [
     rainTile(f, opts),
     uvTile(f, opts),
     airTile(f, opts),
-    hum != null ? plainStat({ kind: 'humidity', icon: glyph('drop', { size: 18 }), color: 'cyan', title: W('濕度', 'Humidity'), value: `${Math.round(hum)}<small>%</small>`, sub: dew != null ? `${W('露點', 'Dew point')} ${deg(dew)}` : '' }) : '',
+    hum != null ? statCard({ kind: 'humidity', icon: glyph('drop', { size: 18 }), title: W('濕度', 'Humidity'), value: `${Math.round(hum)}<small>%</small>`, sub: dew != null ? `${W('露點', 'Dew point')} ${deg(dew)}` : '' }) : '',
     w.speed != null
-      ? plainStat({
+      ? statCard({
           kind: 'wind',
           icon: glyph('wind', { size: 18 }),
-          color: 'teal',
-          wide: true,
           title: W('風', 'Wind'),
           value: `${Math.round(w.speed)}<small>km/h</small>`,
-          extra: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
-          sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)} km/h`, `gusts ${Math.round(w.gust)} km/h`)}` : ''}`
+          level: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
+          sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`
         })
       : ''
   ].filter(Boolean);
-  if (!tiles.length) return '';
-  return sec('wx-metrics-sec', W('天氣指標', 'Conditions'), `<div class="q-stats wx-metrics" style="--q-stats-n:2">${tiles.join('')}</div>`);
+  if (!cards.length) return '';
+  return sec('wx-metrics-sec', W('指標', 'Conditions'), `<div class="q-rail wx-stats">${cards.join('')}</div>`);
 }
 // The sheet a metric opens: its big graph, tabs and read-out.
 export const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
 export function metricSheet(kind, f, opts) {
   const body = { rain: rainCard, uv: uvCard, air: airCard }[kind]?.(f, opts) || '';
-  return `<div class="q-sheet-head"><h2>${glyph({ rain: 'umbrella', uv: 'sun', air: 'air' }[kind], { size: 22 })}${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>${body}`;
+  return `<div class="q-sheet-head"><h2><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${glyph({ rain: 'umbrella', uv: 'sun', air: 'air' }[kind], { size: 18 })}</span>${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>${body}`;
 }
 
-// A whole page.
-const SECTIONS = { metrics: metricTiles, advice: (f, o) => adviceCards(f, o), days: daysList, info: infoCard };
-// The page before its forecast: the hours strip and two cards, as grey shapes.
-const skeleton = () => `
-  <section class="q-section wx-section wx-hours wx-skel" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="q-rail wx-rail">${Array.from({ length: 8 }, () => '<span class="wx-hr"><i class="sk sk-t"></i><i class="sk sk-ic"></i><i class="sk sk-v"></i></span>').join('')}</div></section>
-  <section class="q-stats wx-skel-stats" style="--q-stats-n:2" aria-hidden="true">${Array.from({ length: 4 }, () => '<div class="q-stat wx-skel"><i class="sk sk-ic"></i><i class="sk sk-h"></i><i class="sk sk-line short"></i></div>').join('')}</section>`;
+// ---- The tabs ------------------------------------------------------------------------------
 
-export function pageHtml(f, page, { now, cards = Object.keys(SECTIONS), hidden = [], ranges = {} }) {
-  const top = topArea(f, { page, now });
-  // Not here yet: the page's own shape, shimmering (the numbers take their
-  // places as they come, nothing moves); a failure says so.
-  if (!f) return page.error ? `${top}<section class="q-card wx-empty"><p>${e(page.error)}</p><button class="q-btn" type="button" data-act="retry" data-page="${e(page.key)}">${W('再試一次', 'Try again')}</button></section>` : `${top}${skeleton()}`;
-  const opts = { now, key: page.key, lat: page.lat, lon: page.lon, page, ranges };
-  // 我的行程: what matters on the move, in this order.
-  if (page.plan) [cards, hidden] = [['metrics', 'advice', 'days'], []];
-  return [top, ...cards.filter(k => SECTIONS[k] && !hidden.includes(k)).map(k => SECTIONS[k](f, opts))].join('');
+// Before the forecast: each tab's own shape, shimmering (the numbers take
+// their places as they come, nothing moves); a failure says so.
+const skelRail = (n, cls) => `<div class="q-rail ${cls}" aria-hidden="true">${Array.from({ length: n }, () => '<span class="wx-skel-card"><i class="sk sk-ic"></i><i class="sk sk-h"></i><i class="sk sk-line short"></i></span>').join('')}</div>`;
+const failed = page => `<section class="q-rowcard wx-empty"><p>${e(page.error)}</p><button class="q-btn tinted" type="button" data-act="retry" data-page="${e(page.key)}">${W('再試一次', 'Try again')}</button></section>`;
+const waiting = (cls, n) => `<section class="q-section wx-section wx-skel ${cls}" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="q-section-head"><i class="sk sk-head"></i></div>${skelRail(n, cls === 'wx-hours' ? 'wx-rail' : 'wx-stats')}</section>`;
+
+// Which of the owner's cards go where: 建議 on 今天, 指標 and the days on
+// 預報 (in the kept order), 更多資訊 in today's sheet. 我的行程: what
+// matters on the move (no 更多資訊), all shown.
+export const shownCards = (page, cards = DEFAULT_CARDS, hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
+const DEFAULT_CARDS = ['metrics', 'advice', 'days', 'info'];
+
+// 今天: the head (the date over the place), the sky, the next hours, the advice.
+export function nowHtml(f, page, { now, over = '', cards, hidden } = {}) {
+  const head = headHtml(over, placeName(page).title, { place: true });
+  const hero = heroHtml(f, { page, now });
+  if (!f) return head + hero + (page.error ? failed(page) : waiting('wx-hours', 8));
+  const show = shownCards(page, cards, hidden);
+  return head + hero + hourStrip(f, { now, key: page.key }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '');
+}
+
+// 預報: the indicators and the days, in the owner's order.
+const WEEK = { metrics: metricTiles, days: daysList };
+export function weekHtml(f, page, { now, cards, hidden } = {}) {
+  const head = headHtml(placeName(page).title, W('預報', 'Forecast'));
+  if (!f) return head + (page.error ? failed(page) : waiting('wx-metrics-sec', 3));
+  const opts = { now, key: page.key, page };
+  return head + shownCards(page, cards, hidden).filter(k => WEEK[k]).map(k => WEEK[k](f, opts)).join('');
+}
+
+// 地點: each place a row (its picture, its name, where or when, its
+// temperature now; the one shown ticked), 新增地點, then the settings. 編輯
+// turns the pins' rows into their sheets' doors (as iOS's lists).
+// rows: [{ key, title, sub, temp, art, on, pin, glyph, color }].
+export function placesHtml(rows, { brief, editing = false, canAdd = true } = {}) {
+  const row = r => {
+    const tile = `<span class="q-tile" style="--t:var(--q-${r.color})">${r.glyph}</span>`;
+    const text = `<span class="q-ritem-text"><span class="q-ritem-title">${e(r.title)}${r.on && !editing ? glyph('check', { size: 16, cls: 'wx-on' }) : ''}</span>${r.sub ? `<small>${e(r.sub)}</small>` : ''}</span>`;
+    if (editing && r.pin) return `<button class="q-ritem chevron wx-place-row" type="button" data-act="edit-pin" data-pin="${e(r.pin)}" aria-label="${W(`編輯「${e(r.title)}」`, `Edit “${e(r.title)}”`)}">${tile}${text}</button>`;
+    const now = r.temp != null && !editing ? `<span class="wx-place-now">${r.art || ''}<b>${deg(r.temp)}</b></span>` : '';
+    return `<div class="q-ritem wx-place-row${r.on ? ' is-on' : ''}${editing ? ' is-still' : ''}"${editing ? '' : ` role="button" tabindex="0" data-go-key="${e(r.key)}"`} aria-current="${r.on ? 'true' : 'false'}">${tile}${text}${now}</div>`;
+  };
+  const list = rows.map(row).join('');
+  const pins = rows.some(r => r.pin);
+  const add = canAdd ? `<button class="q-ritem chevron wx-add" type="button" data-act="add-pin"><span class="q-tile" style="--t:var(--q-green)">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>` : '';
+  const settings = `<div class="q-rowcard">
+      <label class="q-ritem wx-brief"><span class="q-tile" style="--t:var(--q-orange)">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
+      <button class="q-ritem chevron" type="button" data-act="layout"><span class="q-tile" style="--t:var(--q-indigo)">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
+    </div>
+    <p class="wx-foot">${W('通知的開關在右上角的帳戶裡。', 'Notifications are switched on in the account menu, top right.')}</p>`;
+  const head = `<header class="q-page-head wx-head wx-head-row"><h1>${W('地點', 'Places')}</h1>${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
+  return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);
 }

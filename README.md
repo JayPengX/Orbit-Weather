@@ -19,10 +19,12 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 - **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
 - **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
-  coming back, a swipe, and each minute while on screen).
-- **A page:** where and now → next 24 hours → 紫外線 / 降雨機率 / 空氣品質
-  cards (each opens a sheet of day tabs and graphs) → 建議 → 10 天預報
-  (a day opens its sheet) → 更多資訊.
+  coming back, a change of place or tab, and each minute while on screen).
+- **Three tabs, one place:** 今天 (the date over the place, the sky card
+  opening today's sheet with 更多資訊, the next 24 hours, 建議 with 全部);
+  預報 (指標: 降雨 / 紫外線 / 空氣 each open a sheet of day tabs and graphs,
+  濕度, 風; then 10 天預報, a day opens its sheet); 地點 (the places, 新增地點,
+  早晨天氣, 版面). The title on 今天 opens 地點. `#tab=week|places`, `#pin=<id>`.
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
   on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
   newest). The Pass's copy is read again before a write whenever another
@@ -52,7 +54,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 | --- | --- |
 | `public/app.mjs`, `index.html`, `weather.css` | The page and its flow: session, location, pages, pins, sheets |
 | `public/lib/api.mjs` | The proxy, the device's position, this device's copies |
-| `public/lib/cards.mjs` | A page's sections |
+| `public/lib/cards.mjs` | The tabs (今天, 預報, 地點) and the sheets they open |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
 | `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |

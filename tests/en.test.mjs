@@ -11,7 +11,8 @@ globalThis.document = any();
 globalThis.localStorage = { getItem: k => (k === 'quadra.lang' ? 'en' : null), setItem() {}, removeItem() {} };
 
 const { en } = await import('../public/lib/lang.mjs');
-const { pageHtml, adviceCards } = await import('../public/lib/cards.mjs');
+const { nowHtml, weekHtml, adviceCards } = await import('../public/lib/cards.mjs');
+const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
 const { routeForecast } = await import('../public/lib/plan.mjs');
 const { cleanPin } = await import('../public/lib/pins.mjs');
 const { forecast, tpe, H } = await import('./fixture.mjs');

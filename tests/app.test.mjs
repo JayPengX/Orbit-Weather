@@ -4,12 +4,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { pageHtml, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
+import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind, escapeHtml } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
 
 import { H, tpe, NOW, hours, forecast } from './fixture.mjs';
+// A place's two tabs, 今天 then 預報, as one page of text.
+const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
 const memStore = () => {
   const m = new Map();
   return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) };
@@ -168,7 +170,9 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
 test('the page, top to bottom, one truth, nothing unescaped', () => {
   const page = { key: 'here', pin: null, place: { county: '臺北市', town: '信義區<b>', village: '西村里' }, lat: 25.034, lon: 121.565 };
   const html = pageHtml(forecast, page, { now: NOW });
-  const order = ['wx-hero', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '建議', '10 天預報', '更多資訊'].map(k => html.indexOf(k));
+  // 今天: the sky, the advice; 預報: the indicators, the days. 更多資訊 is today's sheet's.
+  const order = ['wx-hero', '建議', 'data-metric="rain"', 'data-metric="uv"', 'data-metric="air"', '10 天預報'].map(k => html.indexOf(k));
+  assert.ok(!html.includes('更多資訊'), 'the details are in today\'s sheet');
   assert.ok(!html.includes('<svg class="ch"'), 'no big graphs on the page: small cards, the graph in a sheet');
   assert.equal((html.match(/class="wx-spark"/g) || []).length, 3);
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
@@ -188,7 +192,8 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   const first = html.split('<div class="q-rowcard wx-lifegrid">')[1].split('</div></div>')[0].split('wx-life lv-').length - 1;
   assert.ok(first <= 4, 'four tiles at most, the rest behind 更多建議');
   const many = adviceCards({ ...forecast, advice: Array.from({ length: 7 }, (_, i) => ({ kind: ['umbrella', 'wear', 'sun', 'run', 'laundry', 'sleep', 'thunder'][i], level: i === 6 ? 'yes' : 'none', text: `x：${i}` })) }, { now: NOW });
-  assert.match(many, /<details class="wx-more-advice"><summary>更多建議<span>3<\/span>/);
+  assert.match(many, /data-act="advice"[^>]*>全部</, 'the rest behind 全部');
+  assert.equal((adviceSheet({ ...forecast, advice: Array.from({ length: 7 }, (_, i) => ({ kind: ['umbrella', 'wear', 'sun', 'run', 'laundry', 'sleep', 'thunder'][i], level: 'none', text: `x：${i}` })) }, { now: NOW }).match(/wx-life lv-/g) || []).length, 7, 'every one in its sheet');
   assert.ok(many.indexOf('k-thunder') < many.indexOf('k-umbrella'), 'a warning first');
   assert.ok(!/wx-weekgrid/.test(html), 'no week table: each day\'s advice is in its sheet');
   // The top opens today; under it the next 24 hours, every 3.
@@ -206,8 +211,8 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   for (const w of ['Google', 'CWA', '氣象署', 'MOENV', '環境部', 'radar', '雷達']) assert.ok(!html.includes(w), w);
   // A pin's page: its name first, its hours.
   const pinPage = pageHtml(forecast, { key: 'pschool', pin: school, place: { county: '臺北市', town: '大安區', village: '龍泉里' } }, { now: NOW });
-  assert.match(pinPage, /<h2 class="wx-place"><svg class="wx-g"[^]*?<\/svg><span>學校<\/span>/);
-  assert.match(pinPage, /週一至週五 07:00–17:00/);
+  assert.match(pinPage, /class="wx-title"[^>]*><span>學校<\/span>/);
+  assert.match(pinPage, /class="wx-eyebrow"><svg class="wx-g"[^]*?<span>大安區 · 臺北市<\/span>/);
   // No forecast yet: the top and a spinner, or the error with a retry.
   assert.match(pageHtml(null, page, { now: NOW }), /正在取得天氣/);
   assert.match(pageHtml(null, { ...page, error: '暫時無法取得天氣' }, { now: NOW }), /data-act="retry"/);
@@ -319,7 +324,7 @@ test('the cards: the owner\'s order and the hidden ones, kept on the pass, the n
   const html = pageHtml(forecast, { key: 'here', pin: null, place: { county: '臺北市', town: '信義區' } }, { now: NOW, cards: back.cards, hidden: back.hidden });
   assert.ok(html.indexOf('10 天預報') < html.indexOf('wx-metrics'), 'days before the metrics');
   assert.ok(html.indexOf('wx-hero') < html.indexOf('10 天預報'), 'the top stays on top');
-  assert.ok(!html.includes('更多資訊'), 'info hidden');
+  assert.ok(!nowHtml(forecast, { key: 'here', pin: null, place: { town: '信義區' } }, { now: NOW, cards: back.cards, hidden: ['advice'] }).includes('建議'), 'advice hidden');
 });
 
 test('the day sheet: the days either side', () => {
@@ -458,7 +463,7 @@ test("a weekday pin (school) is off on a national holiday: no 到學校 hours or
 });
 
 test('a phone that would ask for its place again is left on the last one, 定位 on the page to ask', async () => {
-  const { topArea } = await import('../public/lib/cards.mjs');
+  const { heroHtml: topArea } = await import('../public/lib/cards.mjs');
   const html = topArea(null, { page: { key: 'here', place: { county: '臺北市', town: '信義區' }, note: '上次的位置', askable: true }, now: Date.now() });
   assert.match(html, /上次的位置/);
   assert.match(html, /data-locate/);
@@ -466,7 +471,7 @@ test('a phone that would ask for its place again is left on the last one, 定位
 });
 
 test('an old forecast says so at the top: its now faded, 更新中 or 無法更新 in the 更新於 line', async () => {
-  const { topArea } = await import('../public/lib/cards.mjs');
+  const { heroHtml: topArea } = await import('../public/lib/cards.mjs');
   const now = Date.parse(forecast.now?.time || '2026-10-08T12:00:00+08:00') || Date.now();
   const page = { key: 'here', place: { county: '臺北市', town: '信義區' } };
   const fresh = topArea({ ...forecast, at: now - 5 * 60_000 }, { page, now });

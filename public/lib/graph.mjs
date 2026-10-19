@@ -1,6 +1,5 @@
 // The graphs: smooth area charts (or bars for days), each fitted to the
-// card's width — no sideways scrolling inside a page that already swipes
-// sideways; the card's tabs pick the range (24 hours, 48, 10 days…). The
+// sheet's width (no sideways scrolling); the sheet's tabs pick the range (24 hours, 48, 10 days…). The
 // fill and line take the level's colour (UV green → violet, AQI green →
 // red, rain light → deep blue); each day's peak is labelled; the hours
 // under, the dates at day changes, a place's name where the route changes

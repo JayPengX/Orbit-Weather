@@ -4,7 +4,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { realpathSync, existsSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
-import { pageHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard, colsFor } from '../public/lib/cards.mjs';
+const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
+import { nowHtml, weekHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard, colsFor } from '../public/lib/cards.mjs';
 import { readout } from '../public/lib/graph.mjs';
 import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText, hereNote } from '../public/lib/format.mjs';
 import { cleanPin, mergeData, emptyData, encodeData, decodeData } from '../public/lib/pins.mjs';
@@ -237,7 +238,7 @@ test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh num
 test('the 位置 tile names the place the header shows, and the Today sheet labels the day\'s highs', () => {
   for (const place of [{ town: '信義區', county: '臺北市' }, { county: '臺北市' }]) {
     const page = { key: 'here', place };
-    const title = pageHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-place">[^]*?<span>([^<]*)<\/span>/)[1];
+    const title = nowHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-title"[^>]*><span>([^<]*)<\/span>/)[1];
     const tile = infoCard(forecast, { now: NOW, page }).match(/位置<\/span>(?:<small>[^<]*<\/small>)?<\/span><span class="q-ritem-value">([^<]*)<\/span>/)[1];
     assert.equal(tile, title);
   }

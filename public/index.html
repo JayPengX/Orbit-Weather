@@ -61,14 +61,17 @@
       <img class="q-brand-logo" src="./favicon.svg" alt="" width="34" height="34" />
       <div class="q-brand-text">
         <h1 id="title">Orbit Weather</h1>
-        <p id="status" class="q-status" aria-live="polite"></p>
       </div>
     </div>
+    <nav id="tabs" class="q-tabbar" role="tablist"></nav>
     <div id="top-actions" class="q-actions"></div>
   </div>
-  <nav id="dots" class="q-chips wx-dots" aria-label="地點"></nav>
 </header>
-<main id="pager" class="wx-pager"></main>
+<main>
+  <section id="panel-now" class="wx-panel" role="tabpanel"></section>
+  <section id="panel-week" class="wx-panel" role="tabpanel" hidden></section>
+  <section id="panel-places" class="wx-panel" role="tabpanel" hidden></section>
+</main>
 <script type="module" src="./app.mjs" onerror="window.__fxFail()"></script>
 </body>
 </html>
