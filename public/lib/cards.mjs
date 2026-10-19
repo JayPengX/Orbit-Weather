@@ -536,81 +536,103 @@ export function infoCard(f, { now, lat, lon, page }) {
 
 // A level's word on a stat: a tag in the level's colour, kept readable on light and dark.
 const levelTag = (text, color) => (text ? `<span class="q-tag tint wx-lv" style="--t:color-mix(in srgb, ${color} 62%, var(--q-label))">${e(text)}</span>` : '');
-// A stat card: its colour tile and level, its name, a big number, one line,
-// a sparkline. With a graph to open (`key`), a button.
+// A stat, as plain data: its colour tile and level, its name, a big number (and its unit), one
+// line, a sparkline (`art`). With a graph to open (`key`) it is a button. The rail draws it as
+// statCard (HTML), 今日數據 as the kit's panelGrid (statPanel); `key` is the graph's page.
 const TILE_COLOR = { rain: 'blue', uv: 'orange', air: 'green', humidity: 'cyan', wind: 'teal', sun: 'orange', feels: 'red', vis: 'indigo' };
-const statCard = ({ kind, key = '', icon, title, value, sub, art = '', level = '' }) => {
+const GLYPH_OF = { rain: 'umbrella', uv: 'sun', air: 'air', humidity: 'drop', wind: 'wind', sun: 'sunrise', feels: 'thermo', vis: 'eye' };
+const statCard = ({ kind, key = '', title, big, unit = '', sub = '', art = '', level = '', levelColor = '', levelHtml = '' }) => {
   const tag = key ? 'button' : 'div';
   const open = key ? ` type="button" data-metric="${kind}" data-page="${e(key)}"` : '';
   return `<${tag} class="q-rail-card wx-stat k-${kind}${key ? ' q-press' : ''}"${open}>
-    <span class="wx-stat-head"><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${icon}</span>${level}</span>
+    <span class="wx-stat-head"><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${glyph(GLYPH_OF[kind], { size: 18 })}</span>${levelHtml || levelTag(level, levelColor)}</span>
     <small>${title}</small>
-    <strong class="wx-stat-val">${value}</strong>
-    <span class="wx-stat-sub">${sub}</span>
+    <strong class="wx-stat-val">${e(big)}${unit ? `<small>${e(unit)}</small>` : ''}</strong>
+    <span class="wx-stat-sub">${e(sub)}</span>
     ${art}
   </${tag}>`;
 };
+// The same stat as one of the kit's panels (unit, level, sparkline and tap-to-graph all in the panel).
+const statPanel = ({ kind, key = '', title, big, unit = '', sub = '', art = '', level = '', levelColor = '' }) => ({
+  label: title,
+  big: String(big),
+  unit,
+  sub,
+  icon: glyph(GLYPH_OF[kind], { size: 18 }),
+  tint: levelColor && level ? `color-mix(in srgb, ${levelColor} 62%, var(--q-label))` : `var(--q-${TILE_COLOR[kind]})`,
+  level,
+  art,
+  ...(key ? { open: kind, data: { metric: kind, page: key } } : {})
+});
 
-export function rainTile(f, { now, key }) {
+export function rainStat(f, { now, key }) {
   const hours = hoursFrom(f, now);
-  if (!hours.length) return '';
+  if (!hours.length) return null;
   const next = hours.slice(0, 24);
-  return statCard({ kind: 'rain', key, icon: glyph('umbrella', { size: 18 }), title: W('降雨', 'Rain'), value: `${hours[0].pop ?? '–'}<small>%</small>`, sub: e(rainSummary(hours, f.tz, now, { short: true })), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) });
+  return { kind: 'rain', key, title: W('降雨', 'Rain'), big: `${hours[0].pop ?? '–'}`, unit: '%', sub: rainSummary(hours, f.tz, now, { short: true }), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) };
 }
-export function uvTile(f, { now, key }) {
+export function uvStat(f, { now, key }) {
   const hours = hoursFrom(f, now);
-  if (!hours.some(h => h.uv != null)) return '';
+  if (!hours.some(h => h.uv != null)) return null;
   const day = uvDays(f, now)[0];
   const list = (day?.hours || []).filter(h => h.uv != null);
   const peak = list.reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null);
   const nowUv = f.now?.uv ?? hours[0]?.uv;
   const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, day.date === dateOf(now, f.tz) ? `Peak ${peak.uv} at ${hourOf(peak.t, f.tz)}` : `${weekday(day.date)} peak ${peak.uv}`) : '';
-  return statCard({ kind: 'uv', key, icon: glyph('sun', { size: 18 }), title: W('紫外線', 'UV'), value: `${nowUv ?? '–'}`, level: levelTag(uvLevel(nowUv), uvColor(nowUv)), sub: e(sub), art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) });
+  return { kind: 'uv', key, title: W('紫外線', 'UV'), big: `${nowUv ?? '–'}`, level: uvLevel(nowUv), levelColor: uvColor(nowUv), sub, art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) };
 }
-export function airTile(f, { now, key }) {
+export function airStat(f, { now, key }) {
   const a = f.air;
-  if (!a) return '';
+  if (!a) return null;
   const cols = airCols(f, now);
-  return statCard({ kind: 'air', key, icon: glyph('air', { size: 18 }), title: W('空氣', 'Air'), value: `${a.aqi ?? '–'}`, level: levelTag(aqiLevel(a.level), aqiColor(a.aqi)), sub: e(`PM2.5 ${a.pm25 ?? '–'}`), art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) });
+  return { kind: 'air', key, title: W('空氣', 'Air'), big: `${a.aqi ?? '–'}`, level: aqiLevel(a.level), levelColor: aqiColor(a.aqi), sub: `PM2.5 ${a.pm25 ?? '–'}`, art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) };
 }
-export function metricCards(f, opts) {
+export const rainTile = (f, o) => { const s = rainStat(f, o); return s ? statCard(s) : ''; };
+export const uvTile = (f, o) => { const s = uvStat(f, o); return s ? statCard(s) : ''; };
+export const airTile = (f, o) => { const s = airStat(f, o); return s ? statCard(s) : ''; };
+export function metricStats(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
   const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
   const dew = n.dew ?? hoursFrom(f, opts.now)[0]?.dew;
-  const cards = [
-    rainTile(f, opts),
-    uvTile(f, opts),
-    airTile(f, opts),
-    hum != null ? statCard({ kind: 'humidity', icon: glyph('drop', { size: 18 }), title: W('濕度', 'Humidity'), value: `${Math.round(hum)}<small>%</small>`, sub: dew != null ? `${W('露點', 'Dew point')} ${deg(dew)}` : '' }) : '',
+  return [
+    rainStat(f, opts),
+    uvStat(f, opts),
+    airStat(f, opts),
+    hum != null ? { kind: 'humidity', title: W('濕度', 'Humidity'), big: `${Math.round(hum)}`, unit: '%', sub: dew != null ? `${W('露點', 'Dew point')} ${deg(dew)}` : '' } : null,
     w.speed != null
-      ? statCard({
+      ? {
           kind: 'wind',
-          icon: glyph('wind', { size: 18 }),
           title: W('風', 'Wind'),
-          value: `${Math.round(w.speed)}<small>km/h</small>`,
-          level: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
+          big: `${Math.round(w.speed)}`,
+          unit: 'km/h',
+          level: windDir(w.dir),
+          levelColor: 'var(--q-teal)',
+          levelHtml: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
           sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`
-        })
-      : ''
+        }
+      : null
   ].filter(Boolean);
-  return cards;
 }
+export const metricCards = (f, opts) => metricStats(f, opts).map(statCard);
 export function metricTiles(f, opts) {
   const cards = metricCards(f, opts);
   if (!cards.length) return '';
   return sec('wx-metrics-sec', W('指標', 'Conditions'), `<div class="q-rail wx-stats">${cards.join('')}</div>`);
 }
 // 今天's panel grid (Apple Weather's): the indicators and what else the forecast says, two to a row.
+// The kit's panelGrid (a kit from before its unit, level and sparkline slots: the app's own grid).
 export function panelGrid(f, opts) {
   const n = f.now || {};
   const d = today(f, opts.now);
-  const cards = metricCards(f, opts);
-  if (d?.sunrise && d?.sunset) cards.push(statCard({ kind: 'sun', icon: glyph('sunrise', { size: 18 }), title: W('日出', 'Sunrise'), value: clock(d.sunrise, f.tz), sub: `${W('日落', 'Sunset')} ${clock(d.sunset, f.tz)}` }));
-  if (n.feels != null) cards.push(statCard({ kind: 'feels', icon: glyph('thermo', { size: 18 }), title: W('體感', 'Feels like'), value: deg(n.feels), sub: n.temp != null ? (n.feels > n.temp + 1 ? W('比實際溫度悶熱', 'Warmer than the air') : n.feels < n.temp - 1 ? W('比實際溫度涼', 'Cooler than the air') : W('與實際溫度相近', 'About the air')) : '' }));
-  if (n.vis != null) cards.push(statCard({ kind: 'vis', icon: glyph('eye', { size: 18 }), title: W('能見度', 'Visibility'), value: `${n.vis}<small>${W('公里', 'km')}</small>`, sub: `${W('雲量', 'Cloud')} ${pct(n.cloud)}` }));
-  if (cards.length < 2) return '';
-  return sec('wx-panels-sec', W('今日數據', "Today's details"), `<div class="wx-panels">${cards.join('')}</div>`);
+  const stats = metricStats(f, opts);
+  if (d?.sunrise && d?.sunset) stats.push({ kind: 'sun', title: W('日出', 'Sunrise'), big: clock(d.sunrise, f.tz), sub: `${W('日落', 'Sunset')} ${clock(d.sunset, f.tz)}` });
+  if (n.feels != null) stats.push({ kind: 'feels', title: W('體感', 'Feels like'), big: deg(n.feels), sub: n.temp != null ? (n.feels > n.temp + 1 ? W('比實際溫度悶熱', 'Warmer than the air') : n.feels < n.temp - 1 ? W('比實際溫度涼', 'Cooler than the air') : W('與實際溫度相近', 'About the air')) : '' });
+  if (n.vis != null) stats.push({ kind: 'vis', title: W('能見度', 'Visibility'), big: `${n.vis}`, unit: W('公里', 'km'), sub: `${W('雲量', 'Cloud')} ${pct(n.cloud)}` });
+  if (stats.length < 2) return '';
+  const kit = kitUI.panelGridHtml?.(stats.map(statPanel));
+  const grid = kit && kit.includes('q-panel-art') && kit.includes('q-panel-u') ? kit : `<div class="wx-panels">${stats.map(statCard).join('')}</div>`;
+  return sec('wx-panels-sec', W('今日數據', "Today's details"), grid);
 }
 // 今天's places shelf: each place a card (its picture, name, temperature now); a tap goes there.
 export function placesShelf(rows) {

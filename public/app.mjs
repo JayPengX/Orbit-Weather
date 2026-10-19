@@ -748,9 +748,10 @@ document.addEventListener('click', ev => {
 
 // The sky and a place's row are role="button": Enter or space opens them too.
 document.addEventListener('keydown', ev => {
-  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day], [data-go-key]')) return;
+  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day], [data-go-key], .q-panel[data-metric]')) return;
   ev.preventDefault();
-  if (ev.target.dataset.goKey) choose(ev.target.dataset.goKey);
+  if (ev.target.dataset.metric) openMetric(ev.target.dataset.page, ev.target.dataset.metric);
+  else if (ev.target.dataset.goKey) choose(ev.target.dataset.goKey);
   else openDay(ev.target.dataset.page, ev.target.dataset.day);
 });
 

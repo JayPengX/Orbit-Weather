@@ -1397,3 +1397,10 @@ svg.ch {
 .wx-section .q-sh-more {
   margin-left: auto;
 }
+
+/* 今日數據 in the kit's panels: the sparkline sits beside the number and never takes its room. */
+.q-panels .q-panel-art { min-width: 0; }
+.q-panels .q-panel-art .wx-spark { width: 72px; height: 26px; }
+@media (max-width: 359px) {
+  .q-panels .q-panel-art .wx-spark { width: 52px; }
+}
