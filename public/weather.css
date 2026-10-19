@@ -9,6 +9,7 @@
   --q-accent: #3a7bf0;
 }
 body {
+  margin: 0;
   background: var(--q-page);
   color: var(--q-label);
 }
