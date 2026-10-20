@@ -226,7 +226,11 @@ async function loadPage(page, { force = false, naming = null } = {}) {
 }
 
 // A page's answer kept (a place's on the device, the network's guess on the page).
+// The first forecast drawn (a first opening's loading screen waits on it, not on GPS's finer fix).
+let firstIn;
+const firstForecast = new Promise(done => (firstIn = done));
 function take(page, cell, f) {
+  queueMicrotask(() => firstIn());
   if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
   else {
     // Where the network said: the page takes the forecast's own place.
@@ -904,8 +908,8 @@ async function boot() {
   if (!state.started) state.key = hashPin() ?? state.pages[0].key;
   render();
   // A first opening: the loading screen lifts when the first place's forecast
-  // is in (or after 4 s), not onto blank cards.
-  if (!used) await Promise.race([locate().catch(() => {}), new Promise(r => setTimeout(r, 4000))]);
+  // is in (or after 8 s: a phone's slow first fix and forecast), not onto blank cards.
+  if (!used) await Promise.race([firstForecast, locate().catch(() => {}), new Promise(r => setTimeout(r, 8000))]);
   show();
   pass.watch();
   pass.sync();
