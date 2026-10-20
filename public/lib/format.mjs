@@ -107,8 +107,6 @@ export function wearFor(feel) {
 // The day's feel when people are out: a third of the way from its coolest to its warmest.
 export const outFeel = (lo, hi) => lo + (hi - lo) / 3;
 
-export const escapeHtml = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
-
 // "5 分鐘前", for the data's age.
 export function ago(ms, now) {
   const m = Math.max(0, Math.round((now - ms) / 60_000));

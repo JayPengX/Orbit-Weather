@@ -4,14 +4,14 @@
 // metric's graph, all the advice). One truth: one value for each thing, no
 // sources named.
 
-import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
+import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { adviceEn } from './advice-en.mjs';
 import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
-import { segHtml } from '#kit/ui.mjs';
+import { segHtml, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
@@ -39,7 +39,7 @@ export function dayPop(f, d, now) {
 const readable = text => !en || !/[\u4e00-\u9fff]/.test(text);
 
 // The sky behind the top: by the weather now, day or night.
-export function skyOf(n) {
+function skyOf(n) {
   const c = String(n?.condition?.code || '').toUpperCase();
   const t = String(n?.condition?.text || '');
   const kind = /THUNDER/.test(c) || /雷/.test(t) ? 'storm' : /RAIN|SHOWER|DRIZZLE/.test(c) || /雨/.test(t) ? 'rain' : /PARTLY|MOSTLY_CLEAR|MOSTLY_SUNNY/.test(c) || /多雲/.test(t) ? 'part' : /CLOUDY|OVERCAST|FOG|HAZE/.test(c) || /陰|霧/.test(t) ? 'cloud' : 'clear';
@@ -84,7 +84,7 @@ export function placeName(page) {
 
 // A tab's head: its large title. The place's title
 // is a button: it opens 地點.
-export function headHtml(title, { place = false } = {}) {
+function headHtml(title, { place = false } = {}) {
   if (!place) return `<header class="q-page-head wx-head">${kitUI.navTitleHtml(title)}</header>`;
   return `<header class="q-page-head wx-head"><h1><button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button></h1></header>`;
 }
@@ -139,7 +139,7 @@ const sec = (cls, title, body, more = '') => `<section class="q-section wx-secti
 
 // The next 24 hours, every 3 hours: a rail of small cards under the day's
 // sentence. A card opens its day.
-export function hourStrip(f, { now, key }) {
+function hourStrip(f, { now, key }) {
   const hours = hoursFrom(f, now);
   const cols = [];
   for (let i = 0; i < 24 && i < hours.length; i += 3) cols.push(hours[i]);
@@ -176,16 +176,16 @@ export function hourStrip(f, { now, key }) {
 // midnight; from 18:00 it's 今晚, on to 07:00: the night and the way out in
 // the morning), 明天 (all of it), then the days ahead. UV's are the
 // daylight days ahead, named by their day.
-export const RANGES = {
+const RANGES = {
   uv: [['d0', ''], ['d1', ''], ['10d', W('10 天', '10 days')]],
   rain: [['d0', ''], ['d1', W('明天', 'Tomorrow')], ['10d', W('10 天', '10 days')]],
   air: [['d0', ''], ['d1', W('明天', 'Tomorrow')], ['days', W('每天', 'Daily')]]
 };
 export const rangeOf = (kind, ranges) => (RANGES[kind]?.some(([k]) => k === ranges?.[kind]) ? ranges[kind] : RANGES[kind]?.[0][0]);
 const evening = (now, tz) => hourOf(now, tz) >= 18;
-export const tonightName = (now, tz) => (evening(now, tz) ? W('今晚', 'Tonight') : W('今天', 'Today'));
+const tonightName = (now, tz) => (evening(now, tz) ? W('今晚', 'Tonight') : W('今天', 'Today'));
 // The hours of a day tab (`d0`, `d1`) out of a list of hours from now on.
-export function dayHours(list, range, tz, now) {
+function dayHours(list, range, tz, now) {
   const today = dateOf(now, tz);
   const tomorrow = dateOf(now + 86_400_000, tz);
   if (range === 'd1') return list.filter(h => dateOf(h.t, tz) === tomorrow);
@@ -242,7 +242,7 @@ export function colsFor(kind, f, now, range) {
   return [];
 }
 
-export function uvCard(f, { now, ranges }) {
+function uvCard(f, { now, ranges }) {
   const hours = hoursFrom(f, now);
   if (!hours.some(h => h.uv != null)) return '';
   const nowUv = f.now?.uv ?? hours[0]?.uv;
@@ -306,7 +306,7 @@ export function airCols(f, now) {
 }
 
 // The air's hours: its hourly forecast from now on (none where it has none).
-export const airHours = (f, now) => (f.air?.hourly || []).filter(h => h.t + HOUR > now && h.aqi != null);
+const airHours = (f, now) => (f.air?.hourly || []).filter(h => h.t + HOUR > now && h.aqi != null);
 
 export function airCard(f, { now, ranges }) {
   const a = f.air;
@@ -336,7 +336,7 @@ const SHOWN = 4;
 // do, and a tag when the level asks for attention (or says go).
 const KIND_COLOR = { umbrella: 'blue', commute: 'indigo', move: 'indigo', wear: 'orange', temp: 'orange', sun: 'orange', run: 'green', laundry: 'teal', sleep: 'indigo', window: 'mint', mask: 'red', heat: 'red', wind: 'teal', thunder: 'purple', fog: 'cyan', diff: 'purple', weekend: 'pink', humid: 'cyan', carwash: 'blue' };
 const LEVEL_TAG = { yes: ['orange', W('留意', 'Heads up')], hot: ['orange', W('留意', 'Heads up')], bad: ['orange', W('留意', 'Heads up')], maybe: ['blue', W('可能', 'Maybe')], good: ['green', W('適合', 'Good')] };
-export const lifeTile = ({ kind, level, title, text }) => {
+const lifeTile = ({ kind, level, title, text }) => {
   const tag = LEVEL_TAG[level];
   return `<div class="q-ritem wx-life lv-${e(level)} k-${e(kind)}"><span class="q-tile wx-life-icon" style="--t:var(--q-${KIND_COLOR[kind] || 'indigo'})">${glyph(ADVICE_GLYPH[kind] || 'bulb', { size: 22 })}</span><span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small>${e(text)}</small></span>${tag ? `<span class="q-tag ${tag[0]}">${tag[1]}</span>` : ''}</div>`;
 };
@@ -502,7 +502,6 @@ export function daySheet(f, date, { now, lat, lon }) {
 
 export function infoCard(f, { now, lat, lon, page }) {
   const n = f.now || {};
-  const w = n.wind || {};
   // (The hour now and three on, as the top reads them: an old copy's first hours are gone.)
   const [h0, , , h3] = hoursFrom(f, now);
   const date = dateOf(now, f.tz);
@@ -564,13 +563,13 @@ const statPanel = ({ kind, key = '', title, big, unit = '', sub = '', art = '', 
   ...(key ? { open: kind, data: { metric: kind, page: key } } : {})
 });
 
-export function rainStat(f, { now, key }) {
+function rainStat(f, { now, key }) {
   const hours = hoursFrom(f, now);
   if (!hours.length) return null;
   const next = hours.slice(0, 24);
   return { kind: 'rain', key, title: W('降雨', 'Rain'), big: `${hours[0].pop ?? '–'}`, unit: '%', sub: rainSummary(hours, f.tz, now, { short: true }), art: spark(next.map(h => h.pop), { max: 100, stops: RAIN_STOPS }) };
 }
-export function uvStat(f, { now, key }) {
+function uvStat(f, { now, key }) {
   const hours = hoursFrom(f, now);
   if (!hours.some(h => h.uv != null)) return null;
   const day = uvDays(f, now)[0];
@@ -580,13 +579,13 @@ export function uvStat(f, { now, key }) {
   const sub = peak ? W(`${day.date === dateOf(now, f.tz) ? '' : dayLabel(day.date, now, f.tz)}最高 ${peak.uv}・${hourOf(peak.t, f.tz)}時`, day.date === dateOf(now, f.tz) ? `Peak ${peak.uv} at ${hourOf(peak.t, f.tz)}` : `${weekday(day.date)} peak ${peak.uv}`) : '';
   return { kind: 'uv', key, title: W('紫外線', 'UV'), big: `${nowUv ?? '–'}`, level: uvLevel(nowUv), levelColor: uvColor(nowUv), sub, art: spark(list.map(h => h.uv), { max: 11, stops: UV_STOPS }) };
 }
-export function airStat(f, { now, key }) {
+function airStat(f, { now, key }) {
   const a = f.air;
   if (!a) return null;
   const cols = airCols(f, now);
   return { kind: 'air', key, title: W('空氣', 'Air'), big: `${a.aqi ?? '–'}`, level: aqiLevel(a.level), levelColor: aqiColor(a.aqi), sub: `PM2.5 ${a.pm25 ?? '–'}`, art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) };
 }
-export function metricStats(f, opts) {
+function metricStats(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
   const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
@@ -610,15 +609,15 @@ export function metricStats(f, opts) {
       : null
   ].filter(Boolean);
 }
-export const metricCards = (f, opts) => metricStats(f, opts).map(statCard);
-export function metricTiles(f, opts) {
+const metricCards = (f, opts) => metricStats(f, opts).map(statCard);
+function metricTiles(f, opts) {
   const cards = metricCards(f, opts);
   if (!cards.length) return '';
   return sec('wx-metrics-sec', W('指標', 'Conditions'), `<div class="q-rail wx-stats">${cards.join('')}</div>`);
 }
 // 今天's panel grid (Apple Weather's): the indicators and what else the forecast says, two to a row.
 // The kit's panelGrid.
-export function panelGrid(f, opts) {
+function panelGrid(f, opts) {
   const n = f.now || {};
   const d = today(f, opts.now);
   const stats = metricStats(f, opts);
@@ -635,7 +634,7 @@ export function placesShelf(rows) {
   return sec('wx-places-sec', W('我的地點', 'My places'), `<div class="q-rail wx-pcards">${rows.map(card).join('')}</div>`, `<button class="q-sh-more" type="button" data-act="places">${W('全部', 'All')}</button>`);
 }
 // The sheet a metric opens: its big graph, tabs and read-out.
-export const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
+const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
 export function metricSheet(kind, f, opts) {
   const body = { rain: rainCard, uv: uvCard, air: airCard }[kind]?.(f, opts) || '';
   return `<div class="q-sheet-head"><h2><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${glyph({ rain: 'umbrella', uv: 'sun', air: 'air' }[kind], { size: 18 })}</span>${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>${body}`;
@@ -652,7 +651,7 @@ const waiting = (cls, n) => `<section class="q-section wx-section wx-skel ${cls}
 // Which of the owner's cards go where: 建議 on 今天, 指標 and the days on
 // 預報 (in the kept order), 更多資訊 in today's sheet. 我的行程: what
 // matters on the move (no 更多資訊), all shown.
-export const shownCards = (page, cards = DEFAULT_CARDS, hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
+const shownCards = (page, cards = DEFAULT_CARDS, hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
 const DEFAULT_CARDS = ['metrics', 'advice', 'days', 'info'];
 
 // 今天: the head (the place), the sky, the next hours, the advice.

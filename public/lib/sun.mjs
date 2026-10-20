@@ -22,10 +22,3 @@ export function sunTimes(date, lat, lon) {
 
 // The golden hours: the hour after sunrise and the hour before sunset.
 export const goldenHours = ({ sunrise, sunset }) => ({ morning: [sunrise, sunrise + 3_600_000], evening: [sunset - 3_600_000, sunset] });
-
-// How far through the day the sun is now (0 at sunrise, 1 at sunset), or
-// null at night.
-export function sunProgress({ sunrise, sunset }, now) {
-  if (!(now >= sunrise && now <= sunset)) return null;
-  return (now - sunrise) / (sunset - sunrise);
-}

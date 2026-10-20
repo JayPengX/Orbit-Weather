@@ -8,7 +8,7 @@ import { RAIN_YES, RAIN_MAYBE } from './format.mjs';
 
 const HOUR = 3_600_000;
 const FIVE = 300_000;
-export const SOON_MS = 2 * HOUR;
+const SOON_MS = 2 * HOUR;
 // A copy older than this isn't "now" (cards.mjs OLD_MS says the same).
 const FRESH_FOR = 30 * 60_000;
 

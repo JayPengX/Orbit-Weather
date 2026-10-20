@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { realpathSync, existsSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
 const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
-import { nowHtml, weekHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard, colsFor } from '../public/lib/cards.mjs';
+import { nowHtml, weekHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard } from '../public/lib/cards.mjs';
 import { readout } from '../public/lib/graph.mjs';
 import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText, hereNote } from '../public/lib/format.mjs';
 import { cleanPin, mergeData, emptyData, encodeData, decodeData } from '../public/lib/pins.mjs';

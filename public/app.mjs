@@ -4,18 +4,18 @@
 // the app current, and sends the notices.
 
 import { quadraSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
-import { settleSegs } from '#kit/ui.mjs';
+import { settleSegs, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 useHolidays(date => Boolean(twHoliday(date)));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
-import { escapeHtml as e, dateOf, staleText, hereNote } from './lib/format.mjs';
+import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';

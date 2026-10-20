@@ -11,7 +11,7 @@ import { W, en } from '#kit/lang.mjs';
 const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';
 
-export const placeKey = pin => (pin ? pin.id : 'here');
+const placeKey = pin => (pin ? pin.id : 'here');
 // Where you are at `t`: the pins' plan, except while the device says you're
 // somewhere else (`live.until`: the hours it's taken as true), then here.
 // A plan says where you usually are; the phone says where you are.
@@ -60,7 +60,7 @@ const minBy = (hs, k) => known(hs).reduce((a, h) => (h[k] != null && (a == null 
 const feel = h => h?.feels ?? h?.temp ?? null;
 
 // A stay in a line: its hours' temperatures, the wettest hour, the UV peak.
-export function stayFacts(seg) {
+function stayFacts(seg) {
   const hs = known(seg.hours);
   return { hi: maxBy(hs, 'temp')?.temp ?? null, lo: minBy(hs, 'temp')?.temp ?? null, wet: maxBy(hs, 'pop'), uv: maxBy(hs, 'uv'), loaded: hs.length > 0 };
 }

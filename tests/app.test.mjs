@@ -6,7 +6,7 @@ import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData,
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
-import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind, escapeHtml } from '../public/lib/format.mjs';
+import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
 
 import { H, tpe, NOW, hours, forecast } from './fixture.mjs';
@@ -177,7 +177,7 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.equal((html.match(/class="wx-spark"/g) || []).length, 6);
   assert.ok(order.every(i => i >= 0), JSON.stringify(order));
   assert.ok(order.every((x, i) => !i || order[i - 1] < x), 'in the asked order');
-  assert.match(html, /信義區&lt;b&gt;/);
+  assert.match(html, /信義區&#60;b&#62;/);
   assert.ok(!html.includes('西村里'), 'no 村里 anywhere');
   assert.match(html, /最高 <b>30°<\/b>[^]*最低 <b>23°<\/b>/);
   assert.match(html, /體感 <b>27°<\/b>/);
@@ -303,7 +303,6 @@ test('labels in Taipei time and Taiwan levels; the sun worked out', () => {
   assert.deepEqual([0, 3, 6, 8, 11].map(uvLevel), ['低', '中', '高', '過量', '危險']);
   assert.equal(windDir(71), '東風');
   assert.equal(conditionKind('CLEAR', '', false), 'clear-night');
-  assert.equal(escapeHtml('<a>'), '&lt;a&gt;');
   const s = sunTimes('2026-10-03', 25.034, 121.565);
   assert.ok(Math.abs(s.sunrise - 1790977588378) < 3 * 60_000);
 });

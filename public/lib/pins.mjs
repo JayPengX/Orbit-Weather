@@ -90,9 +90,9 @@ export function scheduleText(pin) {
 // back; the cards' order and the hidden ones from the newer copy).
 
 // The cards under the top, in the owner's order; `hidden` ones left out.
-export const CARDS = { metrics: W('天氣指標（降雨・紫外線・空氣）', 'Conditions'), advice: W('建議', 'Advice'), days: W('10 天預報', 'Forecast'), info: W('更多資訊', 'Details') };
+const CARDS = { metrics: W('天氣指標（降雨・紫外線・空氣）', 'Conditions'), advice: W('建議', 'Advice'), days: W('10 天預報', 'Forecast'), info: W('更多資訊', 'Details') };
 export const DEFAULT_LAYOUT = Object.keys(CARDS);
-export function cleanLayout(cards, hidden) {
+function cleanLayout(cards, hidden) {
   const known = (Array.isArray(cards) ? cards : []).filter(k => CARDS[k]);
   const order = [...new Set([...known, ...DEFAULT_LAYOUT])];
   return { cards: order, hidden: [...new Set((Array.isArray(hidden) ? hidden : []).filter(k => CARDS[k]))] };

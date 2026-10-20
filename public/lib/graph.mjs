@@ -10,7 +10,8 @@
 // and down) — and shows the column's numbers above.
 
 import { glyph } from './icons.mjs';
-import { clock, hourOf, dateOf, shortDate, weekday, escapeHtml as e, conditionText, aqiName } from './format.mjs';
+import { clock, hourOf, dateOf, shortDate, weekday, conditionText, aqiName } from './format.mjs';
+import { escHtml as e } from '#kit/ui.mjs';
 import { W } from '#kit/lang.mjs';
 
 export const CHART_W = 340;
@@ -19,7 +20,6 @@ const TOP = 26;
 const PH = 150;
 const BASE = TOP + PH;
 export const PLOT_BOTTOM = BASE;
-export const CHART_H = BASE + 42;
 const r1 = v => Math.round(v * 10) / 10;
 
 export const UV_STOPS = [[0, '#4caf50'], [3, '#f5c518'], [6, '#ff8c1a'], [8, '#e53935'], [11, '#8e24aa']];
@@ -45,7 +45,7 @@ export function smooth(pts, top = TOP, base = BASE) {
 let made = 0;
 // Every graph's frame: the plot PLOT_W wide, its scale in a gutter on the
 // right (so no number sits on a line), the times under it.
-export const PLOT_W = CHART_W - 30;
+const PLOT_W = CHART_W - 30;
 const mix = (a, b, t) => `#${[0, 2, 4].map(k => Math.round(parseInt(a.slice(1 + k, 3 + k), 16) * (1 - t) + parseInt(b.slice(1 + k, 3 + k), 16) * t).toString(16).padStart(2, '0')).join('')}`;
 // The colour at a value, blended between the stops around it.
 const colourAt = (stops, v) => {
@@ -221,8 +221,8 @@ export function uvGraph(cols, { tz, now = Date.now(), daily = false } = {}) {
 // 40% of the height); or the 10 days as bars. Hours that stay dry (under
 // 10%, no amount) get no graph, only the words (`dryNote`).
 const RAIN_TICKS = [[50, '50%'], [100, '100%']];
-export const isDry = hours => !hours.some(h => h.pop >= 10 || h.mm >= 0.1);
-export const dryNote = hours => {
+const isDry = hours => !hours.some(h => h.pop >= 10 || h.mm >= 0.1);
+const dryNote = hours => {
   const top = Math.max(0, ...hours.map(h => h.pop ?? 0));
   return top ? W(`最高 ${top}%`, `peak ${top}%`) : W('不會下雨', 'no rain');
 };
