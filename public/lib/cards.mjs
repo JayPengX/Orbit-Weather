@@ -588,6 +588,8 @@ function airStat(f, { now, key }) {
 function metricStats(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
+  // (Under the title Wind, its direction alone: "SE", not "SE wind".)
+  const dir = windDir(w.dir).replace(/ wind$/, '');
   const hum = n.humidity ?? hoursFrom(f, opts.now)[0]?.humidity;
   const dew = n.dew ?? hoursFrom(f, opts.now)[0]?.dew;
   return [
@@ -601,9 +603,9 @@ function metricStats(f, opts) {
           title: W('風', 'Wind'),
           big: `${Math.round(w.speed)}`,
           unit: 'km/h',
-          level: windDir(w.dir),
+          level: dir,
           levelColor: 'var(--q-teal)',
-          levelHtml: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(windDir(w.dir))}</span>`,
+          levelHtml: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(dir)}</span>`,
           sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`
         }
       : null

@@ -7,8 +7,16 @@ const TZ = 'Asia/Taipei';
 export const pad = n => String(n).padStart(2, '0');
 
 // "HH:MM" in the forecast's time zone.
+// (Each formatter made once per zone: making one costs more than a thousand uses, and a forecast asks thousands of times.)
+const FORMATS = new Map();
+const format = (kind, tz, opts) => {
+  const key = `${kind}|${tz}`;
+  let f = FORMATS.get(key);
+  if (!f) FORMATS.set(key, (f = new Intl.DateTimeFormat(kind === 'clock' ? 'en-GB' : 'en-CA', { timeZone: tz, ...opts })));
+  return f;
+};
 export function clock(ms, tz = TZ) {
-  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+  const parts = format('clock', tz, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
   const get = t => parts.find(p => p.type === t)?.value;
   return `${get('hour')}:${get('minute')}`;
 }
@@ -16,7 +24,7 @@ export const hourOf = (ms, tz = TZ) => Number(clock(ms, tz).slice(0, 2));
 
 // "YYYY-MM-DD" in the forecast's time zone.
 export function dateOf(ms, tz = TZ) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+  return format('date', tz, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
 }
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
