@@ -868,7 +868,7 @@ window.addEventListener('hashchange', () => {
 window.__fxStarted = true;
 document.body.insertAdjacentHTML('afterbegin', ICON_DEFS);
 const gated = installGate('weather', 'zh');
-watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-', busy: () => Boolean(document.querySelector('dialog[open]')) });
+watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-' });
 topActions(q, { refresh: () => (state.tab === 'places' ? state.pages.filter(p => !p.plan).forEach(p => loadPage(p, { force: true })) : loadPage(current(), { force: true })) });
 
 async function boot() {
