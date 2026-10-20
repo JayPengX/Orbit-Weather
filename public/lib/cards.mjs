@@ -5,7 +5,7 @@
 // sources named.
 
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, windDir, beaufort, moonName, escapeHtml as e, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText, staleText } from './format.mjs';
-import { W, en } from './lang.mjs';
+import { W, en } from '#kit/lang.mjs';
 import { adviceEn } from './advice-en.mjs';
 import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
@@ -85,9 +85,8 @@ export function placeName(page) {
 // A tab's head: its large title. The place's title
 // is a button: it opens 地點.
 export function headHtml(title, { place = false } = {}) {
-  const h1 = !place && kitUI.navTitleHtml ? '' : place ? `<button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button>` : e(title);
-  if (!place && kitUI.navTitleHtml) return `<header class="q-page-head wx-head">${kitUI.navTitleHtml(title)}</header>`;
-  return `<header class="q-page-head wx-head"><h1>${h1}</h1></header>`;
+  if (!place) return `<header class="q-page-head wx-head">${kitUI.navTitleHtml(title)}</header>`;
+  return `<header class="q-page-head wx-head"><h1><button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button></h1></header>`;
 }
 
 // The sky: where (the county, or the pin's place), now, the day's high and
@@ -587,9 +586,6 @@ export function airStat(f, { now, key }) {
   const cols = airCols(f, now);
   return { kind: 'air', key, title: W('空氣', 'Air'), big: `${a.aqi ?? '–'}`, level: aqiLevel(a.level), levelColor: aqiColor(a.aqi), sub: `PM2.5 ${a.pm25 ?? '–'}`, art: spark(cols.map(c => c.aqi), { max: 150, stops: AQI_STOPS, bars: true }) };
 }
-export const rainTile = (f, o) => { const s = rainStat(f, o); return s ? statCard(s) : ''; };
-export const uvTile = (f, o) => { const s = uvStat(f, o); return s ? statCard(s) : ''; };
-export const airTile = (f, o) => { const s = airStat(f, o); return s ? statCard(s) : ''; };
 export function metricStats(f, opts) {
   const n = f.now || {};
   const w = n.wind || {};
@@ -621,7 +617,7 @@ export function metricTiles(f, opts) {
   return sec('wx-metrics-sec', W('指標', 'Conditions'), `<div class="q-rail wx-stats">${cards.join('')}</div>`);
 }
 // 今天's panel grid (Apple Weather's): the indicators and what else the forecast says, two to a row.
-// The kit's panelGrid (a kit from before its unit, level and sparkline slots: the app's own grid).
+// The kit's panelGrid.
 export function panelGrid(f, opts) {
   const n = f.now || {};
   const d = today(f, opts.now);
@@ -630,9 +626,7 @@ export function panelGrid(f, opts) {
   if (n.feels != null) stats.push({ kind: 'feels', title: W('體感', 'Feels like'), big: deg(n.feels), sub: n.temp != null ? (n.feels > n.temp + 1 ? W('比實際溫度悶熱', 'Warmer than the air') : n.feels < n.temp - 1 ? W('比實際溫度涼', 'Cooler than the air') : W('與實際溫度相近', 'About the air')) : '' });
   if (n.vis != null) stats.push({ kind: 'vis', title: W('能見度', 'Visibility'), big: `${n.vis}`, unit: W('公里', 'km'), sub: `${W('雲量', 'Cloud')} ${pct(n.cloud)}` });
   if (stats.length < 2) return '';
-  const kit = kitUI.panelGridHtml?.(stats.map(statPanel));
-  const grid = kit && kit.includes('q-panel-art') && kit.includes('q-panel-u') ? kit : `<div class="wx-panels">${stats.map(statCard).join('')}</div>`;
-  return sec('wx-panels-sec', W('今日數據', "Today's details"), grid);
+  return sec('wx-panels-sec', W('今日數據', "Today's details"), kitUI.panelGridHtml(stats.map(statPanel)));
 }
 // 今天's places shelf: each place a card (its picture, name, temperature now); a tap goes there.
 export function placesShelf(rows) {
@@ -652,8 +646,7 @@ export function metricSheet(kind, f, opts) {
 // Before the forecast: each tab's own shape, shimmering (the numbers take
 // their places as they come, nothing moves); a failure says so.
 const skelRail = (n, cls) => `<div class="q-rail ${cls}" aria-hidden="true">${Array.from({ length: n }, () => '<span class="wx-skel-card"><i class="sk sk-ic"></i><i class="sk sk-h"></i><i class="sk sk-line short"></i></span>').join('')}</div>`;
-const retryHtml = page => kitUI.emptyHtml?.({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } });
-const failed = page => retryHtml(page) ?? `<section class="q-rowcard wx-empty"><p>${e(page.error)}</p><button class="q-btn tinted" type="button" data-act="retry" data-page="${e(page.key)}">${W('再試一次', 'Try again')}</button></section>`;
+const failed = page => kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } });
 const waiting = (cls, n) => `<section class="q-section wx-section wx-skel ${cls}" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="q-section-head"><i class="sk sk-head"></i></div>${skelRail(n, cls === 'wx-hours' ? 'wx-rail' : 'wx-stats')}</section>`;
 
 // Which of the owner's cards go where: 建議 on 今天, 指標 and the days on
@@ -699,6 +692,6 @@ export function placesHtml(rows, { brief, editing = false, canAdd = true } = {})
       <label class="q-ritem wx-brief"><span class="q-tile" style="--t:var(--q-orange)">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="q-tile" style="--t:var(--q-indigo)">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
     </div>`;
-  const head = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml?.(W('地點', 'Places')) ?? `<h1>${W('地點', 'Places')}</h1>`}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
+  const head = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml(W('地點', 'Places'))}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
   return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);
 }

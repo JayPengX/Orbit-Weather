@@ -1,6 +1,6 @@
 // Labels, colours and icons: everything the screen says about a number.
 
-import { W, en } from './lang.mjs';
+import { W, en } from '#kit/lang.mjs';
 
 const TZ = 'Asia/Taipei';
 

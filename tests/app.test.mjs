@@ -313,8 +313,6 @@ test('the cards: the owner\'s order and the hidden ones, kept on the pass, the n
   const back = decodeData(encodeData(d));
   assert.deepEqual(back.cards, ['days', 'metrics', 'advice', 'info'], 'unknown dropped, missing ones added at the end');
   assert.deepEqual(back.hidden, ['info']);
-  // An old payload: the rain / UV / air cards are the metrics, where the first stood.
-  assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {}, cards: ['advice', 'uv', 'rain', 'air', 'days', 'info'] })).cards, ['advice', 'metrics', 'days', 'info']);
   assert.deepEqual(decodeData('w1:' + JSON.stringify({ pins: [], brief: '06:30', t: 1, gone: {} })).cards, ['metrics', 'advice', 'days', 'info']);
   const older = { ...emptyData(), t: 1 };
   assert.deepEqual(mergeData(older, back).cards, back.cards);

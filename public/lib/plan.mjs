@@ -6,7 +6,7 @@
 
 import { placeAt } from './pins.mjs';
 import { clock, hourOf, dateOf, dayLabel, rainLevel, wearFor, outFeel } from './format.mjs';
-import { W, en } from './lang.mjs';
+import { W, en } from '#kit/lang.mjs';
 
 const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';

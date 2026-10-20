@@ -11,7 +11,7 @@
 
 import { glyph } from './icons.mjs';
 import { clock, hourOf, dateOf, shortDate, weekday, escapeHtml as e, conditionText, aqiName } from './format.mjs';
-import { W } from './lang.mjs';
+import { W } from '#kit/lang.mjs';
 
 export const CHART_W = 340;
 const HOUR = 3_600_000;

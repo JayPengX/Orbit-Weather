@@ -6,16 +6,17 @@
 import { quadraSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
 import { settleSegs } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
+import { passSync } from '#kit/pass-sync.mjs';
+import { twHoliday } from '#kit/holidays.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, FRESH_MS, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
-// is off on a holiday from the first screen (an older kit: none, at once).
-const holidays = await Promise.race([import('#kit/holidays.mjs').catch(() => null), new Promise(r => setTimeout(r, 1500, null))]);
-if (holidays?.twHoliday) useHolidays(date => Boolean(holidays.twHoliday(date)));
+// is off on a holiday from the first screen.
+useHolidays(date => Boolean(twHoliday(date)));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
 import { escapeHtml as e, dateOf, staleText, hereNote } from './lib/format.mjs';
-import { W, en, lang } from './lib/lang.mjs';
+import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
 
@@ -154,10 +155,10 @@ function render() {
   const sig = viewSig(page);
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
-  if (state.tab === 'places') return void ((panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 })), kitUI.wireNavTitles?.(panel));
+  if (state.tab === 'places') return void ((panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 })), kitUI.wireNavTitles(panel));
   const opts = { now, cards: state.data.cards, hidden: state.data.hidden, places: placeRows(page) };
   panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
-  kitUI.wireNavTitles?.(panel);
+  kitUI.wireNavTitles(panel);
 }
 
 // 地點's rows: each place's picture and colour, what it is, its temperature now.
@@ -368,8 +369,6 @@ const keepData = () => {
   state.local.data = encodeData(state.data);
   saveLocal(state.local);
 };
-// The kit's shared Pass sync (an older kit without it: this device's pins stay on this device).
-const passSync = (await import('#kit/pass-sync.mjs').catch(() => null))?.passSync ?? (() => ({ first: async () => {}, watch() {}, sync() {}, push() {}, keep() {}, changed() {} }));
 const pass = passSync(q, {
   decode: decodeData,
   encode: () => encodeData(state.data),
@@ -456,7 +455,7 @@ async function pinSheet(pin = null) {
     if (!text) return (list.innerHTML = '');
     places ||= await fetchPlaces().catch(() => []);
     const rows = places.filter(([c, t]) => (c + t).includes(text)).slice(0, 30);
-    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || (kitUI.emptyHtml?.({ title: W('找不到這個地區', 'No district found') }) ?? `<p class="q-cell wx-none">${W('找不到這個地區', 'No district found')}</p>`);
+    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || kitUI.emptyHtml({ title: W('找不到這個地區', 'No district found') });
   });
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');

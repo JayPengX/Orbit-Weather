@@ -3,7 +3,7 @@
 // pin's hours shows that pin; any other time, the current location.
 // Saved on the Quadra Pass (the app's payload), newest wins.
 
-import { W, en } from './lang.mjs';
+import { W, en } from '#kit/lang.mjs';
 
 export const MAX_PINS = 8;
 const DAY_MS = 86_400_000;
@@ -92,10 +92,8 @@ export function scheduleText(pin) {
 // The cards under the top, in the owner's order; `hidden` ones left out.
 export const CARDS = { metrics: W('天氣指標（降雨・紫外線・空氣）', 'Conditions'), advice: W('建議', 'Advice'), days: W('10 天預報', 'Forecast'), info: W('更多資訊', 'Details') };
 export const DEFAULT_LAYOUT = Object.keys(CARDS);
-// (The old separate rain / UV / air cards are the metrics now, where the first stood.)
-const OLD = { uv: 'metrics', rain: 'metrics', air: 'metrics' };
 export function cleanLayout(cards, hidden) {
-  const known = (Array.isArray(cards) ? cards : []).map(k => OLD[k] || k).filter(k => CARDS[k]);
+  const known = (Array.isArray(cards) ? cards : []).filter(k => CARDS[k]);
   const order = [...new Set([...known, ...DEFAULT_LAYOUT])];
   return { cards: order, hidden: [...new Set((Array.isArray(hidden) ? hidden : []).filter(k => CARDS[k]))] };
 }

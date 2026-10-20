@@ -28,7 +28,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
   on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
   newest). The Pass's copy is read again before a write whenever another
-  device may have written (`lib/pass-sync.mjs`), and a copy that can't be
+  device may have written (the kit's `pass-sync.mjs`), and a copy that can't be
   read is never written over.
 - **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll
   be then (from the pins; the phone's real position wins). A school pin is
@@ -58,8 +58,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
 | `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
-| `public/lib/lang.mjs`, `advice-en.mjs` | English; the proxy's advice turned over |
-| `public/lib/pass-sync.mjs` | Keeping the pins in step with the Pass (the same file as Orbit Words') |
+| `public/lib/advice-en.mjs` | English (words from the kit's `lang.mjs`); the proxy's advice turned over |
 | `public/sw.js` | Offline and notices |
 
 The proxy's reads: `GET /weather?lat=&lon=` (the blend for a ~1 km cell,

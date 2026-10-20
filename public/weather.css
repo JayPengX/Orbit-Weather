@@ -68,20 +68,6 @@ body {
   opacity: 0.6;
 }
 
-/* Something that couldn't load: said, with a retry. */
-.wx-empty {
-  display: grid;
-  justify-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 28px 16px;
-  color: var(--q-label-2);
-  text-align: center;
-}
-.wx-empty p {
-  margin: 0;
-}
-
 /* ==== 今天: the sky ==== */
 .wx-hero {
   --sky-glow: rgba(255, 255, 255, 0.26);
@@ -1060,10 +1046,6 @@ button.wx-stat {
 .wx-list:empty {
   display: none;
 }
-.wx-none {
-  margin: 0;
-  color: var(--q-label-2);
-}
 .wx-actions {
   display: grid;
   grid-auto-flow: column;
@@ -1349,18 +1331,7 @@ svg.ch {
   }
 }
 
-/* ==== 今天 (round 4): the panel grid and the places shelf ==== */
-.wx-panels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.wx-panels .wx-stat {
-  width: auto;
-  min-width: 0;
-  min-height: 132px;
-  border-radius: 22px;
-}
+/* ==== 今天 (round 4): the places shelf ==== */
 .wx-pcards {
   --q-rail-w: 112px;
 }

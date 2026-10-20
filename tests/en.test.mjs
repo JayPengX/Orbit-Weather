@@ -10,7 +10,7 @@ const any = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPri
 globalThis.document = any();
 globalThis.localStorage = { getItem: k => (k === 'quadra.lang' ? 'en' : null), setItem() {}, removeItem() {} };
 
-const { en } = await import('../public/lib/lang.mjs');
+const { en } = await import('#kit/lang.mjs');
 const { nowHtml, weekHtml, adviceCards } = await import('../public/lib/cards.mjs');
 const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
 const { routeForecast } = await import('../public/lib/plan.mjs');
