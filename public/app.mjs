@@ -214,7 +214,7 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     if (f.more || f.refreshing) follow(page, cell, rest);
     else page.mores = 0;
   } catch (err) {
-    page.error = err.status === 429 ? W('請求太頻繁，請稍候再試。', 'Too many requests. Try again shortly.') : W('暫時無法取得天氣，請檢查網路。', 'Can’t get the weather right now. Check your connection.');
+    page.error = err.status === 429 ? W('請求太頻繁，請稍候再試。', 'Too many requests. Try again shortly.') : globalThis.navigator?.onLine === false ? W('沒有網路連線，連上後再試。', 'No internet connection. Try again once you’re back.') : W('暫時無法取得天氣，請稍後再試。', 'Can’t get the weather right now. Try again shortly.');
   } finally {
     page.loading = false;
     if (page.again) {
