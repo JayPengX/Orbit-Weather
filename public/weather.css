@@ -525,6 +525,10 @@ body {
 .wx-dayoff > .q-tag {
   justify-self: end;
 }
+/* (A notice: its tag beside the place, its day and hour the row's whole width.) */
+.wx-dayoff-note {
+  grid-template-areas: 'tile title tag' 'tile text text';
+}
 
 /* ==== 預報: the indicators, a rail of stat cards ==== */
 .wx-stats {

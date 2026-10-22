@@ -140,21 +140,66 @@ export function heroHtml(f, { page, now }) {
 // in question (today until 10:00, then tomorrow) with what it rests on.
 const OFF_TAG = { all: ['red', W('停班停課', 'Closed')], class: ['red', W('停課', 'No school')], work: ['red', W('停班', 'No work')], wait: ['', W('未公布', 'Pending')] };
 const CLOSED = new Set(['all', 'class', 'work']);
-// The official words in English: their few phrases turned over, place names kept.
-const offEn = t => t.replace(/[:：]\s*/g, ': ').replace(/今天|今日/g, 'Today ').replace(/明天|明日/g, 'Tomorrow ').replace(/下午/g, 'afternoon ').replace(/晚上/g, 'evening ').replace(/停止上班、停止上課/g, 'offices and schools closed').replace(/照常上班、照常上課/g, 'open as usual').replace(/停止上課/g, 'schools closed').replace(/停止上班/g, 'offices closed').replace(/照常上班/g, 'offices open').replace(/照常上課/g, 'schools open').replace(/尚未宣布消息/g, 'not announced yet').replace(/尚未列入警戒區/g, 'not in the warning area').replace(/已達停止上班及上課標準/g, 'offices and schools closed').replace(/未達停止上班及上課標準/g, 'open as usual').replace(/\s+/g, ' ').trim();
 const chanceColor = p => (p >= 60 ? 'red' : p >= 30 ? 'orange' : 'green');
+// A notice's place, short (尖石鄉玉峰國民小學 → 尖石鄉 玉峰國小; '' for the
+// whole county), and its day and hour (今天下午04:00起 → 今天 16:00 起).
+const shortPlace = p =>
+  p
+    .replace(/國民小學/g, '國小')
+    .replace(/國民中學/g, '國中')
+    .replace(/高級中等學校|高級中學/g, '高中')
+    .replace(/^(.{1,3}?[鄉鎮市區])(?=.)/, '$1 ')
+    .trim();
+export function offNote(l) {
+  const m = /^([^\d\s:：][^:：]{0,40})[:：]\s*([\s\S]*)$/.exec(l.text);
+  const place = m ? shortPlace(m[1]) : '';
+  const rest = m ? m[2] : l.text;
+  const w = /^(今天|今日|明天|明日)?\s*(上午|中午|下午|晚上)?\s*(\d{1,2})?[:：時]?(\d{2})?\s*(起)?/.exec(rest) || [];
+  const day = /明/.test(w[1] || '') ? W('明天', 'Tomorrow') : w[1] ? W('今天', 'Today') : '';
+  let hour = '';
+  if (w[3] != null) {
+    let h = Number(w[3]);
+    if (/下午|晚上/.test(w[2] || '') && h < 12) h += 12;
+    hour = `${String(h).padStart(2, '0')}:${w[4] || '00'}`;
+  }
+  const when = hour ? `${day ? `${day} ` : ''}${W(`${hour} 起`, `from ${hour}`)}` : W(`${day}${w[2] || ''}`, [day, { 上午: 'morning', 中午: 'noon', 下午: 'afternoon', 晚上: 'evening' }[w[2]]].filter(Boolean).join(' '));
+  return { place, when, off: l.off, hour, day: /明/.test(w[1] || '') ? 'tomorrow' : w[1] ? 'today' : '' };
+}
+// Notices grouped by place (first seen first), each group's tag its most closed notice.
+const OFF_RANK = { all: 4, class: 3, work: 3, open: 1, wait: 0 };
+export function offGroups(lines) {
+  const by = new Map();
+  for (const l of lines || []) {
+    const n = offNote(l);
+    const g = by.get(n.place) || { place: n.place, notes: [], off: n.off };
+    g.notes.push(n);
+    if ((OFF_RANK[n.off] ?? 1) > (OFF_RANK[g.off] ?? 1)) g.off = n.off;
+    by.set(n.place, g);
+  }
+  return [...by.values()];
+}
 export function dayOffSec(f, now) {
   const d = f?.dayOff;
   // (An old copy's, or a day gone by: not shown.)
   if (!d || !f.at || now - f.at > 3 * HOUR || d.date < dateOf(now, f.tz)) return '';
   const storm = en ? `Typhoon ${d.nameEn ? d.nameEn[0] + d.nameEn.slice(1).toLowerCase() : ''}`.trim() : `颱風${d.name ? ` ${d.name}` : ''}`;
   const tile = color => `<span class="q-tile wx-life-icon" style="--t:var(--q-${color})">${glyph('typhoon', { size: 22 })}</span>`;
+  // One row a place (its notices together): the place, short, as the title;
+  // each notice's day and hour, and when it was announced, under it.
   const said = (o, n = 3) => {
-    const at = o.at ? `${W('已公布', 'Announced')} ${clock(o.at, f.tz)}` : W('已公布', 'Announced');
-    return o.lines.slice(0, n).map((l, i) => {
-      const tag = OFF_TAG[l.off] || ['green', W('照常', 'Open')];
-      return `<div class="q-ritem wx-life wx-dayoff">${tile(CLOSED.has(l.off) ? 'red' : l.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title q-fit">${e(en ? offEn(l.text) : l.text)}</span>${i === 0 ? `<small>${e(at)}</small>` : ''}</span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
-    });
+    const at = o.at ? clock(o.at, f.tz) : '';
+    return offGroups(o.lines)
+      .slice(0, n)
+      .map(g => {
+        const tag = OFF_TAG[g.off] || ['green', W('照常', 'Open')];
+        const mixed = new Set(g.notes.map(x => x.off)).size > 1;
+        // (Today from an hour, then tomorrow, alike: one stretch, 16:00 起至明天.)
+        const run = !mixed && g.notes.length === 2 && g.notes[0].hour && g.notes[0].day === 'today' && g.notes[1].day === 'tomorrow' && !g.notes[1].hour;
+        const when = run ? [W(`${g.notes[0].hour} 至明天`, `${g.notes[0].hour} to tomorrow`)] : g.notes.map(x => [x.when, mixed ? (OFF_TAG[x.off] || ['', W('照常', 'Open')])[1] : ''].filter(Boolean).join(' ')).filter(Boolean);
+        const sub = [when.join(W('、', ', ')), at ? W(`${at} 公布`, at) : ''].filter(Boolean).join(' · ');
+        const title = g.place || f.place?.county || W('全縣市', 'Whole county');
+        return `<div class="q-ritem wx-life wx-dayoff wx-dayoff-note">${tile(CLOSED.has(g.off) ? 'red' : g.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small class="q-fit">${e(sub)}</small></span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
+      });
   };
   let rows;
   if (d.official) rows = said(d.official);
@@ -170,7 +215,7 @@ export function dayOffSec(f, now) {
     ]
       .filter(Boolean)
       .slice(0, 2);
-    rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day-off chance`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
+    rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day off`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
   }
   // (Towns already decided, under the county's chance.)
   if (!d.official && d.local) rows.push(...said(d.local, 2));

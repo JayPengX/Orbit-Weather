@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards } from '../public/lib/cards.mjs';
+import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards, offGroups } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -494,4 +494,18 @@ test('the rain watch follows a pin that runs past midnight: its evening and its 
   assert.deepEqual(mine, [[tpe('2026-10-07T07:00:00'), tpe('2026-10-07T09:00:00')], [tpe('2026-10-07T18:00:00'), tpe('2026-10-07T21:00:00')]]);
   const away = rain.filter(x => x.tag.endsWith(':here')).map(x => [x.at, x.until]);
   assert.deepEqual(away, [[tpe('2026-10-07T09:00:00'), tpe('2026-10-07T18:00:00')]]);
+});
+
+test('typhoon notices: one row a place, its name short, the day and hour of each', () => {
+  const g = offGroups([
+    { text: '尖石鄉玉峰國民小學:今天下午04:00起停止上班、停止上課', off: 'all' },
+    { text: '尖石鄉玉峰國民小學:明天停止上班、停止上課', off: 'all' },
+    { text: '五峰鄉桃山國民小學:明天停止上課', off: 'class' },
+    { text: '綠島鄉:今天下午停止上班、停止上課', off: 'all' },
+    { text: '明天停止上班、停止上課', off: 'all' }
+  ]);
+  assert.deepEqual(g.map(x => x.place), ['尖石鄉 玉峰國小', '五峰鄉 桃山國小', '綠島鄉', '']);
+  assert.deepEqual(g[0].notes.map(n => [n.day, n.hour]), [['today', '16:00'], ['tomorrow', '']]);
+  assert.equal(g[1].off, 'class');
+  assert.equal(g[2].notes[0].when, '今天下午');
 });
