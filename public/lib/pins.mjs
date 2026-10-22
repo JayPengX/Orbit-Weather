@@ -1,7 +1,7 @@
 // Pinned places: a name, a point in Taiwan (its township), and when it's
 // "the" place: the days of the week and the hours. Opening the app inside a
 // pin's hours shows that pin; any other time, the current location.
-// Saved on the Quadra Pass (the app's payload), newest wins.
+// Saved on the Orbit Pass (the app's payload), newest wins.
 
 import { W, en } from '#kit/lang.mjs';
 

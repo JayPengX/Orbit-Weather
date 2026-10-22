@@ -1,4 +1,4 @@
-// The forecast and the place, from the proxy (signed in with the Quadra
+// The forecast and the place, from the proxy (signed in with the Orbit
 // Pass session), and where the device is.
 
 export const PROXY = 'https://orbit-workers-proxy.pengzjay.workers.dev';

@@ -1,7 +1,7 @@
 # Orbit Weather
 
 One forecast for where you are and the places you pin, to the township.
-Signs in with the Quadra Pass (which keeps the pins); the shared kit draws
+Signs in with the Orbit Pass (which keeps the pins); the shared kit draws
 the frame and sends the notices.
 
 Live: https://jaypengx.github.io/Orbit-Weather/

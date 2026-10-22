@@ -1,9 +1,9 @@
 // Orbit Weather: one forecast, one truth, for where you are and the places
-// you pin. An Orbit app (the everyday tools, like Orbit Class): the Quadra
+// you pin. An Orbit app (the everyday tools, like Orbit Class): the Orbit
 // Pass signs in and keeps the pins; the kit draws the loading screen, keeps
 // the app current, and sends the notices.
 
-import { quadraSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/quadra.mjs';
+import { orbitSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/orbit.mjs';
 import { settleSegs, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
@@ -31,7 +31,7 @@ import { routeForecast } from './lib/plan.mjs';
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
 document.documentElement.lang = en ? 'en' : 'zh-Hant';
-const q = quadraSession('weather', { lang });
+const q = orbitSession('weather', { lang });
 
 const state = {
   local: loadLocal(),

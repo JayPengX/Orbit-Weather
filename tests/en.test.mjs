@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 // document answers something harmless.
 const any = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : k === 'then' ? undefined : k === 'length' ? 0 : k === Symbol.iterator ? function* () {} : any()), apply: () => any(), construct: () => any() });
 globalThis.document = any();
-globalThis.localStorage = { getItem: k => (k === 'quadra.lang' ? 'en' : null), setItem() {}, removeItem() {} };
+globalThis.localStorage = { getItem: k => (k === 'orbit.lang' ? 'en' : null), setItem() {}, removeItem() {} };
 
 const { en } = await import('#kit/lang.mjs');
 const { nowHtml, weekHtml, adviceCards } = await import('../public/lib/cards.mjs');
