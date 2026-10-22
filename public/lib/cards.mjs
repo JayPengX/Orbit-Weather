@@ -161,11 +161,15 @@ export function dayOffSec(f, now) {
   else {
     const w = d.why || {};
     const gustFirst = (w.gust ?? 0) / 10 >= (w.wind ?? 0) / 7;
+    // (The two that weigh most: neighbours' word, the warning, then wind and rain.)
     const parts = [
+      w.nearClosed ? W(`鄰近 ${w.nearClosed} 縣市停班`, `${w.nearClosed} nearby closed`) : '',
+      w.land ? W('陸上警報', 'Land alert') : w.reach ? W('暴風圈接近', 'Storm near') : '',
       gustFirst ? (w.gust != null ? W(`陣風 ${w.gust} 級`, `Gusts ${w.gust}`) : '') : W(`${w.wind} 級風`, `Force ${w.wind}`),
-      w.mm >= 50 ? `${w.mm} mm` : '',
-      w.land ? W('陸上警報', 'Land alert') : w.reach ? W('暴風圈接近', 'Storm near') : ''
-    ].filter(Boolean);
+      w.mm >= 50 ? `${w.mm} mm` : ''
+    ]
+      .filter(Boolean)
+      .slice(0, 2);
     rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day-off chance`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
   }
   // (Towns already decided, under the county's chance.)
