@@ -14,7 +14,7 @@ import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planN
 // is off on a holiday from the first screen.
 useHolidays(date => Boolean(twHoliday(date)));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
-import { readout, scrubHtml, colAt, colSpot, CHART_W, PLOT_BOTTOM } from './lib/graph.mjs';
+import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
@@ -442,7 +442,7 @@ async function pinSheet(pin = null) {
     <div class="q-list">
       <label class="q-cell"><span class="q-cell-text">${W('名稱', 'Name')}</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="${W('例如：學校、家', 'e.g. School, Home')}" value="${e(draft.name)}"></label>
       <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
-      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span><small>${W('其他時間都在這裡', 'Any other time')}</small></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
+      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
     </div>
     ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(here.place.town)})`) : ''}</button>` : ''}
     <h3 class="q-list-head">${W('或搜尋鄉鎮市區', 'Or search a district')}</h3>
@@ -454,7 +454,6 @@ async function pinSheet(pin = null) {
       <div class="q-cell"><span class="q-cell-text">${W('從', 'From')}</span><input id="pin-from" class="wx-time" type="time" value="${draft.from}"></div>
       <div class="q-cell"><span class="q-cell-text">${W('到', 'To')}</span><input id="pin-to" class="wx-time" type="time" value="${draft.to}"></div>
     </div>
-    <p class="q-list-foot">${W('行程用；這段時間打開 App 也直接顯示這裡。', 'Used by My route; opening the app in these hours shows this place.')}</p>
     <div class="wx-actions">
       ${pin ? `<button class="q-btn danger tinted large" type="button" data-pin-act="delete">${W('刪除', 'Delete')}</button>` : ''}
       <button class="q-btn primary large" type="button" data-pin-act="save">${W('儲存', 'Save')}</button>
@@ -549,7 +548,6 @@ function layoutSheet() {
   const d = sheet(`
     <div class="q-sheet-head"><h2>${W('版面', 'Layout')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
     <div class="q-list wx-order" id="card-order">${rows()}</div>
-    <p class="q-list-foot">${W('每個地點都一樣，跟著 Quadra Pass 同步。', 'The same for every place, synced with Quadra Pass.')}</p>
     <button class="q-btn plain wx-reset" type="button" data-reset="1">${W('恢復預設', 'Reset')}</button>`);
   const redraw = () => (d.querySelector('#card-order').innerHTML = rows());
   d.addEventListener('click', ev => {
@@ -595,12 +593,17 @@ function openMetric(key, kind) {
   d.dataset.key = key;
   d.redraw = () => {
     const now = Date.now();
+    fitCharts(d);
     d.innerHTML = metricSheet(kind, f, { now, key, ranges: state.ranges, page });
     settleSegs(d);
     state.cols[key] = { ...(state.cols[key] || {}), [kind]: colsFor(kind, f, now, rangeOf(kind, state.ranges)), tz: f.tz };
   };
   d.redraw();
 }
+
+// A sheet's graphs drawn for its width: a phone's frame, wider on an iPad
+// (the words keep their size, the plot gets the room).
+const fitCharts = d => chartWidth(Math.max(340, Math.min(720, Math.round(((d.clientWidth || 375) - 60) / 1.15))));
 
 // 全部: every piece of advice.
 function openAdvice(key) {
@@ -627,6 +630,7 @@ function openDay(key, date) {
     shown = when;
     // Today's sheet also holds 更多資訊 (not on the move, nor when hidden).
     const info = when === dateOf(now, f.tz) && !page.plan && !state.data.hidden.includes('info') ? infoCard(f, { now, lat: page.lat, lon: page.lon, page }) : '';
+    fitCharts(d);
     d.innerHTML = daySheet(f, when, { now, lat: page.lat, lon: page.lon }) + info;
     d.querySelector('.q-sheet-head')?.after(kitUI.dayBar(strip, { flat: true, days: days(), current: when, today: dateOf(now, f.tz), follow: true, onPick: show }));
     d.scrollTop = 0;
@@ -660,7 +664,7 @@ function armScrub(d, f, date) {
     const b = plot.getBoundingClientRect();
     const r = temp.getBoundingClientRect();
     const last = svgs[svgs.length - 1].getBoundingClientRect();
-    const scale = r.width / CHART_W;
+    const scale = r.width / temp.viewBox.baseVal.width;
     const spot = colSpot(temp, i);
     const x = r.left - b.left + spot.x * scale;
     xh.hidden = false;
@@ -774,7 +778,9 @@ function pick(svg, i) {
   const kind = svg.dataset.graph;
   const col = state.cols[key]?.[kind]?.[i];
   const out = host?.querySelector(`[data-read="${kind}"]`);
+  // The line under the title reads the column while a finger is on it.
   if (out) {
+    out.dataset.sum ??= out.textContent;
     out.textContent = readout(kind, col, state.cols[key]?.tz);
     out.classList.add('is-on');
   }
@@ -788,7 +794,7 @@ function pick(svg, i) {
   // (An SVG has no offsetLeft: placed against the box's rectangle.)
   const r = svg.getBoundingClientRect();
   const b = box.getBoundingClientRect();
-  const scale = r.width / CHART_W;
+  const scale = r.width / svg.viewBox.baseVal.width;
   const x = r.left - b.left + spot.x * scale;
   const y0 = r.top - b.top;
   xh.hidden = false;
@@ -823,10 +829,16 @@ document.addEventListener('pointermove', ev => {
   const svg = dragging || (ev.pointerType === 'mouse' ? ev.target.closest?.('svg.ch') : null);
   if (svg) pickSoon(svg, ev.clientX);
 });
-// A finger lifted (or the mouse gone): the crosshair goes; the read-out stays.
+// A finger lifted (or the mouse gone): the crosshair goes, the line says the summary again.
 const unpick = svg => {
   if (!svg) return;
   delete svg.dataset.sel;
+  const out = svg.closest('[data-key]')?.querySelector(`[data-read="${svg.dataset.graph}"]`);
+  if (out?.dataset.sum != null) {
+    out.textContent = out.dataset.sum;
+    delete out.dataset.sum;
+    out.classList.remove('is-on');
+  }
   svg.parentElement.querySelector('.ch-xh')?.setAttribute('hidden', '');
   svg.parentElement.querySelector('.ch-dh')?.setAttribute('hidden', '');
 };

@@ -75,7 +75,7 @@ test('a day with no temperatures has no charts to read (nothing to put a finger 
   const f = { ...forecast, hours: forecast.hours.map(h => ({ ...h, temp: null, feels: null })) };
   const html = daySheet(f, '2026-10-03', { now: NOW });
   assert.doesNotMatch(html, /wx-dayg-plot/);
-  assert.match(html, /沒有逐時資料/);
+  assert.match(html, /沒有逐時預報/);
 });
 
 test('the rules said once: rain, clothes, air, the moon', () => {
@@ -89,7 +89,7 @@ test('the rules said once: rain, clothes, air, the moon', () => {
   assert.equal(moonName('FULL_MOON'), '滿月');
   assert.equal(moonName('nope'), null);
   // A read-out with no chance known says a dash, not "–%".
-  assert.equal(readout('rain', { t: NOW, pop: null }, 'Asia/Taipei'), '10/2 週五 19:46 · 降雨機率 –');
+  assert.equal(readout('rain', { t: NOW, pop: null }, 'Asia/Taipei'), '週五 19:46 · –');
   assert.equal(readout('air', { label: '明天', date: '2026-10-03', aqi: 120 }, 'Asia/Taipei'), '明天 10/3 · AQI 120 對敏感族群不健康');
 });
 

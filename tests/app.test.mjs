@@ -116,7 +116,8 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   assert.ok(!rainGraph(dryCols, { tz: 'Asia/Taipei' }).includes('<svg class="ch"'));
   assert.match(uvGraph(colsFor('uv', forecast, NOW + 12 * H, 'd0'), { tz: 'Asia/Taipei', now: NOW + 12 * H }), /class="ch-area"[^]*mask=/, 'UV: a line, its fill fading');
   assert.match(rain, />70%</, 'the peak labelled');
-  assert.match(rain, /class="ch-inner"/, 'the amount as a bar');
+  assert.match(rain, /class="ch-bar" d="[^"]*" fill="#a9d3fb"/, 'a dry hour pale');
+  assert.ok(!rain.includes('fill="#a9d3fb"/><text class="ch-val" x="142'), 'the wet hour deeper: coloured by its amount');
   assert.match(rain, />現在</);
   assert.match(rain, />10\/3 週六</, 'the date at the day change');
   // 10 days: a bar each.
@@ -146,10 +147,10 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   assert.equal(colsFor('air', withHours, NOW, 'd1').length, 24);
   assert.match(airCard(withHours, { now: NOW, ranges: {} }), /class="ch-line"/);
   assert.equal((airCard(withHours, { now: NOW, ranges: { air: 'days' } }).match(/class="ch-bar"/g) || []).length, 4);
-  assert.equal(readout('rain', shown[5], 'Asia/Taipei'), '10/3 週六 00:00 · 降雨機率 70% · 雨量 2.4 mm');
-  assert.equal(readout('rain', { ...shown[5], place: '學校' }, 'Asia/Taipei'), '10/3 週六 00:00 · 學校 · 降雨機率 70% · 雨量 2.4 mm');
+  assert.equal(readout('rain', shown[5], 'Asia/Taipei'), '週六 00:00 · 70% · 2.4 mm');
+  assert.equal(readout('rain', { ...shown[5], place: '學校' }, 'Asia/Taipei'), '週六 00:00 · 學校 · 70% · 2.4 mm');
   assert.equal(readout('air', cols[2], 'Asia/Taipei'), '明天 10/3 · AQI 55 普通');
-  assert.equal(readout('uv', daysCols(forecast, NOW)[1], 'Asia/Taipei'), '明天 10/3 · 最高 UV 7');
+  assert.equal(readout('uv', daysCols(forecast, NOW)[1], 'Asia/Taipei'), '明天 10/3 · UV 7');
   assert.equal(readout('uv', null), '');
   const day = dayCharts(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
   assert.match(day, /class="ch-tline"/);
@@ -182,7 +183,7 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.match(html, /最高 <b>30°<\/b>[^]*最低 <b>23°<\/b>/);
   assert.match(html, /體感 <b>27°<\/b>/);
   assert.match(html, /濕度[^]*?94<small>%<\/small>/, 'humidity is a stat card');
-  assert.match(html, /wx-say">現在陰/, "today’s sentence heads the hours");
+  assert.doesNotMatch(html, /wx-say/, 'no sentence over the hours: the cards say it');
   // No warning banner (the owner, 2026-10-10: rarely useful, and in the way).
   assert.doesNotMatch(html, /大雨特報|wx-alert/);
   // Advice: today, and the week with a mark a day.
@@ -205,7 +206,6 @@ test('the page, top to bottom, one truth, nothing unescaped', () => {
   assert.ok(!/\p{Extended_Pictographic}/u.test(html), 'no emoji: ' + (html.match(/\p{Extended_Pictographic}/u) || [])[0]);
   // The 10 days: each day's rain chance.
   assert.equal((html.match(/class="wx-dpop"/g) || []).length, 20);
-  assert.match(html, /現在陰，22 點前後/);
   assert.ok(!html.includes('西村里<b>'), 'the name escaped everywhere');
   for (const w of ['Google', 'CWA', '氣象署', 'MOENV', '環境部', 'radar', '雷達']) assert.ok(!html.includes(w), w);
   // A pin's page: its name first, its hours.
@@ -228,7 +228,7 @@ test('a day\'s sheet: its numbers, its charts, its own advice', () => {
   assert.match(html, /k-run/);
   assert.match(html, /k-laundry/);
   assert.match(html, /日出 \/ 日落/);
-  assert.match(daySheet({ ...forecast, hours: [] }, '2026-10-09', { now: NOW }), /沒有逐時資料/);
+  assert.match(daySheet({ ...forecast, hours: [] }, '2026-10-09', { now: NOW }), /沒有逐時預報/);
   // The day's advice from its own hours.
   const tips = Object.fromEntries(dayTips(forecast, '2026-10-03', NOW).map(t => [t.k, t]));
   assert.equal(tips.umbrella.text, '不用帶', 'the 70% is at midnight, not in the day');

@@ -14,7 +14,9 @@ import { clock, hourOf, dateOf, shortDate, weekday, conditionText, aqiName } fro
 import { escHtml as e } from '#kit/ui.mjs';
 import { W } from '#kit/lang.mjs';
 
-export const CHART_W = 340;
+// The frame's width in its own units: a phone's 340; a wider sheet (an
+// iPad's) draws wider, so its words stay their size (`chartWidth`).
+export let CHART_W = 340;
 const HOUR = 3_600_000;
 const TOP = 26;
 const PH = 150;
@@ -25,6 +27,11 @@ const r1 = v => Math.round(v * 10) / 10;
 export const UV_STOPS = [[0, '#4caf50'], [3, '#f5c518'], [6, '#ff8c1a'], [8, '#e53935'], [11, '#8e24aa']];
 export const AQI_STOPS = [[0, '#4caf50'], [51, '#f5c518'], [101, '#ff8c1a'], [151, '#e53935'], [201, '#8e24aa']];
 export const RAIN_STOPS = [[0, '#a5d4ff'], [40, '#5aa9f5'], [70, '#2f7de1']];
+// Rain's bars are as tall as the chance, coloured by how much falls (mm an
+// hour; a day's total over 8): pale for a sprinkle, deep blue, violet for a
+// downpour. One scale, one meaning a colour.
+export const MM_STOPS = [[0, '#a9d3fb'], [0.5, '#6cb4f6'], [2.5, '#3b8cea'], [8, '#1f5fd6'], [20, '#5b3fd6']];
+const mmColour = mm => colourAt(MM_STOPS, mm || 0);
 
 // Points → a smooth path (Catmull-Rom as Béziers, kept inside the plot).
 export function smooth(pts, top = TOP, base = BASE) {
@@ -45,7 +52,9 @@ export function smooth(pts, top = TOP, base = BASE) {
 let made = 0;
 // Every graph's frame: the plot PLOT_W wide, its scale in a gutter on the
 // right (so no number sits on a line), the times under it.
-const PLOT_W = CHART_W - 30;
+let PLOT_W = CHART_W - 30;
+export const chartWidth = w => void ((CHART_W = w), (PLOT_W = w - 30));
+const frameW = svg => svg.viewBox?.baseVal?.width || CHART_W;
 const mix = (a, b, t) => `#${[0, 2, 4].map(k => Math.round(parseInt(a.slice(1 + k, 3 + k), 16) * (1 - t) + parseInt(b.slice(1 + k, 3 + k), 16) * t).toString(16).padStart(2, '0')).join('')}`;
 // The colour at a value, blended between the stops around it.
 const colourAt = (stops, v) => {
@@ -61,7 +70,7 @@ const colourAt = (stops, v) => {
 function linePaint(gid, stops, lo, hi, top, base, x2 = PLOT_W) {
   const steps = 8;
   const grad = `<linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" x2="0" y1="${base}" y2="${top}">${Array.from({ length: steps + 1 }, (_, k) => `<stop offset="${r1((k / steps) * 100)}%" stop-color="${colourAt(stops, lo + ((hi - lo) * k) / steps)}"/>`).join('')}</linearGradient>`;
-  const fade = `<linearGradient id="${gid}f" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".42"/><stop offset="100%" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="${gid}m" maskContentUnits="userSpaceOnUse"><rect x="0" y="${top - 12}" width="${x2}" height="${base - top + 12}" fill="url(#${gid}f)"/></mask>`;
+  const fade = `<linearGradient id="${gid}f" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#fff" stop-opacity=".32"/><stop offset="80%" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="${gid}m" maskContentUnits="userSpaceOnUse"><rect x="0" y="${top - 12}" width="${x2}" height="${base - top + 12}" fill="url(#${gid}f)"/></mask>`;
   return grad + fade;
 }
 // A value's words at x, kept inside the plot (anchored inward at its edges).
@@ -72,22 +81,38 @@ const valText = (x, y, text, cls = 'ch-val') => {
 };
 // A bar's colour: its value's level.
 const levelOf = (stops, v) => [...stops].reverse().find(([s]) => v >= s)?.[1] || stops[0][1];
+// A bar standing on the base, its top rounded (a short one, a flat tick).
+const barPath = (x, y, w, base, r) => {
+  const h = base - y;
+  if (h < 3) return `M${r1(x)},${r1(base - 2)}h${r1(w)}v2h${r1(-w)}Z`;
+  const rr = r1(Math.min(r, w / 2, h / 2));
+  return `M${r1(x)},${base}V${r1(y + rr)}Q${r1(x)},${r1(y)} ${r1(x + rr)},${r1(y)}H${r1(x + w - rr)}Q${r1(x + w)},${r1(y)} ${r1(x + w)},${r1(y + rr)}V${base}Z`;
+};
+// The scale's marks, none closer than 18 px to the one under it or the base.
+const fitTicks = (ticks, yv, base, max) => {
+  let last = base;
+  return ticks.filter(([v]) => {
+    if (v > max || last - yv(v) < 18) return false;
+    last = yv(v);
+    return true;
+  });
+};
 
-// cols: [{ t | date, v, under (the axis text), strong, inner (0–1: rain's
-// amount, darker inside), place, daily, label, fc }]. `bars`: a bar a column
+// cols: [{ t | date, v, under (the axis text), strong, fill (a bar's own
+// colour: rain's amount), place, daily, label, fc }]. `bars`: a bar a column
 // (days, or rain's hours). `ticks`: [[value, words]] for the scale.
 export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, ticks = [], fmt = v => String(Math.round(v)), minLabel = 0, bars = false, height = PH, dates = true }) {
   // A shorter plot (the day sheet's rain and UV) when asked; no date row there.
   const ph = height;
   const base = TOP + ph;
-  const chartH = base + (dates ? 42 : 24);
+  const chartH = base + (dates && !cols.some(c => c.daily) ? 42 : 24);
   const yv = v => r1(base - Math.max(0, Math.min(1, v / max)) * ph);
   const n = Math.max(1, cols.length);
   const w = PLOT_W / n;
   const gid = `g${++made}-${id}`;
   const xOf = i => r1((i + 0.5) * w);
   const out = [];
-  for (const [v, text] of ticks) if (v <= max) out.push(`<line class="ch-grid" x1="0" x2="${PLOT_W}" y1="${yv(v)}" y2="${yv(v)}"/><text class="ch-ax" x="${CHART_W}" y="${r1(yv(v) + 3.5)}">${e(text)}</text>`);
+  for (const [v, text] of fitTicks(ticks, yv, base, max)) out.push(`<line class="ch-grid" x1="0" x2="${PLOT_W}" y1="${yv(v)}" y2="${yv(v)}"/><text class="ch-ax" x="${CHART_W}" y="${r1(yv(v) + 3.5)}">${e(text)}</text>`);
   out.push(`<line class="ch-base" x1="0" x2="${PLOT_W}" y1="${base}" y2="${base}"/>`);
   const dateOfCol = c => c.date || (c.t == null ? '' : dateOf(c.t, tz));
   // What's labelled: every bar of a few; else each day's peak and now's value, never two close together.
@@ -97,22 +122,18 @@ export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, ticks = 
     if (c.v != null && c.v >= minLabel && (peaks[d] == null || c.v > cols[peaks[d]].v)) peaks[d] = i;
   });
   const labelled = [];
-  for (const i of bars && cols.every(c => c.daily) ? cols.map((c, i) => i) : [...(nowIndex >= 0 && cols[nowIndex]?.v != null ? [nowIndex] : []), ...Object.values(peaks)]) {
+  // (Days: each change of value, so a run of 20%s says it once.)
+  for (const i of bars && cols.every(c => c.daily) ? cols.map((c, i) => i).filter(i => !i || cols[i].v !== cols[i - 1].v) : [...(nowIndex >= 0 && cols[nowIndex]?.v != null ? [nowIndex] : []), ...Object.values(peaks)]) {
     if (cols[i]?.v == null || (!cols[i].daily && cols[i].v < minLabel) || labelled.some(j => Math.abs(xOf(j) - xOf(i)) < 30)) continue;
     labelled.push(i);
   }
   if (bars) {
-    const bw = r1(Math.max(2, Math.min(26, w * 0.62)));
-    const rx = r1(Math.min(6, bw / 2.5));
+    // Thin bars, a 2 px gap at the least; days a little wider.
+    const bw = r1(Math.max(2, Math.min(cols.every(c => c.daily) ? 22 : 14, w - 2.5, w * (cols.every(c => c.daily) ? 0.56 : 0.72))));
     cols.forEach((c, i) => {
-      // (An hour at 0 has no bar: nothing to draw; a day at 0 keeps a sliver.)
+      // (An hour at 0 has no bar: nothing to draw; a day at 0 keeps a tick.)
       if (c.v == null || (!c.daily && c.v <= 0)) return;
-      const y = yv(c.v);
-      out.push(`<rect class="ch-bar" x="${r1(xOf(i) - bw / 2)}" y="${y}" width="${bw}" height="${r1(Math.max(2, base - y))}" rx="${rx}" fill="${levelOf(stops, c.v)}"/>`);
-      if (c.inner > 0) {
-        const ih = r1(Math.max(2, c.inner * ph * 0.4));
-        out.push(`<rect class="ch-inner" x="${r1(xOf(i) - bw / 2)}" y="${r1(base - ih)}" width="${bw}" height="${ih}" rx="${rx}"/>`);
-      }
+      out.push(`<path class="ch-bar" d="${barPath(xOf(i) - bw / 2, yv(c.v), bw, base, 4)}" fill="${c.fill || levelOf(stops, c.v)}"/>`);
     });
     for (const i of labelled) out.push(valText(xOf(i), Math.max(TOP - 8, yv(cols[i].v) - 7), fmt(cols[i].v)));
   } else {
@@ -153,7 +174,6 @@ export function chart(id, cols, { max, stops, tz, label, nowIndex = -1, ticks = 
       lastUnder = xOf(i);
       out.push(`<text class="ch-t${c.strong ? ' ch-strong' : ''}" x="${r1(Math.min(PLOT_W - 12, Math.max(12, xOf(i))))}" y="${base + 17}">${e(c.under)}</text>`);
     }
-    if (daily && dates && c.date) out.push(`<text class="ch-t ch-sub" x="${xOf(i)}" y="${base + 34}">${e(shortDate(c.date))}</text>`);
   });
   if (dates && !daily && cols[0] && (firstChange < 0 || firstChange * w > 78)) out.push(`<text class="ch-date" x="2" y="${base + 36}">${e(`${shortDate(dateOfCol(cols[0]))} ${weekday(dateOfCol(cols[0]))}`)}</text>`);
   return `<svg class="ch" data-graph="${id}" data-n="${n}" data-pw="${PLOT_W}" data-ys="${cols.map(c => (c.v == null ? '' : yv(c.v))).join(',')}" viewBox="0 0 ${CHART_W} ${chartH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${e(label)}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
@@ -190,13 +210,13 @@ export function spark(values, { max, stops, w = 120, h = 40, bars = false }) {
 export function colAt(svg, clientX) {
   const r = svg.getBoundingClientRect();
   const n = Number(svg.dataset.n);
-  const pw = Number(svg.dataset.pw) || CHART_W;
-  return Math.max(0, Math.min(n - 1, Math.floor(((clientX - r.left) / r.width) * (CHART_W / pw) * n)));
+  const pw = Number(svg.dataset.pw) || frameW(svg);
+  return Math.max(0, Math.min(n - 1, Math.floor(((clientX - r.left) / r.width) * (frameW(svg) / pw) * n)));
 }
 export function colSpot(svg, i) {
   const n = Number(svg.dataset.n);
   const y = svg.dataset.ys.split(',')[i];
-  return { x: r1((i + 0.5) * ((Number(svg.dataset.pw) || CHART_W) / n)), y: y === '' || y == null ? null : Number(y) };
+  return { x: r1((i + 0.5) * ((Number(svg.dataset.pw) || frameW(svg)) / n)), y: y === '' || y == null ? null : Number(y) };
 }
 
 const hourText = (t, tz, every) => {
@@ -204,7 +224,7 @@ const hourText = (t, tz, every) => {
   return h % every === 0 ? W(`${h}時`, `${h}`) : '';
 };
 
-const UV_TICKS = [[3, '3'], [6, '6'], [11, '11']];
+const UV_TICKS = [[3, '3'], [6, '6'], [8, '8'], [11, '11']];
 
 // UV: one day's daylight (6–18時), or the 10 days' peaks.
 export function uvGraph(cols, { tz, now = Date.now(), daily = false } = {}) {
@@ -221,18 +241,20 @@ export function uvGraph(cols, { tz, now = Date.now(), daily = false } = {}) {
 // 40% of the height); or the 10 days as bars. Hours that stay dry (under
 // 10%, no amount) get no graph, only the words (`dryNote`).
 const RAIN_TICKS = [[50, '50%'], [100, '100%']];
+// The key to rain's colours: light to heavy, under one word.
+export const mmKey = `<span class="l-mm">${W('雨量', 'Amount')}</span>`;
 const isDry = hours => !hours.some(h => h.pop >= 10 || h.mm >= 0.1);
 const dryNote = hours => {
   const top = Math.max(0, ...hours.map(h => h.pop ?? 0));
   return top ? W(`最高 ${top}%`, `peak ${top}%`) : W('不會下雨', 'no rain');
 };
 export function rainGraph(cols, { tz, daily = false, fromNow = true } = {}) {
-  if (daily) return chart('rain', cols.map(d => ({ date: d.date, v: d.pop, under: d.label, daily: true, inner: d.mm >= 0.5 ? Math.min(1, d.mm / 30) : 0 })), { max: 100, stops: RAIN_STOPS, tz, label: W('每天的降雨機率', 'Daily chance of rain'), bars: true, ticks: RAIN_TICKS, fmt: v => `${Math.round(v)}%` });
+  if (daily) return chart('rain', cols.map(d => ({ date: d.date, v: d.pop, under: d.label, daily: true, fill: mmColour((d.mm || 0) / 8) })), { max: 100, stops: RAIN_STOPS, tz, label: W('每天的降雨機率', 'Daily chance of rain'), bars: true, ticks: RAIN_TICKS, fmt: v => `${Math.round(v)}%` });
   if (isDry(cols)) return `<p class="wx-dry">${glyph('umbrella', { size: 18 })}${dryNote(cols)}</p>`;
   const every = cols.length > 30 ? 6 : 3;
   return chart(
     'rain',
-    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: fromNow && i === 0 ? W('現在', 'Now') : hourText(h.t, tz, every), strong: fromNow && i === 0 })),
+    cols.map((h, i) => ({ t: h.t, v: h.pop, place: h.place, fill: mmColour(h.mm), under: fromNow && i === 0 ? W('現在', 'Now') : hourText(h.t, tz, every), strong: fromNow && i === 0 })),
     { max: 100, stops: RAIN_STOPS, tz, label: W('逐時降雨機率', 'Hourly chance of rain'), nowIndex: fromNow ? 0 : -1, bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%` }
   );
 }
@@ -304,10 +326,10 @@ export function dayCharts(hours, { tz } = {}) {
 
   const dry = isDry(hours);
   const wet = hours.some(h => h.mm >= 0.1);
-  const rain = dry ? '' : chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, inner: h.mm >= 0.1 ? Math.min(1, h.mm / 10) : 0, under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: W('這一天的降雨機率', 'Chance of rain this day'), bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false });
+  const rain = dry ? '' : chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, fill: mmColour(h.mm), under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: W('這一天的降雨機率', 'Chance of rain this day'), bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false });
   const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: Math.max(11, ...hours.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: W('這一天的紫外線', 'UV this day'), ticks: UV_TICKS, minLabel: 1, height: 56, dates: false }) : '';
-  const rainNote = dry ? `<span class="wx-dch-note">${dryNote(hours)}</span>` : wet ? `<span class="l-mm">${W('深色＝雨量', 'Dark = amount')}</span>` : '';
-  return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}${W('溫度', 'Temperature')} <span class="l-temp">${W('溫度', 'Temp')}</span><span class="l-feels">${W('體感', 'Feels')}</span></p>${temp}</div>
+  const rainNote = dry ? `<span class="wx-dch-note">${dryNote(hours)}</span>` : wet ? mmKey : '';
+  return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}${W('溫度', 'Temperature')}<span class="l-feels">${W('體感', 'Feels')}</span></p>${temp}</div>
     <div class="wx-dch${dry ? ' is-dry' : ''}"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}${W('降雨機率', 'Chance of rain')} ${rainNote}</p>${rain}</div>
     ${uv ? `<div class="wx-dch"><p class="wx-dch-h">${glyph('sun', { size: 16 })}${W('紫外線', 'UV')}</p>${uv}</div>` : ''}
     <i class="ch-xh" hidden></i><i class="ch-dh" hidden></i>`;
@@ -332,9 +354,9 @@ export function scrubHtml(h, { tz, aqi = null } = {}) {
 // The read-out for a picked column: "10/3 週六 13:00 · 學校 · …", or a day's.
 export function readout(kind, col, tz) {
   if (!col) return '';
-  const when = col.t == null ? `${col.label}${col.date ? ` ${shortDate(col.date)}` : ''}` : `${shortDate(dateOf(col.t, tz))} ${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.place ? ` · ${col.place}` : ''}`;
-  if (kind === 'uv') return col.t == null ? `${when} · ${W('最高 UV', 'Peak UV')} ${col.uvMax ?? '–'}` : `${when} · ${W('紫外線', 'UV')} ${col.uv ?? '–'}`;
-  if (kind === 'rain') return `${when} · ${W('降雨機率', 'Rain')} ${col.pop == null ? '–' : `${col.pop}%`}${col.mm >= 0.1 ? ` · ${col.t == null ? W('約 ', '~') : W('雨量 ', '')}${col.mm} mm` : ''}`;
-  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${aqiName(col.aqi)}` : ''}${col.pm25 != null ? ` · PM2.5 ${col.pm25}` : ''}${col.main ? ` · ${W('主要', 'mainly')} ${col.main}` : ''}`;
+  const when = col.t == null ? `${col.label}${col.date ? ` ${shortDate(col.date)}` : ''}` : `${weekday(dateOf(col.t, tz))} ${clock(col.t, tz)}${col.place ? ` · ${col.place}` : ''}`;
+  if (kind === 'uv') return `${when} · UV ${(col.t == null ? col.uvMax : col.uv) ?? '–'}`;
+  if (kind === 'rain') return `${when} · ${col.pop == null ? '–' : `${col.pop}%`}${col.mm >= 0.1 ? ` · ${col.t == null ? '~' : ''}${col.mm} mm` : ''}`;
+  if (kind === 'air') return `${when} · AQI ${col.aqi ?? '–'}${col.aqi != null ? ` ${aqiName(col.aqi)}` : ''}`;
   return when;
 }

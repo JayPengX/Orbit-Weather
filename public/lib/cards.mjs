@@ -13,7 +13,7 @@ const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
 import { segHtml, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
-import { uvGraph, rainGraph, airGraph, dayCharts, spark, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
+import { uvGraph, rainGraph, airGraph, dayCharts, spark, mmKey, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
 import { placeLines, OLD_MS } from './api.mjs';
 
@@ -34,9 +34,6 @@ export function dayPop(f, d, now) {
   const ahead = hoursFrom(f, now).filter(h => dateOf(h.t, f.tz) === d.date && h.pop != null);
   return ahead.length ? Math.max(...ahead.map(h => h.pop)) : d.pop ?? null;
 }
-// The forecast's words are the proxy's Chinese; in English only what's
-// already English (the route's own, `f.own`, or a sentence with no Chinese).
-const readable = text => !en || !/[\u4e00-\u9fff]/.test(text);
 
 // The sky behind the top: by the weather now, day or night.
 function skyOf(n) {
@@ -233,7 +230,8 @@ function hourStrip(f, { now, key }) {
   const cols = [];
   for (let i = 0; i < 24 && i < hours.length; i += 3) cols.push(hours[i]);
   if (cols.length < 4) return '';
-  const say = f.headline && (f.own || readable(f.headline)) ? `<p class="wx-say">${e(f.headline)}</p>` : '';
+  // (Only the route's own line, where you'll be and when; the forecast's sentence said what the cards show.)
+  const say = f.own && f.headline ? `<p class="wx-say">${e(f.headline)}</p>` : '';
   const rail = cols
     .map((col, i) => {
       // 現在 is what the hero says (the same reading), not the hour's forecast.
@@ -286,12 +284,12 @@ const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) =
   <section class="wx-card wx-${cls}">
     <header class="wx-card-head">
       <span class="wx-ic">${icon}</span>
-      <div class="wx-card-title"><h3>${title}</h3><p>${summary}</p></div>
+      <div class="wx-card-title"><h3>${title}</h3><p data-read="${cls}" aria-live="polite">${summary}</p></div>
       ${big}
     </header>
     ${tabs}
-    <div class="wx-readout" data-read="${cls}" aria-live="polite">${foot}</div>
-    <div class="wx-graphbox" data-box="${cls}">${graph}<i class="ch-xh" hidden></i><i class="ch-dh" hidden></i></div>
+    <div class="wx-graphbox" data-box="${cls}" data-no-sheet-swipe>${graph}<i class="ch-xh" hidden></i><i class="ch-dh" hidden></i></div>
+    ${foot ? `<p class="wx-key">${foot}</p>` : ''}
   </section>`;
 // The kit's segmented control; its thumb slides from the range shown before.
 const shownRange = {};
@@ -319,7 +317,8 @@ export function uvDays(f, now) {
     if (!by.has(d)) by.set(d, []);
     by.get(d).push(h);
   }
-  return [...by.entries()].map(([date, hours]) => ({ date, hours }));
+  // (A day whose sun is down already, its last hour at 0: not a tab of its own.)
+  return [...by.entries()].filter(([, hours]) => hours.length > 2 || hours.some(h => h.uv > 0)).map(([date, hours]) => ({ date, hours }));
 }
 // A card's columns for its range (the graph's, and the read-out's).
 export function colsFor(kind, f, now, range) {
@@ -344,13 +343,14 @@ function uvCard(f, { now, ranges }) {
     if (!list.length) return null;
     const p = list.reduce((a, h) => (h.uv > a.uv ? h : a), list[0]);
     const sn = list.filter(h => h.uv >= 3);
-    return p.uv >= 1 ? W(`最高 ${p.uv} ${uvLevel(p.uv)}${sn.length ? `，${hourOf(sn[0].t, f.tz)}–${hourOf(sn[sn.length - 1].t + HOUR, f.tz)}時防曬` : ''}`, ` peak ${p.uv} ${uvLevel(p.uv)}${sn.length ? `, cover up ${hourOf(sn[0].t, f.tz)}–${hourOf(sn[sn.length - 1].t + HOUR, f.tz)}h` : ''}`) : W('很弱', ' very low');
+    return p.uv >= 1 ? W(`最高 ${p.uv}${sn.length ? `・${hourOf(sn[0].t, f.tz)}–${hourOf(sn[sn.length - 1].t + HOUR, f.tz)}時防曬` : ''}`, `Peak ${p.uv}${sn.length ? `, cover up ${hourOf(sn[0].t, f.tz)}–${hourOf(sn[sn.length - 1].t + HOUR, f.tz)}h` : ''}`) : W('很弱', 'Very low');
   };
   const shown = range === '10d' ? null : days[range === 'd1' ? 1 : 0];
-  const summary = shown ? `${dayLabel(shown.date, now, f.tz)}${dayPeak(shown.date) || ''}` : W('每天最高', 'Daily peak');
+  // (The tab names the day.)
+  const summary = shown ? dayPeak(shown.date) || '' : W('每天最高', 'Daily peak');
   const tabs = tabsHtml('uv', RANGES.uv.map(([k, name], i) => [k, name || (days[i] ? dayLabel(days[i].date, now, f.tz) : '')]).filter(([, name]) => name), range);
   const cols = colsFor('uv', f, now, range);
-  return card({ cls: 'uv', icon: glyph('sun'), title: W('紫外線', 'UV index'), summary: e(summary), big, tabs, graph: uvGraph(cols, { tz: f.tz, now, daily: range === '10d' }), foot: W('按住圖表滑動，看每小時', 'Hold and slide for each hour') });
+  return card({ cls: 'uv', icon: glyph('sun'), title: W('紫外線', 'UV index'), summary: e(summary), big, tabs, graph: uvGraph(cols, { tz: f.tz, now, daily: range === '10d' }) });
 }
 
 // The next rain, said once.
@@ -369,8 +369,8 @@ export function rainSummary(hours, tz, now, { short = false } = {}) {
   const top = peakFrom(next);
   const day = dateOf(next.t, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.t, tz), now, tz);
   if (short) return next.t <= now ? W(`正在下 ${next.pop}%`, `Raining ${next.pop}%`) : W(`${day}${hourOf(next.t, tz)}時起 ${next.pop}%`, `${next.pop}% from ${day ? `${day} ` : ''}${hourOf(next.t, tz)}:00`);
-  const peak = top !== next && top.pop > next.pop ? W(`，${hourOf(top.t, tz)}時最高 ${top.pop}%`, `, peak ${top.pop}% at ${hourOf(top.t, tz)}`) : '';
-  return next.t <= now ? W(`正在下或快下（${next.pop}%${peak}）`, `Raining or about to (${next.pop}%${peak})`) : W(`${dayLabel(dateOf(next.t, tz), now, tz)} ${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`, `${next.pop}% from ${dayLabel(dateOf(next.t, tz), now, tz)} ${hourOf(next.t, tz)}:00${peak}`);
+  const peak = top !== next && top.pop > next.pop ? W(`・最高 ${top.pop}%`, `, peak ${top.pop}%`) : '';
+  return next.t <= now ? W(`正在下 ${next.pop}%${peak}`, `Raining ${next.pop}%${peak}`) : W(`${day ? `${day} ` : ''}${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`, `${next.pop}% from ${day ? `${day} ` : ''}${hourOf(next.t, tz)}:00${peak}`);
 }
 
 export function rainCard(f, { now, ranges }) {
@@ -380,9 +380,9 @@ export function rainCard(f, { now, ranges }) {
   const big = `<div class="wx-big wx-rain-big">${pop ?? '–'}<small>%</small></div>`;
   const n = f.now || {};
   const range = rangeOf('rain', ranges);
-  const extra = [n.rainToday != null ? W(`今日 ${n.rainToday} mm`, `Today ${n.rainToday} mm`) : '', n.rain1h ? W(`過去 1 小時 ${n.rain1h} mm`, `Last hour ${n.rain1h} mm`) : ''].filter(Boolean).join(' · ');
+  const extra = n.rainToday ? W(`今日已下 ${n.rainToday} mm`, `${n.rainToday} mm so far`) : '';
   const cols = colsFor('rain', f, now, range);
-  return card({ cls: 'rain', icon: glyph('umbrella'), title: W('降雨機率', 'Chance of rain'), summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', dayTabs('rain', now, f.tz), range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d', fromNow: range === 'd0' }), foot: [cols.some(c => c.mm >= (range === '10d' ? 0.5 : 0.1)) ? W('深色＝雨量', 'Dark = amount') : '', e(extra)].filter(Boolean).join(' · ') });
+  return card({ cls: 'rain', icon: glyph('umbrella'), title: W('降雨機率', 'Chance of rain'), summary: e(rainSummary(hours, f.tz, now)), big, tabs: tabsHtml('rain', dayTabs('rain', now, f.tz), range), graph: rainGraph(cols, { tz: f.tz, daily: range === '10d', fromNow: range === 'd0' }), foot: [cols.some(c => c.mm >= (range === '10d' ? 0.5 : 0.1)) ? mmKey : '', extra ? `<span>${e(extra)}</span>` : ''].join('') });
 }
 
 // The air's columns: now (the station), then the forecast days.
@@ -405,9 +405,9 @@ export function airCard(f, { now, ranges }) {
   const cols = colsFor('air', f, now, range);
   const big = `<div class="wx-big" style="--c:${aqiColor(a.aqi)}">${a.aqi ?? '–'}<small>${e(aqiLevel(a.level))}</small></div>`;
   // (The days' worst is the graph's tallest bar: not said again here, so the line stays one line.)
-  const summary = `PM2.5 ${a.pm25 ?? '–'} · ${e(a.station?.name || '')} ${a.station?.km ?? '–'} km`;
+  const summary = `PM2.5 ${a.pm25 ?? '–'}`;
   const daily = range === 'days';
-  return card({ cls: 'air', icon: glyph('air'), title: W('空氣品質', 'Air quality'), summary, big, tabs: hourly ? tabsHtml('air', dayTabs('air', now, f.tz), range) : '', graph: airGraph(cols, { tz: f.tz, daily, fromNow: range === 'd0' }), foot: daily ? W('按住圖表滑動，看每天', 'Hold and slide for each day') : W('按住圖表滑動，看每小時', 'Hold and slide for each hour') });
+  return card({ cls: 'air', icon: glyph('air'), title: W('空氣品質', 'Air quality'), summary, big, tabs: hourly ? tabsHtml('air', dayTabs('air', now, f.tz), range) : '', graph: airGraph(cols, { tz: f.tz, daily, fromNow: range === 'd0' }) });
 }
 
 // ---- What to do: the advice rows -----------------------------------------------------------
@@ -560,7 +560,7 @@ export function daySheet(f, date, { now, lat, lon }) {
   const sum = `<div class="wx-scrub-time"><b>${W('全天', 'All day')}</b><span>${e(places || conditionText(c.code, c.text) || '')}</span></div>
     <div class="wx-scrub-vals is-sum">
       <div><span>${W('最高 / 最低', 'High / low')}</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>${W('體感', 'Feels')} ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
-      <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? W(`約 ${d.mm} mm`, `~${d.mm} mm`) : ''}</small></div>
+      <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `${d.mm} mm` : ''}</small></div>
       <div><span>${W('紫外線最高', 'UV high')}</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
       <div><span>${W('空氣最高', 'Air high')}</span><b style="color:${fc ? aqiColor(fc.aqi) : 'inherit'}">${fc?.aqi ?? '–'}</b><small>${e(aqiLevel(fc?.level))}</small></div>
     </div>`;
@@ -572,7 +572,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>
     <div class="wx-dayg">
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
-      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe>${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
+      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe data-no-sheet-swipe>${dayCharts(hours, { tz: f.tz })}</div>` : `<p class="wx-foot">${W('沒有逐時預報', 'No hourly forecast')}</p>`}
     </div>
     ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="q-rowcard wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid q-even">
@@ -708,7 +708,7 @@ function panelGrid(f, opts) {
   const d = today(f, opts.now);
   const stats = metricStats(f, opts);
   if (d?.sunrise && d?.sunset) stats.push({ kind: 'sun', title: W('日出', 'Sunrise'), big: clock(d.sunrise, f.tz), sub: `${W('日落', 'Sunset')} ${clock(d.sunset, f.tz)}` });
-  if (n.feels != null) stats.push({ kind: 'feels', title: W('體感', 'Feels like'), big: deg(n.feels), sub: n.temp != null ? (n.feels > n.temp + 1 ? W('比實際溫度悶熱', 'Warmer than the air') : n.feels < n.temp - 1 ? W('比實際溫度涼', 'Cooler than the air') : W('與實際溫度相近', 'About the air')) : '' });
+  if (n.feels != null) stats.push({ kind: 'feels', title: W('體感', 'Feels like'), big: deg(n.feels), sub: n.temp != null ? `${W('氣溫', 'Air')} ${deg(n.temp)}` : '' });
   if (n.vis != null) stats.push({ kind: 'vis', title: W('能見度', 'Visibility'), big: `${n.vis}`, unit: W('公里', 'km'), sub: `${W('雲量', 'Cloud')} ${pct(n.cloud)}` });
   if (stats.length < 2) return '';
   return sec('wx-panels-sec', W('今日數據', "Today's details"), kitUI.panelGridHtml(stats.map(statPanel)));
