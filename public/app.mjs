@@ -200,9 +200,17 @@ async function loadPage(page, { force = false, naming = null } = {}) {
   page.loading = true;
   render();
   try {
-    const token = await q.ensureToken();
+    // (The token kept, up to 6 hours old, goes at once: no sign-in round trip
+    // before the forecast on reopening; turned away, once more with a new one.)
+    const where = page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true };
+    const token = await q.ensureToken({ read: true });
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
-    const { f, rest } = await fetchForecast(page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true }, token);
+    const { f, rest } = await fetchForecast(where, token).catch(async err => {
+      if (err.status !== 401) throw err;
+      const fresh = await q.ensureToken({ renew: true });
+      if (!fresh) throw err;
+      return fetchForecast(where, fresh);
+    });
     await naming;
     take(page, cell, f);
     // Not the last word yet: the proxy's quick answer (now, two days, the
@@ -336,8 +344,8 @@ async function placeHere(here, pos) {
   const naming =
     moved || !place?.town
       ? q
-          .ensureToken()
-          .then(token => fetchWhere(pos.lat, pos.lon, token))
+          .ensureToken({ read: true })
+          .then(token => fetchWhere(pos.lat, pos.lon, token).catch(err => (err.status === 401 ? q.ensureToken({ renew: true }).then(t => fetchWhere(pos.lat, pos.lon, t)) : Promise.reject(err))))
           .then(w => {
             if (state.local.here?.lat !== pos.lat || state.local.here?.lon !== pos.lon) return;
             if (!w?.county) throw new Error('no name');
