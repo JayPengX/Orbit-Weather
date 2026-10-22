@@ -516,3 +516,16 @@ test('typhoon: once the county has decided, its row alone', () => {
   assert.match(html, /新竹縣/);
   assert.doesNotMatch(html, /玉峰/);
 });
+
+test('a weekday school pin is off on a typhoon 停課 day there', async () => {
+  const { keepDayOff } = await import('#kit/dayoff.mjs');
+  const { useHolidays, pinActiveAt } = await import('../public/lib/pins.mjs');
+  const { dayOffOn } = await import('#kit/dayoff.mjs');
+  useHolidays((date, pin) => Boolean(pin && dayOffOn(date, { county: pin.county, town: pin.town }, /校/.test(pin.name) ? 'class' : 'work')));
+  const pin = { id: 'pschool', name: '學校', lat: 24.8, lon: 121, county: '新竹縣', town: '竹東鎮', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' };
+  const fri10 = Date.parse('2026-10-23T10:00:00+08:00');
+  assert.equal(pinActiveAt(pin, fri10), true);
+  keepDayOff({ county: '新竹縣', town: '竹東鎮' }, { '2026-10-23': { work: { off: true, from: null }, class: { off: true, from: null } } });
+  assert.equal(pinActiveAt(pin, fri10), false);
+  useHolidays(() => false);
+});

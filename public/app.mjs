@@ -8,11 +8,19 @@ import { settleSegs, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
+import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
-useHolidays(date => Boolean(twHoliday(date)));
+// And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
+// there for a school, 停班 for any other place.
+const SCHOOL = /學|校|園|school|college|universit|class/i;
+const pinNeed = pin => (SCHOOL.test(pin?.name || '') ? 'class' : 'work');
+const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || null } : { lat: pin.lat, lon: pin.lon });
+// (A stop from later in the day leaves the morning's going there as it is.)
+const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));
+useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(dayOffOn(date, pinPlace(pin), pinNeed(pin)))));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
@@ -51,6 +59,10 @@ const state = {
 
 function buildPages() {
   const here = state.local.here;
+  // (The person's school and work, where the other apps can read them: Class's 停課 is the school's.)
+  for (const pin of state.data.pins) if (pin.county && !pin.home && pin.days.some(d => d > 0 && d < 6)) setPlace(pinNeed(pin) === 'class' ? 'school' : 'work', pinPlace(pin));
+  const homePin = state.data.pins.find(p => p.home && p.county);
+  if (homePin) setPlace('home', pinPlace(homePin));
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
   state.pages = [
     // 我的行程 first, once there's a pin: the weather where you'll be.
@@ -144,6 +156,11 @@ const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
   return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}${state.tab === 'week' ? '' : `|${state.pages.map(p => forecastOf(p)?.at || 0).join()}`}`;
 };
+// (A typhoon day off announced where a pin is: where you'll be moves on.)
+onDayOff(() => {
+  for (const p of document.querySelectorAll('[id^="panel-"]')) delete p.dataset.sig;
+  render();
+});
 function render() {
   const page = current();
   if (!page) return;

@@ -148,7 +148,7 @@ const shortPlace = p =>
     .replace(/^(.{1,3}?[鄉鎮市區])(?=.)/, '$1 ')
     .trim();
 export function offNote(l) {
-  const m = /^([^\d\s:：][^:：]{0,40})[:：]\s*([\s\S]*)$/.exec(l.text);
+  const m = /^([^\d\s:：][^\d:：]{0,40})[:：]\s*([\s\S]*)$/.exec(l.text);
   const place = m ? shortPlace(m[1]) : '';
   const rest = m ? m[2] : l.text;
   const w = /^(今天|今日|明天|明日)?\s*(上午|中午|下午|晚上)?\s*(\d{1,2})?[:：時]?(\d{2})?\s*(起)?/.exec(rest) || [];

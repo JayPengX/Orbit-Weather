@@ -51,7 +51,7 @@ export function cleanPin(p) {
 let holidayOn = () => false;
 export const useHolidays = fn => (holidayOn = typeof fn === 'function' ? fn : () => false);
 const workPin = pin => !pin.days.includes(0) && !pin.days.includes(6);
-const pinDay = (pin, day, date) => pin.days.includes(day) && !(workPin(pin) && holidayOn(date));
+const pinDay = (pin, day, date) => pin.days.includes(day) && !(workPin(pin) && holidayOn(date, pin));
 const dayBefore = date => new Date(Date.parse(`${date}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
 
 // Inside its hours now? (A window past midnight, 22:00–06:00, counts the
