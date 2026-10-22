@@ -762,15 +762,9 @@ button.wx-stat {
   gap: 8px;
 }
 
-/* A day: the days either side, its read-out, its charts, its advice, its halves. */
+/* A day: the kit's strip of the forecast's days (swiped too), its read-out, its charts, its advice, its halves. */
 .wx-day-sheet {
   touch-action: pan-y;
-}
-.wx-day-sheet .q-sheet-head:has(> h2) {
-  grid-template-columns: 36px minmax(0, 1fr) 36px 44px;
-}
-.wx-day-sheet .q-sheet-head > .q-close {
-  grid-column: 4;
 }
 .wx-day-sheet .q-sheet-head h2 {
   gap: 6px;
@@ -778,41 +772,6 @@ button.wx-stat {
 }
 .wx-day-icon {
   line-height: 0;
-}
-.wx-nav {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--q-fill-3);
-  color: var(--q-label);
-  cursor: pointer;
-}
-.wx-nav:disabled {
-  opacity: 0.25;
-  cursor: default;
-}
-.wx-day-sheet.slide-l > :not(.q-sheet-head) {
-  animation: wx-in-l 0.26s ease;
-}
-.wx-day-sheet.slide-r > :not(.q-sheet-head) {
-  animation: wx-in-r 0.26s ease;
-}
-@keyframes wx-in-l {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-}
-@keyframes wx-in-r {
-  from {
-    opacity: 0;
-    transform: translateX(-28px);
-  }
 }
 .wx-dayg {
   margin-top: 4px;

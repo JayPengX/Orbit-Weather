@@ -494,16 +494,12 @@ export function dayTips(f, date, now) {
 }
 
 // The sheet for one day: its numbers, its charts (a finger on them reads
-// each hour), and what to do that day.
+// each hour), and what to do that day (the days around it: the app's strip).
 export function daySheet(f, date, { now, lat, lon }) {
   const d = f.days?.find(x => x.date === date);
   const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
   const fc = f.air?.forecast?.days?.find(x => x.date === date);
-  const dates = (f.days || []).map(x => x.date).filter(x => x >= dateOf(now, f.tz));
-  const at = dates.indexOf(date);
-  const prev = at > 0 ? dates[at - 1] : null;
-  const next = at >= 0 && at < dates.length - 1 ? dates[at + 1] : null;
   const c = d?.day?.condition || {};
   const tips = dayTips(f, date, now);
   const places = d?.places?.length ? d.places.join(' → ') : '';
@@ -516,14 +512,13 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>`;
   return `
     <div class="q-sheet-head">
-      <button class="wx-nav" type="button" data-dayn="${e(prev || '')}" aria-label="${W('前一天', 'Previous day')}" ${prev ? '' : 'disabled'}>${glyph('chevL', { size: 20 })}</button>
+      <span></span>
       <h2><span class="wx-day-icon">${conditionArt(c.code, c.text, true, { size: 30 })}</span><span>${dayLabel(date, now, f.tz) === weekday(date) ? '' : `${e(dayLabel(date, now, f.tz))} `}${shortDate(date)} ${weekday(date)}</span></h2>
-      <button class="wx-nav" type="button" data-dayn="${e(next || '')}" aria-label="${W('後一天', 'Next day')}" ${next ? '' : 'disabled'}>${glyph('chevR', { size: 20 })}</button>
       <button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button>
     </div>
     <div class="wx-dayg">
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
-      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot">${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
+      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe>${dayCharts(hours, { tz: f.tz })}</div><p class="wx-foot wx-hint">${W('按住圖表滑動，看每小時', 'Hold and slide for each hour')}</p>` : `<p class="wx-foot">${W('這一天沒有逐時資料。', 'No hourly forecast for this day.')}</p>`}
     </div>
     ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="q-rowcard wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid q-even">

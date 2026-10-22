@@ -606,44 +606,28 @@ function openDay(key, date) {
   const f = page && forecastOf(page);
   if (!f) return;
   const d = sheet('', 'wx-day-sheet');
+  // The forecast's days: the family's strip under the head (📅 among them), a swipe for the next.
+  const strip = {};
+  const days = () => {
+    const all = (f.days || []).map(x => x.date);
+    const ahead = all.filter(x => x >= dateOf(Date.now(), f.tz));
+    return ahead.length ? ahead : all;
+  };
+  let shown = date;
   const show = when => {
     const now = Date.now();
+    shown = when;
     // Today's sheet also holds 更多資訊 (not on the move, nor when hidden).
     const info = when === dateOf(now, f.tz) && !page.plan && !state.data.hidden.includes('info') ? infoCard(f, { now, lat: page.lat, lon: page.lon, page }) : '';
     d.innerHTML = daySheet(f, when, { now, lat: page.lat, lon: page.lon }) + info;
+    d.querySelector('.q-sheet-head')?.after(kitUI.dayBar(strip, { flat: true, days: days(), current: when, today: dateOf(now, f.tz), follow: true, onPick: show }));
     d.scrollTop = 0;
     armScrub(d, f, when);
   };
-  let shown = date;
-  const step = by => {
-    const b = d.querySelector(`.wx-nav[aria-label="${by < 0 ? W('前一天', 'Previous day') : W('後一天', 'Next day')}"]`);
-    if (!b?.dataset.dayn) return;
-    shown = b.dataset.dayn;
-    show(shown);
-    d.classList.remove('slide-l', 'slide-r');
-    void d.offsetWidth;
-    d.classList.add(by < 0 ? 'slide-r' : 'slide-l');
-  };
-  d.addEventListener('click', ev => {
-    const b = ev.target.closest('[data-dayn]');
-    if (b?.dataset.dayn) step(b.getAttribute('aria-label') === W('前一天', 'Previous day') ? -1 : 1);
+  kitUI.daySwipe(d, dir => {
+    const next = kitUI.dayStep(days(), shown, dir);
+    return Boolean(next && (show(next), true));
   });
-  // A sideways swipe (not on the charts, which read the hours): the next or previous day.
-  let sx = null;
-  let sy = 0;
-  d.addEventListener('pointerdown', ev => {
-    if (ev.pointerType === 'mouse' || ev.target.closest('.wx-dayg-plot, .q-sheet-head')) return;
-    sx = ev.clientX;
-    sy = ev.clientY;
-  });
-  d.addEventListener('pointerup', ev => {
-    if (sx == null) return;
-    const dx = ev.clientX - sx;
-    const dy = ev.clientY - sy;
-    sx = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > 1.6 * Math.abs(dy)) step(dx < 0 ? 1 : -1);
-  });
-  d.addEventListener('pointercancel', () => (sx = null));
   show(date);
 }
 

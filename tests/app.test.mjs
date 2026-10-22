@@ -323,13 +323,9 @@ test('the cards: the owner\'s order and the hidden ones, kept on the pass, the n
   assert.ok(!nowHtml(forecast, { key: 'here', pin: null, place: { town: '信義區' } }, { now: NOW, cards: back.cards, hidden: ['advice'] }).includes('建議'), 'advice hidden');
 });
 
-test('the day sheet: the days either side', () => {
+test('the day sheet: its read-out (the days around it are the app’s strip)', () => {
   const html = daySheet(forecast, '2026-10-03', { now: NOW, lat: 25.03, lon: 121.57 });
   assert.match(html, /class="wx-scrub"/);
-  assert.match(html, /data-dayn="2026-10-02"/);
-  assert.match(html, /data-dayn="2026-10-04"/);
-  const first = daySheet(forecast, '2026-10-02', { now: NOW });
-  assert.match(first, /data-dayn="" aria-label="前一天" disabled/);
 });
 
 // ---- 我的行程 ----
