@@ -149,14 +149,16 @@ export function dayOffSec(f, now) {
   if (!d || !f.at || now - f.at > 3 * HOUR || d.date < dateOf(now, f.tz)) return '';
   const storm = en ? `Typhoon ${d.nameEn ? d.nameEn[0] + d.nameEn.slice(1).toLowerCase() : ''}`.trim() : `颱風${d.name ? ` ${d.name}` : ''}`;
   const tile = color => `<span class="q-tile wx-life-icon" style="--t:var(--q-${color})">${glyph('typhoon', { size: 22 })}</span>`;
-  let rows;
-  if (d.official) {
-    const at = d.official.at ? `${W('已公布', 'Announced')} ${clock(d.official.at, f.tz)}` : W('已公布', 'Announced');
-    rows = d.official.lines.slice(0, 3).map((l, i) => {
+  const said = (o, n = 3) => {
+    const at = o.at ? `${W('已公布', 'Announced')} ${clock(o.at, f.tz)}` : W('已公布', 'Announced');
+    return o.lines.slice(0, n).map((l, i) => {
       const tag = OFF_TAG[l.off] || ['green', W('照常', 'Open')];
       return `<div class="q-ritem wx-life wx-dayoff">${tile(CLOSED.has(l.off) ? 'red' : l.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title q-fit">${e(en ? offEn(l.text) : l.text)}</span>${i === 0 ? `<small>${e(at)}</small>` : ''}</span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
     });
-  } else {
+  };
+  let rows;
+  if (d.official) rows = said(d.official);
+  else {
     const w = d.why || {};
     const gustFirst = (w.gust ?? 0) / 10 >= (w.wind ?? 0) / 7;
     const parts = [
@@ -166,6 +168,8 @@ export function dayOffSec(f, now) {
     ].filter(Boolean);
     rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day-off chance`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
   }
+  // (Towns already decided, under the county's chance.)
+  if (!d.official && d.local) rows.push(...said(d.local, 2));
   return sec('wx-dayoff-sec', e(storm), `<div class="q-rowcard wx-lifegrid">${rows.join('')}</div>`);
 }
 
