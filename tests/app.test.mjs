@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards, offGroups } from '../public/lib/cards.mjs';
+import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards, offGroups, dayOffSec } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -508,4 +508,11 @@ test('typhoon notices: one row a place, its name short, the day and hour of each
   assert.deepEqual(g[0].notes.map(n => [n.day, n.hour]), [['today', '16:00'], ['tomorrow', '']]);
   assert.equal(g[1].off, 'class');
   assert.equal(g[2].notes[0].when, '今天下午');
+});
+
+test('typhoon: once the county has decided, its row alone', () => {
+  const f = { at: NOW, tz: 'Asia/Taipei', place: { county: '新竹縣' }, dayOff: { name: '薔琵', date: dateOf(NOW + 24 * H, 'Asia/Taipei'), official: { at: NOW, lines: [{ text: '明天停止上班、停止上課', off: 'all' }, { text: '尖石鄉玉峰國民小學:今天下午04:00起停止上班、停止上課', off: 'all' }] } } };
+  const html = dayOffSec(f, NOW);
+  assert.match(html, /新竹縣/);
+  assert.doesNotMatch(html, /玉峰/);
 });

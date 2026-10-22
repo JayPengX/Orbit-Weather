@@ -185,7 +185,10 @@ export function dayOffSec(f, now) {
   // each notice's day and hour, and when it was announced, under it.
   const said = (o, n = 3) => {
     const at = o.at ? clock(o.at, f.tz) : '';
-    return offGroups(o.lines)
+    // (The whole county decided: that row alone; its towns are part of it.)
+    const all = offGroups(o.lines);
+    const county = all.find(g => !g.place && g.off !== 'wait');
+    return (county ? [county] : all)
       .slice(0, n)
       .map(g => {
         const tag = OFF_TAG[g.off] || ['green', W('照常', 'Open')];
