@@ -133,6 +133,41 @@ export function heroHtml(f, { page, now }) {
   </section>`;
 }
 
+// ---- 颱風: the day off -------------------------------------------------------------------
+//
+// Only while CWA has a typhoon warning out (the proxy's `dayOff`): the
+// county's own word once 人事行政總處 lists it, else the chance for the day
+// in question (today until 10:00, then tomorrow) with what it rests on.
+const OFF_TAG = { all: ['red', W('停班停課', 'Closed')], class: ['red', W('停課', 'No school')], work: ['red', W('停班', 'No work')] };
+// The official words in English: their few phrases turned over, place names kept.
+const offEn = t => t.replace(/[:：]\s*/g, ': ').replace(/今天|今日/g, 'Today ').replace(/明天|明日/g, 'Tomorrow ').replace(/下午/g, 'afternoon ').replace(/晚上/g, 'evening ').replace(/停止上班、停止上課/g, 'offices and schools closed').replace(/照常上班、照常上課/g, 'open as usual').replace(/停止上課/g, 'schools closed').replace(/停止上班/g, 'offices closed').replace(/照常上班/g, 'offices open').replace(/照常上課/g, 'schools open').replace(/\s+/g, ' ').trim();
+const chanceColor = p => (p >= 60 ? 'red' : p >= 30 ? 'orange' : 'green');
+export function dayOffSec(f, now) {
+  const d = f?.dayOff;
+  // (An old copy's, or a day gone by: not shown.)
+  if (!d || !f.at || now - f.at > 3 * HOUR || d.date < dateOf(now, f.tz)) return '';
+  const storm = en ? `Typhoon ${d.nameEn ? d.nameEn[0] + d.nameEn.slice(1).toLowerCase() : ''}`.trim() : `颱風${d.name ? ` ${d.name}` : ''}`;
+  const tile = color => `<span class="q-tile wx-life-icon" style="--t:var(--q-${color})">${glyph('typhoon', { size: 22 })}</span>`;
+  let rows;
+  if (d.official) {
+    const at = d.official.at ? `${W('已公布', 'Announced')} ${clock(d.official.at, f.tz)}` : W('已公布', 'Announced');
+    rows = d.official.lines.slice(0, 3).map((l, i) => {
+      const tag = OFF_TAG[l.off] || ['green', W('照常', 'Open')];
+      return `<div class="q-ritem wx-life wx-dayoff">${tile(l.off ? 'red' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title q-fit">${e(en ? offEn(l.text) : l.text)}</span>${i === 0 ? `<small>${e(at)}</small>` : ''}</span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
+    });
+  } else {
+    const w = d.why || {};
+    const gustFirst = (w.gust ?? 0) / 10 >= (w.wind ?? 0) / 7;
+    const parts = [
+      gustFirst ? (w.gust != null ? W(`陣風 ${w.gust} 級`, `Gusts ${w.gust}`) : '') : W(`${w.wind} 級風`, `Force ${w.wind}`),
+      w.mm >= 50 ? `${w.mm} mm` : '',
+      w.land ? W('陸上警報', 'Land alert') : w.reach ? W('暴風圈接近', 'Storm near') : ''
+    ].filter(Boolean);
+    rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day-off chance`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
+  }
+  return sec('wx-dayoff-sec', e(storm), `<div class="q-rowcard wx-lifegrid">${rows.join('')}</div>`);
+}
+
 // A section: a 20px head (the kit's q-section-head, 全部 on its right when
 // there's more), then its body.
 const sec = (cls, title, body, more = '') => `<section class="q-section wx-section ${cls}"><div class="q-section-head q-shd"><h2>${title}</h2>${more}</div>${body}</section>`;
@@ -662,7 +697,7 @@ export function nowHtml(f, page, { now, cards, hidden, places } = {}) {
   const hero = heroHtml(f, { page, now });
   if (!f) return head + hero + (page.error ? failed(page) : waiting('wx-hours', 8));
   const show = shownCards(page, cards, hidden);
-  return head + hero + hourStrip(f, { now, key: page.key }) + (show.includes('days') ? daysList(f, { now, key: page.key }) : '') + panelGrid(f, { now, key: page.key, page }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '') + placesShelf(places);
+  return head + hero + dayOffSec(f, now) + hourStrip(f, { now, key: page.key }) + (show.includes('days') ? daysList(f, { now, key: page.key }) : '') + panelGrid(f, { now, key: page.key, page }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '') + placesShelf(places);
 }
 
 // 預報: the indicators and the days, in the owner's order.

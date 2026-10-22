@@ -221,5 +221,5 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   const alerts = [];
   for (const k of new Set(list.slice(0, 24).map(x => x.key))) for (const a of forecastFor(k)?.alerts || []) if (!alerts.some(b => b.title === a.title)) alerts.push(a);
   // (`own`: its headline is in the reader's language already.)
-  return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, own: true, place: fNow.place, places: [...new Set(list.map(x => placeName(x.pin)))] };
+  return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, own: true, place: fNow.place, dayOff: fNow.dayOff, places: [...new Set(list.map(x => placeName(x.pin)))] };
 }

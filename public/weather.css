@@ -506,6 +506,26 @@ body {
   overflow-wrap: anywhere;
 }
 
+/* ==== 今天: the typhoon day off (an advice row; the chance on its right) ==== */
+.wx-dayoff {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  grid-template-areas: 'tile title tag' 'tile text tag';
+}
+.wx-dayoff > .wx-dayoff-p {
+  grid-area: tag;
+  color: var(--c);
+  font: 600 26px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wx-dayoff > .wx-dayoff-p small {
+  margin-left: 1px;
+  font-size: 15px;
+}
+.wx-dayoff > .q-tag {
+  justify-self: end;
+}
+
 /* ==== 預報: the indicators, a rail of stat cards ==== */
 .wx-stats {
   --q-rail-w: 150px;

@@ -101,6 +101,7 @@ const P = {
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   air: '<circle cx="7" cy="8" r="2"/><circle cx="16" cy="6.5" r="1.4"/><circle cx="12.5" cy="13" r="2.4"/><circle cx="6.5" cy="17" r="1.3"/><circle cx="17.5" cy="16.5" r="2"/>',
   station: '<path d="M12 11v10M8.5 21h7M8 5.5a5.5 5.5 0 0 0 0 7M16 5.5a5.5 5.5 0 0 1 0 7"/><circle cx="12" cy="9" r="2"/>',
+  typhoon: '<circle cx="12" cy="12" r="3.2"/><path d="M12 8.8C12 5 14.6 3 18.5 3M12 15.2c0 3.8-2.6 5.8-6.5 5.8"/>',
   warn: '<path d="M12 4 2.8 19.5h18.4L12 4z"/><path d="M12 10v4.5M12 17.2v.1"/>',
   moon: '<path d="M11.4 4A8 8 0 1 0 19.8 13.6 6.5 6.5 0 0 1 11.4 4z"/>',
   calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',

@@ -17,6 +17,7 @@ Live: https://jaypengx.github.io/Orbit-Weather/
   again only if GPS lands in another ~1 km cell. iOS is asked for the
   position unprompted once, never at every opening.
 - **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
+- **颱風:** only while CWA has a typhoon warning out, a row under the sky: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow, with the wind, rain and warning it rests on (the proxy's `dayOff`, `Shared-Proxy/typhoon.js`).
 - **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a change of place or tab, and each minute while on screen).
