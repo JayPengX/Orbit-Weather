@@ -138,9 +138,10 @@ export function heroHtml(f, { page, now }) {
 // Only while CWA has a typhoon warning out (the proxy's `dayOff`): the
 // county's own word once 人事行政總處 lists it, else the chance for the day
 // in question (today until 10:00, then tomorrow) with what it rests on.
-const OFF_TAG = { all: ['red', W('停班停課', 'Closed')], class: ['red', W('停課', 'No school')], work: ['red', W('停班', 'No work')] };
+const OFF_TAG = { all: ['red', W('停班停課', 'Closed')], class: ['red', W('停課', 'No school')], work: ['red', W('停班', 'No work')], wait: ['', W('未公布', 'Pending')] };
+const CLOSED = new Set(['all', 'class', 'work']);
 // The official words in English: their few phrases turned over, place names kept.
-const offEn = t => t.replace(/[:：]\s*/g, ': ').replace(/今天|今日/g, 'Today ').replace(/明天|明日/g, 'Tomorrow ').replace(/下午/g, 'afternoon ').replace(/晚上/g, 'evening ').replace(/停止上班、停止上課/g, 'offices and schools closed').replace(/照常上班、照常上課/g, 'open as usual').replace(/停止上課/g, 'schools closed').replace(/停止上班/g, 'offices closed').replace(/照常上班/g, 'offices open').replace(/照常上課/g, 'schools open').replace(/\s+/g, ' ').trim();
+const offEn = t => t.replace(/[:：]\s*/g, ': ').replace(/今天|今日/g, 'Today ').replace(/明天|明日/g, 'Tomorrow ').replace(/下午/g, 'afternoon ').replace(/晚上/g, 'evening ').replace(/停止上班、停止上課/g, 'offices and schools closed').replace(/照常上班、照常上課/g, 'open as usual').replace(/停止上課/g, 'schools closed').replace(/停止上班/g, 'offices closed').replace(/照常上班/g, 'offices open').replace(/照常上課/g, 'schools open').replace(/尚未宣布消息/g, 'not announced yet').replace(/尚未列入警戒區/g, 'not in the warning area').replace(/已達停止上班及上課標準/g, 'offices and schools closed').replace(/未達停止上班及上課標準/g, 'open as usual').replace(/\s+/g, ' ').trim();
 const chanceColor = p => (p >= 60 ? 'red' : p >= 30 ? 'orange' : 'green');
 export function dayOffSec(f, now) {
   const d = f?.dayOff;
@@ -153,7 +154,7 @@ export function dayOffSec(f, now) {
     const at = d.official.at ? `${W('已公布', 'Announced')} ${clock(d.official.at, f.tz)}` : W('已公布', 'Announced');
     rows = d.official.lines.slice(0, 3).map((l, i) => {
       const tag = OFF_TAG[l.off] || ['green', W('照常', 'Open')];
-      return `<div class="q-ritem wx-life wx-dayoff">${tile(l.off ? 'red' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title q-fit">${e(en ? offEn(l.text) : l.text)}</span>${i === 0 ? `<small>${e(at)}</small>` : ''}</span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
+      return `<div class="q-ritem wx-life wx-dayoff">${tile(CLOSED.has(l.off) ? 'red' : l.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title q-fit">${e(en ? offEn(l.text) : l.text)}</span>${i === 0 ? `<small>${e(at)}</small>` : ''}</span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
     });
   } else {
     const w = d.why || {};
