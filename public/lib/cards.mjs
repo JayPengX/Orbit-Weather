@@ -222,10 +222,12 @@ export function dayOffSec(f, now) {
     ]
       .filter(Boolean)
       .slice(0, 2);
-    rows = [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day off`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
+    // (The storm gone by then, the chance next to nothing: no row for it.)
+    rows = d.chance < 5 ? [] : [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day off`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
   }
   // (Towns already decided, under the county's chance.)
   if (!d.official && d.local) rows.push(...said(d.local, 2));
+  if (!rows.length) return '';
   return sec('wx-dayoff-sec', e(storm), `<div class="q-rowcard wx-lifegrid">${rows.join('')}</div>`);
 }
 
