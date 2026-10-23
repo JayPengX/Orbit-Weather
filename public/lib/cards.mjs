@@ -160,7 +160,7 @@ export function offNote(l) {
     hour = `${String(h).padStart(2, '0')}:${w[4] || '00'}`;
   }
   const when = hour ? `${day ? `${day} ` : ''}${W(`${hour} 起`, `from ${hour}`)}` : W(`${day}${w[2] || ''}`, [day, { 上午: 'morning', 中午: 'noon', 下午: 'afternoon', 晚上: 'evening' }[w[2]]].filter(Boolean).join(' '));
-  return { place, when, off: l.off, hour, day: /明/.test(w[1] || '') ? 'tomorrow' : w[1] ? 'today' : '' };
+  return { place, when, off: l.off, at: l.at ?? null, hour, day: /明/.test(w[1] || '') ? 'tomorrow' : w[1] ? 'today' : '' };
 }
 // Notices grouped by place (first seen first), each group's tag its most closed notice.
 const OFF_RANK = { all: 4, class: 3, work: 3, open: 1, wait: 0 };
@@ -183,8 +183,12 @@ export function dayOffSec(f, now) {
   const tile = color => `<span class="q-tile wx-life-icon" style="--t:var(--q-${color})">${glyph('typhoon', { size: 22 })}</span>`;
   // One row a place (its notices together): the place, short, as the title;
   // each notice's day and hour, and when it was announced, under it.
+  const announced = t => {
+    const day = dateOf(t, f.tz);
+    const pre = day === dateOf(now, f.tz) ? '' : day === dateOf(now - 86_400_000, f.tz) ? W('昨天 ', 'yesterday ') : `${shortDate(day)} `;
+    return W(`${pre}${clock(t, f.tz)} 公布`, `${pre}${clock(t, f.tz)}`);
+  };
   const said = (o, n = 3) => {
-    const at = o.at ? clock(o.at, f.tz) : '';
     // (The whole county decided: that row alone; its towns are part of it.)
     const all = offGroups(o.lines);
     const county = all.find(g => !g.place && g.off !== 'wait');
@@ -196,7 +200,10 @@ export function dayOffSec(f, now) {
         // (Today from an hour, then tomorrow, alike: one stretch, 16:00 起至明天.)
         const run = !mixed && g.notes.length === 2 && g.notes[0].hour && g.notes[0].day === 'today' && g.notes[1].day === 'tomorrow' && !g.notes[1].hour;
         const when = run ? [W(`${g.notes[0].hour} 至明天`, `${g.notes[0].hour} to tomorrow`)] : g.notes.map(x => [x.when, mixed ? (OFF_TAG[x.off] || ['', W('照常', 'Open')])[1] : ''].filter(Boolean).join(' ')).filter(Boolean);
-        const sub = [when.join(W('、', ', ')), at ? W(`${at} 公布`, at) : ''].filter(Boolean).join(' · ');
+        // (When the decision first showed on 人事行政總處's page, its day said when not today; unknown: left out.)
+        const t0 = Math.min(...g.notes.map(x => x.at).filter(Boolean));
+        const said = Number.isFinite(t0) ? announced(t0) : '';
+        const sub = [when.join(W('、', ', ')), said].filter(Boolean).join(' · ');
         const title = g.place || f.place?.county || W('全縣市', 'Whole county');
         return `<div class="q-ritem wx-life wx-dayoff wx-dayoff-note">${tile(CLOSED.has(g.off) ? 'red' : g.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small class="q-fit">${e(sub)}</small></span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
       });

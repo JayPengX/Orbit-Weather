@@ -529,3 +529,12 @@ test('a weekday school pin is off on a typhoon 停課 day there', async () => {
   assert.equal(pinActiveAt(pin, fri10), false);
   useHolidays(() => false);
 });
+
+test('typhoon notices: when each was announced, yesterday said so, unknown left out', () => {
+  const now = Date.parse('2026-10-23T13:00:00+08:00');
+  const f = { at: now, tz: 'Asia/Taipei', place: { county: '新竹縣' }, dayOff: { name: '薔琵', date: '2026-10-27', chance: 5, why: {}, local: { lines: [{ text: '今天停止上班、停止上課', off: 'all', at: Date.parse('2026-10-22T19:11:00+08:00') }, { text: '綠島鄉:今天停止上班、停止上課', off: 'all', at: null }] } } };
+  const html = dayOffSec(f, now);
+  assert.match(html, /週二停班停課機率/);
+  assert.match(html, /昨天 19:11 公布/);
+  assert.doesNotMatch(html, /綠島鄉[^<]*<\/span><small[^>]*>[^<]*公布/);
+});
