@@ -22,7 +22,7 @@ const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || n
 const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));
 useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(dayOffOn(date, pinPlace(pin), pinNeed(pin)))));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
-import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
+import { readout, scrubHtml, colAt, colSpot, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
@@ -610,17 +610,12 @@ function openMetric(key, kind) {
   d.dataset.key = key;
   d.redraw = () => {
     const now = Date.now();
-    fitCharts(d);
     d.innerHTML = metricSheet(kind, f, { now, key, ranges: state.ranges, page });
     settleSegs(d);
     state.cols[key] = { ...(state.cols[key] || {}), [kind]: colsFor(kind, f, now, rangeOf(kind, state.ranges)), tz: f.tz };
   };
   d.redraw();
 }
-
-// A sheet's graphs drawn for its width: a phone's frame, wider on an iPad
-// (the words keep their size, the plot gets the room).
-const fitCharts = d => chartWidth(Math.max(340, Math.min(720, Math.round(((d.clientWidth || 375) - 60) / 1.15))));
 
 // 全部: every piece of advice.
 function openAdvice(key) {
@@ -647,7 +642,6 @@ function openDay(key, date) {
     shown = when;
     // Today's sheet also holds 更多資訊 (not on the move, nor when hidden).
     const info = when === dateOf(now, f.tz) && !page.plan && !state.data.hidden.includes('info') ? infoCard(f, { now, lat: page.lat, lon: page.lon, page }) : '';
-    fitCharts(d);
     d.innerHTML = daySheet(f, when, { now, lat: page.lat, lon: page.lon }) + info;
     d.querySelector('.q-sheet-head')?.after(kitUI.dayBar(strip, { flat: true, days: days(), current: when, today: dateOf(now, f.tz), follow: true, onPick: show }));
     d.scrollTop = 0;

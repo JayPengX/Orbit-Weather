@@ -10,12 +10,9 @@ body {
   background: var(--q-page);
   color: var(--q-label);
 }
-/* The kit's column: a phone's width and 16 px in on a phone, the iPad's
-   whole screen (up to 1240 px, 32/40 px in) from 700 px. */
+/* A page: 16 px in. */
 .wx-panel {
-  --q-margin: var(--q-gutter, 16px);
-  max-width: var(--q-col, 640px);
-  margin: 0 auto;
+  --q-margin: 16px;
   padding: 0 var(--q-margin) calc(var(--q-nav, 0px) + 32px);
 }
 .wx-panel > .q-section,
@@ -1370,81 +1367,3 @@ svg.ch {
   .q-panels .q-panel-art .wx-spark { width: 52px; }
 }
 
-/* ==== iPad (700+): rails show more of each, 今日數據 three across; from
-   1100 px (landscape) the tabs go two columns side by side ==== */
-@media (min-width: 700px) {
-  .wx-rail {
-    --q-rail-n: 8;
-  }
-  .wx-pcards {
-    --q-rail-n: var(--q-rail-small-n);
-  }
-  .wx-panels-sec .q-panels {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  .wx-panels-sec .q-panels > * {
-    grid-column: span 2;
-  }
-  .wx-panels-sec .q-panels > :last-child:nth-child(3n + 1) {
-    grid-column: 1 / -1;
-  }
-  .wx-panels-sec .q-panels > :nth-last-child(2):nth-child(3n + 1),
-  .wx-panels-sec .q-panels > :last-child:nth-child(3n + 2) {
-    grid-column: span 3;
-  }
-}
-@media (min-width: 1100px) {
-  .wx-rail {
-    --q-rail-n: 12;
-  }
-  /* 今天: the sky and the hours across; the days beside 今日數據 and 建議. */
-  #panel-now:has(> .wx-days-sec) {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: 'head head' 'hero hero' 'hours hours' 'days panels' 'days advice' 'places places';
-    grid-template-rows: auto auto auto auto 1fr auto;
-    column-gap: 28px;
-    align-items: start;
-  }
-  #panel-now > .wx-head { grid-area: head; }
-  #panel-now > .wx-hero { grid-area: hero; }
-  #panel-now > .wx-hours { grid-area: hours; }
-  #panel-now > .wx-days-sec { grid-area: days; }
-  #panel-now > .wx-panels-sec { grid-area: panels; }
-  #panel-now > .wx-advice-sec { grid-area: advice; }
-  #panel-now > .wx-places-sec { grid-area: places; }
-  #panel-now:not(:has(> .wx-advice-sec)) > .wx-days-sec { grid-row: span 1; }
-  /* 預報 and 地點: their two parts side by side. */
-  #panel-week:has(> .wx-metrics-sec + .wx-days-sec, > .wx-days-sec + .wx-metrics-sec),
-  #panel-places {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 28px;
-    align-items: start;
-  }
-  #panel-week > .wx-head,
-  #panel-places > .wx-head {
-    grid-column: 1 / -1;
-  }
-  #panel-week:has(> .wx-metrics-sec + .wx-days-sec, > .wx-days-sec + .wx-metrics-sec) > .wx-section {
-    margin-top: 0;
-  }
-  #panel-places > .wx-settings {
-    margin-top: 0;
-  }
-  /* The places' card level with 設定's (under its 46 px head). */
-  #panel-places > .wx-places {
-    margin-top: 46px;
-  }
-  /* 指標 beside the days: a grid of two, not a rail. */
-  #panel-week .wx-stats {
-    grid-auto-flow: row;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin: 0;
-    padding: 2px 0 0;
-    overflow: visible;
-  }
-  #panel-week .wx-stats > :last-child:nth-child(odd) {
-    grid-column: 1 / -1;
-  }
-}

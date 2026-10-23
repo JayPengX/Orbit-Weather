@@ -14,9 +14,8 @@ import { clock, hourOf, dateOf, shortDate, weekday, conditionText, aqiName } fro
 import { escHtml as e } from '#kit/ui.mjs';
 import { W } from '#kit/lang.mjs';
 
-// The frame's width in its own units: a phone's 340; a wider sheet (an
-// iPad's) draws wider, so its words stay their size (`chartWidth`).
-export let CHART_W = 340;
+// The frame's width in its own units: a phone's 340.
+export const CHART_W = 340;
 const HOUR = 3_600_000;
 const TOP = 26;
 const PH = 150;
@@ -52,8 +51,7 @@ export function smooth(pts, top = TOP, base = BASE) {
 let made = 0;
 // Every graph's frame: the plot PLOT_W wide, its scale in a gutter on the
 // right (so no number sits on a line), the times under it.
-let PLOT_W = CHART_W - 30;
-export const chartWidth = w => void ((CHART_W = w), (PLOT_W = w - 30));
+const PLOT_W = CHART_W - 30;
 const frameW = svg => svg.viewBox?.baseVal?.width || CHART_W;
 const mix = (a, b, t) => `#${[0, 2, 4].map(k => Math.round(parseInt(a.slice(1 + k, 3 + k), 16) * (1 - t) + parseInt(b.slice(1 + k, 3 + k), 16) * t).toString(16).padStart(2, '0')).join('')}`;
 // The colour at a value, blended between the stops around it.
