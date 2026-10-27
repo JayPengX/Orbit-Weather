@@ -77,7 +77,7 @@ body {
   padding: var(--q-s-4, 16px);
   border-radius: var(--q-r-card, 22px);
   color: #fff;
-  background: var(--sky);
+  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.16s ease;
 }
