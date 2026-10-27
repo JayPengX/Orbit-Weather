@@ -4,7 +4,7 @@ One forecast for where you are and the places you pin, to the township.
 Signs in with the Orbit Pass (which keeps the pins); the shared kit draws
 the frame and sends the notices.
 
-Live: https://jaypengx.com/weather/
+Live: https://orbit.jaypengx.com/weather/
 
 ## How it works
 
