@@ -380,7 +380,9 @@ export function rainSummary(hours, tz, now, { short = false } = {}) {
   }
   const top = peakFrom(next);
   const day = dateOf(next.t, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.t, tz), now, tz);
-  if (short) return next.t <= now ? W(`正在下 ${next.pop}%`, `Raining ${next.pop}%`) : W(`${day}${hourOf(next.t, tz)}時起 ${next.pop}%`, `${next.pop}% from ${day ? `${day} ` : ''}${hourOf(next.t, tz)}:00`);
+  // (In English a tile's day by its short name: "50% from Tomorrow 4:00" was cut at 320.)
+  const dayShort = day ? weekday(dateOf(next.t, tz)) : '';
+  if (short) return next.t <= now ? W(`正在下 ${next.pop}%`, `Raining ${next.pop}%`) : W(`${day}${hourOf(next.t, tz)}時起 ${next.pop}%`, `${next.pop}% from ${dayShort ? `${dayShort} ` : ''}${hourOf(next.t, tz)}:00`);
   const peak = top !== next && top.pop > next.pop ? W(`・最高 ${top.pop}%`, `, peak ${top.pop}%`) : '';
   return next.t <= now ? W(`正在下 ${next.pop}%${peak}`, `Raining ${next.pop}%${peak}`) : W(`${day ? `${day} ` : ''}${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`, `${next.pop}% from ${day ? `${day} ` : ''}${hourOf(next.t, tz)}:00${peak}`);
 }
