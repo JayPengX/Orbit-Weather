@@ -27,12 +27,6 @@ One forecast for where you are and the places you pin, down to the township. Par
   <img src="docs/screenshots/weather-6.webp" width="30%" alt="Advice for tomorrow">
 </p>
 
-<p align="center">
-  <img src="docs/screenshots/weather-4.webp" width="30%" alt="The air around you">
-  <img src="docs/screenshots/weather-5.webp" width="30%" alt="The week ahead">
-  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Advice for your day">
-</p>
-
 ## Features
 
 - **One answer:** Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings blended into one value per thing; the app never names a source.
