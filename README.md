@@ -1,89 +1,40 @@
-# Orbit Weather
+<p align="center">
+  <img src="public/icons/icon-192.png" width="96" height="96" alt="">
+</p>
 
-One forecast for where you are and the places you pin, to the township.
-Signs in with the Orbit Pass (which keeps the pins); the shared kit draws
-the frame and sends the notices.
+<h1 align="center">Orbit Weather</h1>
 
-Live: https://jaypengx.github.io/Orbit-Weather/
+<p align="center">
+  <b>One clear forecast.</b><br>
+  <a href="https://jaypengx.com/weather/"><b>jaypengx.com/weather</b></a>
+</p>
 
-## How it works
+<p align="center">
+  <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="GitHub" src="https://img.shields.io/badge/GitHub-Pages-24292F?logo=github&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
+</p>
 
-- **One answer.** The proxy (`Shared-Proxy/weather.js`, `/weather`) blends
-  Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings, and
-  learns which to trust (`weather-skill.js`). The app gets one value per
-  thing and never names a source.
-- **Opens at once** on the last forecast kept, then refreshes behind it.
-  Location: a quick Wi-Fi/cell fix first, GPS after; the forecast is asked
-  again only if GPS lands in another ~1 km cell. iOS is asked for the
-  position unprompted once, never at every opening.
-- **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
-- **颱風:** only while CWA has a typhoon warning out, a row under the sky: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Shared-Proxy/typhoon.js`).
-- **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
-- **Fresh:** asked again once the numbers are 15 minutes old (on opening,
-  coming back, a change of place or tab, and each minute while on screen).
-- **Three tabs, one place:** 今天 (the date over the place, the sky card
-  opening today's sheet with 更多資訊, the next 24 hours, 建議 with 全部);
-  預報 (指標: 降雨 / 紫外線 / 空氣 each open a sheet of day tabs and graphs,
-  濕度, 風; then 10 天預報, a day opens its sheet); 地點 (the places, 新增地點,
-  早晨天氣, 版面). The title on 今天 opens 地點. `#tab=week|places`, `#pin=<id>`.
-- **Pins:** a name, a place and days/hours; inside its hours the app opens
-  on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
-  newest). The Pass's copy is read again before a write whenever another
-  device may have written (the kit's `pass-sync.mjs`), and a copy that can't be
-  read is never written over.
-- **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll
-  be then (from the pins; the phone's real position wins). A school pin is
-  off on Taiwan's holidays.
-- **Notices** (the kit's): the morning brief at the set time, and the rain
-  watch 07:00–21:00.
-- **Offline:** opens on the last forecast with the kit's 沒有網路連線 capsule.
+One forecast for where you are and the places you pin, down to the township. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [jaypengx.com](https://jaypengx.com/).
 
-## Decisions in force
+## What it does
 
-- The line, the graph and the 10-day row read the same hours: one number
-  means one thing everywhere. Today's rain chance and advice count only
-  the hours still ahead (`dayPop`).
-- No source named on screen; a test fails if one reaches it.
-- An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
-- Weather draws its own pictures; a test fails if an emoji reaches the page.
-- Light and dark (the kit's tokens); the sky hero stays a sky. No warning banner.
-- English screens through `W(zh, en)`; place names stay Chinese.
+- **One answer:** several official sources blended into a single number for each thing.
+- **Rain soon:** a one-line heads-up when rain starts or stops in the next two hours.
+- **Your day:** each hour shows the forecast for where you'll be then, from your pinned places.
+- **Typhoon days:** the chance of a day off, and the official word once it's out.
+- **Morning brief and rain watch** notices.
 
-## Files
+## Stack
 
-| File | What |
-| --- | --- |
-| `public/app.mjs`, `index.html`, `weather.css` | The page and its flow: session, location, pages, pins, sheets |
-| `public/lib/api.mjs` | The proxy, the device's position, this device's copies |
-| `public/lib/cards.mjs` | The tabs (今天, 預報, 地點) and the sheets they open |
-| `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
-| `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
-| `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
-| `public/lib/advice-en.mjs` | English (words from the kit's `lang.mjs`); the proxy's advice turned over |
-| `public/sw.js` | Offline and notices |
+- Plain JavaScript (ES modules), HTML and CSS: no framework, no build step, no runtime dependencies.
+- An installable phone web app (Add to Home Screen), cached by a service worker.
+- The look, sign-in (the Orbit Pass) and notices come from the shared kit in [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy).
+- Live data goes through the Orbit proxy on Cloudflare Workers (`api.jaypengx.com`). Google Weather, CWA and MOENV, blended and cached per ~1 km cell.
+- Hosted on GitHub Pages and served at jaypengx.com by a Cloudflare Worker; every push to `main` tests and deploys.
 
-The proxy's reads: `GET /weather?lat=&lon=` (the blend for a ~1 km cell,
-kept 15 minutes in KV), `/weather/where` (the township), `/weather/places`
-(every township, for the pin picker).
-
-## Run and test
+## For developers
 
 ```bash
 npm test
 ```
 
-```bash
-node ../Shared-Proxy/tools/preview.mjs weather --live --width 375
-```
-
-Without `--live`, the preview uses saved fixtures (Taipei 101; `--no-geo`
-refuses the position). A push to `main` tests, stamps versions and deploys to Pages.
-
-## If you change…
-
-| This | Also check |
-| --- | --- |
-| A field the page reads | `Shared-Proxy/weather.js` and its fixtures |
-| What a graph or row shows | Every place reading the same hours |
-| A notice | The kit's `weather:*` kinds and `push.js` `weatherCheck` |
-| The pins' shape (`w1:`) | Older copies, `plan.mjs`, each notice's place |
+How it works, file by file, and the decisions still in force: **[MAP.md](MAP.md)**.
