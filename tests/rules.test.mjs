@@ -174,7 +174,7 @@ test('the route page: no emoji, no source names, the route\'s own advice', () =>
 });
 
 // Every sentence the proxy writes, turned into English or left out: made by
-// the proxy's own advice (Shared-Proxy weather.js, beside this repo when it's
+// the proxy's own advice (Orbit-Core weather.js, beside this repo when it's
 // there) over many forecasts, hot and freezing, wet and dry.
 const proxyFile = (() => {
   try {
@@ -184,7 +184,7 @@ const proxyFile = (() => {
     return null;
   }
 })();
-test("the proxy's advice in English: every sentence it writes reads", { skip: !proxyFile && 'Shared-Proxy/weather.js not beside this repo' }, async () => {
+test("the proxy's advice in English: every sentence it writes reads", { skip: !proxyFile && 'Orbit-Core/weather.js not beside this repo' }, async () => {
   const { advise } = await import(proxyFile);
   let seed = 11;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;

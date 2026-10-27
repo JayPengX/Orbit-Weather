@@ -38,7 +38,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 | --- | --- |
 | App | Plain JavaScript (ES modules), HTML and CSS; no framework, no build step, no dependencies |
 | Platform | Installable web app with a service worker; works offline on the last forecast |
-| Shared | Look, Orbit Pass (which keeps the pins), notices from the kit in [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy) |
+| Shared | Look, Orbit Pass (which keeps the pins), notices from the kit in [Orbit-Core](https://github.com/JayPengX/Orbit-Core) |
 | Data | The proxy's `/weather` (Cloudflare Workers): Google Weather + CWA + MOENV + stations, blended and kept 15 minutes per ~1 km cell in KV; it learns which source to trust |
 | Graphics | The app draws its own icons and graphs; no emoji (a test checks) |
 | Tests | `node --test` |
@@ -78,10 +78,10 @@ MAP.md                   how it works
 
 ## Getting started
 
-The app loads the shared kit from a sibling folder, so clone this repo next to [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy):
+The app loads the shared kit from a sibling folder, so clone this repo next to [Orbit-Core](https://github.com/JayPengX/Orbit-Core):
 
 ```bash
-git clone https://github.com/JayPengX/Shared-Proxy.git
+git clone https://github.com/JayPengX/Orbit-Core.git
 git clone https://github.com/JayPengX/Orbit-Weather.git
 cd Orbit-Weather
 ```
@@ -89,19 +89,19 @@ cd Orbit-Weather
 Requirements: Node.js 22 or newer. There is nothing to install: no framework, no `node_modules`.
 
 ```bash
-npm test   # links ../Shared-Proxy/kit as .kit, then runs node --test
+npm test   # links ../Orbit-Core/kit as .kit, then runs node --test
 ```
 
 See it on a phone-sized screen, signed in with a made-up wallet and real data (needs Playwright):
 
 ```bash
 # a screenshot, saved in /tmp/orbit-preview
-node ../Shared-Proxy/tools/preview.mjs weather --live --width 375
+node ../Orbit-Core/tools/preview.mjs weather --live --width 375
 # serve it, then open http://localhost:8123/Orbit-Weather/
-node ../Shared-Proxy/tools/preview.mjs weather --live --serve --port 8123
+node ../Orbit-Core/tools/preview.mjs weather --live --serve --port 8123
 ```
 
-`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Shared-Proxy/tools/README.md](https://github.com/JayPengX/Shared-Proxy/blob/main/tools/README.md).
+`--dark`, `--lang en`, `--webkit` (Safari's engine) and the other flags are listed in [Orbit-Core/tools/README.md](https://github.com/JayPengX/Orbit-Core/blob/main/tools/README.md).
 
 Without `--live`, the preview uses saved forecasts for Taipei 101 (`--no-geo` refuses the position).
 
@@ -122,6 +122,6 @@ Push to `main`. GitHub Actions runs the tests, stamps every file with its conten
 | [Orbit Beats](https://github.com/JayPengX/Orbit-Beats) | Endless music and your own beats |
 | [Orbit Law](https://github.com/JayPengX/Orbit-Law) | Laws, rulings and bills, linked |
 | [Orbit Money](https://github.com/JayPengX/Orbit-Money) | Your own books |
-| [Shared-Proxy](https://github.com/JayPengX/Shared-Proxy) | The kit, the Orbit Pass and the Workers behind them all |
+| [Orbit-Core](https://github.com/JayPengX/Orbit-Core) | The kit, the Orbit Pass and the Workers behind them all |
 
 How it was all built, in pictures and numbers: [jaypengx.com/showcase](https://jaypengx.com/showcase/).

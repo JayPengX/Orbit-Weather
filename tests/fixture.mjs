@@ -1,4 +1,4 @@
-// A forecast as /weather answers it (Shared-Proxy weather.js), for the tests.
+// A forecast as /weather answers it (Orbit-Core weather.js), for the tests.
 import { dateOf } from '../public/lib/format.mjs';
 
 export const H = 3_600_000;

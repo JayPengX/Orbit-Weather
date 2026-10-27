@@ -8,7 +8,7 @@ Live: https://jaypengx.com/weather/
 
 ## How it works
 
-- **One answer.** The proxy (`Shared-Proxy/weather.js`, `/weather`) blends
+- **One answer.** The proxy (`Orbit-Core/weather.js`, `/weather`) blends
   Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings, and
   learns which to trust (`weather-skill.js`). The app gets one value per
   thing and never names a source.
@@ -17,7 +17,7 @@ Live: https://jaypengx.com/weather/
   again only if GPS lands in another ~1 km cell. iOS is asked for the
   position unprompted once, never at every opening.
 - **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
-- **颱風:** only while CWA has a typhoon warning out, a row under the sky: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Shared-Proxy/typhoon.js`).
+- **颱風:** only while CWA has a typhoon warning out, a row under the sky: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Orbit-Core/typhoon.js`).
 - **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a change of place or tab, and each minute while on screen).
@@ -73,7 +73,7 @@ npm test
 ```
 
 ```bash
-node ../Shared-Proxy/tools/preview.mjs weather --live --width 375
+node ../Orbit-Core/tools/preview.mjs weather --live --width 375
 ```
 
 Without `--live`, the preview uses saved fixtures (Taipei 101; `--no-geo`
@@ -83,7 +83,7 @@ refuses the position). A push to `main` tests, stamps versions and deploys to Pa
 
 | This | Also check |
 | --- | --- |
-| A field the page reads | `Shared-Proxy/weather.js` and its fixtures |
+| A field the page reads | `Orbit-Core/weather.js` and its fixtures |
 | What a graph or row shows | Every place reading the same hours |
 | A notice | The kit's `weather:*` kinds and `push.js` `weatherCheck` |
 | The pins' shape (`w1:`) | Older copies, `plan.mjs`, each notice's place |
