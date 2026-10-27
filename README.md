@@ -24,7 +24,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 <p align="center">
   <img src="docs/screenshots/weather-4.webp" width="30%" alt="The air around you">
   <img src="docs/screenshots/weather-5.webp" width="30%" alt="The week ahead">
-  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Advice for tomorrow">
+  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Advice for your day">
 </p>
 
 ## Features
