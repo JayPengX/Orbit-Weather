@@ -1,7 +1,10 @@
 // The forecast and the place, from the proxy (signed in with the Orbit
 // Pass session), and where the device is.
 
-export const PROXY = 'https://orbit-workers-proxy.pengzjay.workers.dev';
+import * as kit from '#kit/orbit.mjs';
+
+// (api.<domain> on the family's own domain: the kit's API, kit/domain.mjs.)
+export const PROXY = kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev';
 // How often the forecast is asked again, after what its sources do: Google's
 // current conditions change every 15 minutes and its forecast every 30, the
 // stations' and the air's readings every hour, CWA's township forecast every
