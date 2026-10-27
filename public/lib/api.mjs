@@ -1,6 +1,9 @@
 // The forecast and the place, from the proxy (signed in with the Orbit
 // Pass session), and where the device is.
 
+import * as kitLang from '#kit/lang.mjs';
+// A county or township in the reader's language (the kit's, once every phone has it).
+export const placeIn = name => kitLang.place?.(name) ?? name;
 import * as kit from '#kit/orbit.mjs';
 
 // (api.<domain> on the family's own domain: the kit's API, kit/domain.mjs.)
@@ -138,9 +141,9 @@ export async function fetchPlaces(fetchFn = fetch) {
   return res.json();
 }
 
-// 「信義區」 and 「臺北市」 for the top of a page.
+// 「信義區」 and 「臺北市」 for the top of a page (Xinyi and Taipei in English).
 export function placeLines(place) {
   if (!place) return { main: '', sub: '' };
-  const main = place.town || '';
-  return { main: main || place.county || '', sub: main ? place.county || '' : '' };
+  const main = placeIn(place.town || '');
+  return { main: main || placeIn(place.county || ''), sub: main ? placeIn(place.county || '') : '' };
 }

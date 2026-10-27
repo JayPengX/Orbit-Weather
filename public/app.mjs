@@ -9,7 +9,7 @@ import * as kitUI from '#kit/ui.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
@@ -453,7 +453,7 @@ async function pinSheet(pin = null) {
   if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: W(`最多 ${MAX_PINS} 個釘選地點`, `Up to ${MAX_PINS} pinned places`), body: W('先刪掉一個再新增。', 'Delete one first.') });
   const here = state.local.here;
   const draft = pin ? { ...pin } : { id: newPinId(), name: '', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00', lat: here?.lat, lon: here?.lon, ...(here?.place || {}) };
-  const where = () => [draft.county, draft.town].filter(Boolean).join(' ') || W('尚未選擇', 'Not chosen');
+  const where = () => [draft.county, draft.town].filter(Boolean).map(placeIn).join(' ') || W('尚未選擇', 'Not chosen');
   const d = sheet(`
     <div class="q-sheet-head"><h2>${pin ? W('編輯釘選地點', 'Edit pinned place') : W('釘選地點', 'Pinned place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
     <div class="q-list">
@@ -461,9 +461,9 @@ async function pinSheet(pin = null) {
       <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
       <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
     </div>
-    ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(here.place.town)})`) : ''}</button>` : ''}
+    ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(placeIn(here.place.town))})`) : ''}</button>` : ''}
     <h3 class="q-list-head">${W('或搜尋鄉鎮市區', 'Or search a district')}</h3>
-    <label class="q-search"><input id="pin-q" type="search" placeholder="${W('例如：大安區', 'e.g. 大安區')}" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <label class="q-search"><input id="pin-q" type="search" placeholder="${W('例如：大安區', 'e.g. Da’an')}" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="${W('清除', 'Clear')}">✕</button></label>
     <div id="pin-list" class="q-list wx-list"></div>
     <h3 class="q-list-head">${W('我在這裡的時間', 'When I’m here')}</h3>
     <div class="q-list">
@@ -482,8 +482,9 @@ async function pinSheet(pin = null) {
     const text = qInput.value.trim().replace(/台/g, '臺');
     if (!text) return (list.innerHTML = '');
     places ||= await fetchPlaces().catch(() => []);
-    const rows = places.filter(([c, t]) => (c + t).includes(text)).slice(0, 30);
-    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(t)}</span><span class="q-cell-value">${e(c)}</span></button>`).join('') || kitUI.emptyHtml({ title: W('找不到這個地區', 'No district found') });
+    const low = text.toLowerCase();
+    const rows = places.filter(([c, t]) => (c + t).includes(text) || (en && `${placeIn(c)} ${placeIn(t)}`.toLowerCase().includes(low))).slice(0, 30);
+    list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(placeIn(t))}</span><span class="q-cell-value">${e(placeIn(c))}</span></button>`).join('') || kitUI.emptyHtml({ title: W('找不到這個地區', 'No district found') });
   });
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');

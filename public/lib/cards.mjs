@@ -15,7 +15,7 @@ import { segHtml, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, spark, mmKey, UV_STOPS, RAIN_STOPS, AQI_STOPS } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
-import { placeLines, OLD_MS } from './api.mjs';
+import { placeLines, placeIn, OLD_MS } from './api.mjs';
 
 const HOUR = 3_600_000;
 
@@ -64,6 +64,15 @@ export function soonLine(f, now, tz) {
   const text = r.kind === 'start' ? (near ? W(`約 ${r.mins} 分鐘後下雨 · ${r.pop}%`, `Rain in ~${r.mins} min · ${r.pop}%`) : W(`${at}起下雨 · ${r.pop}%`, `Rain from ${at} · ${r.pop}%`)) : near ? W(`雨約 ${r.mins} 分鐘後減弱`, `Easing in ~${r.mins} min`) : W(`${at}後雨勢減弱`, `Easing by ${at}`);
   return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(text)}</span></p>`;
 }
+
+// A station by its township's English name in English (信義 → Xinyi), else left out:
+// CWA names its stations only in Chinese.
+const stationName = name => {
+  if (!en) return e(name);
+  const base = String(name).replace(/\(.*\)$/, '');
+  for (const suffix of ['區', '鄉', '鎮', '市']) if (placeIn(base + suffix) !== base + suffix) return e(placeIn(base + suffix));
+  return '';
+};
 
 // What a page is called and what's said under it, one rule for the head's
 // title, the hero's eyebrow and the 地點 row.
@@ -204,7 +213,7 @@ export function dayOffSec(f, now) {
         const t0 = Math.min(...g.notes.map(x => x.at).filter(Boolean));
         const said = Number.isFinite(t0) ? announced(t0) : '';
         const sub = [when.join(W('、', ', ')), said].filter(Boolean).join(' · ');
-        const title = g.place || f.place?.county || W('全縣市', 'Whole county');
+        const title = placeIn(g.place || f.place?.county || '') || W('全縣市', 'Whole county');
         return `<div class="q-ritem wx-life wx-dayoff wx-dayoff-note">${tile(CLOSED.has(g.off) ? 'red' : g.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small class="q-fit">${e(sub)}</small></span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
       });
   };
@@ -621,7 +630,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', '', 'yellow'],
     [glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : '', 'indigo'],
     [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb', 'green'],
-    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? `${e(n.station.name)} ${n.station.temp != null ? deg(n.station.temp) : ''}` : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : '', 'mint'],
+    [glyph('station'), W('附近測站', 'Nearest station'), n.station ? [stationName(n.station.name), n.station.temp != null ? deg(n.station.temp) : ''].filter(Boolean).join(' ') : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : '', 'mint'],
     [glyph('pin'), W('位置', 'Location'), where.main ? e(where.main) : '–', where.sub ? e(where.sub) : '', 'red']
   ];
   const rows = items.map(([icon, k, v, sub, color]) => `<div class="q-ritem wx-info-row"><span class="q-tile sm" style="--t:var(--q-${color})">${icon}</span><span class="q-ritem-text"><span class="q-ritem-title">${k}</span>${sub ? `<small>${sub}</small>` : ''}</span><span class="q-ritem-value">${v}</span></div>`).join('');
