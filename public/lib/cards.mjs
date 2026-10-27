@@ -436,7 +436,7 @@ const SHOWN = 4;
 // One piece of advice, a row: its glyph on a colour tile, the name, what to
 // do, and a tag when the level asks for attention (or says go).
 const KIND_COLOR = { umbrella: 'blue', commute: 'indigo', move: 'indigo', wear: 'orange', temp: 'orange', sun: 'orange', run: 'green', laundry: 'teal', sleep: 'indigo', window: 'mint', mask: 'red', heat: 'red', wind: 'teal', thunder: 'purple', fog: 'cyan', diff: 'purple', weekend: 'pink', humid: 'cyan', carwash: 'blue' };
-const LEVEL_TAG = { yes: ['orange', W('留意', 'Heads up')], hot: ['orange', W('留意', 'Heads up')], bad: ['orange', W('留意', 'Heads up')], maybe: ['blue', W('可能', 'Maybe')], good: ['green', W('適合', 'Good')] };
+const LEVEL_TAG = { yes: ['orange', W('留意', 'Heads up')], hot: ['orange', W('留意', 'Heads up')], bad: ['orange', W('留意', 'Heads up')] };
 const lifeTile = ({ kind, level, title, text }) => {
   const tag = LEVEL_TAG[level];
   return `<div class="q-ritem wx-life lv-${e(level)} k-${e(kind)}"><span class="q-tile wx-life-icon" style="--t:var(--q-${KIND_COLOR[kind] || 'indigo'})">${glyph(ADVICE_GLYPH[kind] || 'bulb', { size: 22 })}</span><span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small>${e(text)}</small></span>${tag ? `<span class="q-tag ${tag[0]}">${tag[1]}</span>` : ''}</div>`;
@@ -629,7 +629,7 @@ export function infoCard(f, { now, lat, lon, page }) {
 // ---- 預報: the indicators, a rail of stat cards; the big graph in a sheet ----------------
 
 // A level's word on a stat: a tag in the level's colour, kept readable on light and dark.
-const levelTag = (text, color) => (text ? `<span class="q-tag tint wx-lv" style="--t:color-mix(in srgb, ${color} 62%, var(--q-label))">${e(text)}</span>` : '');
+const levelTag = text => (text ? `<span class="wx-lv">${e(text)}</span>` : '');
 // A stat, as plain data: its colour tile and level, its name, a big number (and its unit), one
 // line, a sparkline (`art`). With a graph to open (`key`) it is a button. The rail draws it as
 // statCard (HTML), 今日數據 as the kit's panelGrid (statPanel); `key` is the graph's page.
@@ -639,7 +639,7 @@ const statCard = ({ kind, key = '', title, big, unit = '', sub = '', art = '', l
   const tag = key ? 'button' : 'div';
   const open = key ? ` type="button" data-metric="${kind}" data-page="${e(key)}"` : '';
   return `<${tag} class="q-rail-card wx-stat k-${kind}${key ? ' q-press' : ''}"${open}>
-    <span class="wx-stat-head"><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${glyph(GLYPH_OF[kind], { size: 18 })}</span>${levelHtml || levelTag(level, levelColor)}</span>
+    <span class="wx-stat-head"><span class="wx-quiet-tile q-tile sm">${glyph(GLYPH_OF[kind], { size: 20 })}</span>${levelHtml || levelTag(level)}</span>
     <small>${title}</small>
     <strong class="wx-stat-val">${e(big)}${unit ? `<small>${e(unit)}</small>` : ''}</strong>
     <span class="wx-stat-sub">${e(sub)}</span>
@@ -701,7 +701,7 @@ function metricStats(f, opts) {
           unit: 'km/h',
           level: dir,
           levelColor: 'var(--q-teal)',
-          levelHtml: `<span class="q-tag tint wx-lv" style="--t:var(--q-teal)"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(dir)}</span>`,
+          levelHtml: `<span class="wx-lv"><span class="wx-compass" style="--d:${w.dir ?? 0}deg">${glyph('locate', { size: 12 })}</span>${e(dir)}</span>`,
           sub: `${W(`${beaufort(w.speed)} 級`, `Force ${beaufort(w.speed)}`)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`
         }
       : null
@@ -735,7 +735,7 @@ export function placesShelf(rows) {
 const METRIC_TITLES = { rain: W('降雨機率', 'Chance of rain'), uv: W('紫外線', 'UV index'), air: W('空氣品質', 'Air quality') };
 export function metricSheet(kind, f, opts) {
   const body = { rain: rainCard, uv: uvCard, air: airCard }[kind]?.(f, opts) || '';
-  return `<div class="q-sheet-head"><h2><span class="q-tile sm" style="--t:var(--q-${TILE_COLOR[kind]})">${glyph({ rain: 'umbrella', uv: 'sun', air: 'air' }[kind], { size: 18 })}</span>${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>${body}`;
+  return `<div class="q-sheet-head"><h2><span class="wx-quiet-tile q-tile sm">${glyph({ rain: 'umbrella', uv: 'sun', air: 'air' }[kind], { size: 18 })}</span>${METRIC_TITLES[kind]}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>${body}`;
 }
 
 // ---- The tabs ------------------------------------------------------------------------------
@@ -784,10 +784,10 @@ export function placesHtml(rows, { brief, editing = false, canAdd = true } = {})
   };
   const list = rows.map(row).join('');
   const pins = rows.some(r => r.pin);
-  const add = canAdd ? `<button class="q-ritem chevron wx-add" type="button" data-act="add-pin"><span class="q-tile" style="--t:var(--q-green)">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>` : '';
+  const add = canAdd ? `<button class="q-ritem chevron wx-add" type="button" data-act="add-pin"><span class="wx-quiet-tile q-tile">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>` : '';
   const settings = `<div class="q-rowcard">
-      <label class="q-ritem wx-brief"><span class="q-tile" style="--t:var(--q-orange)">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
-      <button class="q-ritem chevron" type="button" data-act="layout"><span class="q-tile" style="--t:var(--q-indigo)">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
+      <label class="q-ritem wx-brief"><span class="wx-quiet-tile q-tile">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
+      <button class="q-ritem chevron" type="button" data-act="layout"><span class="wx-quiet-tile q-tile">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
     </div>`;
   const head = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml(W('地點', 'Places'))}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
   return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);

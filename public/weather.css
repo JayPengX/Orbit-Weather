@@ -74,11 +74,10 @@ body {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: 16px 18px 14px;
-  border-radius: 24px;
+  padding: var(--q-s-4, 16px);
+  border-radius: var(--q-r-card, 22px);
   color: #fff;
-  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 22px 40px -24px rgba(20, 50, 120, 0.7);
+  background: var(--sky);
   -webkit-tap-highlight-color: transparent;
   transition: transform 0.16s ease;
 }
@@ -238,8 +237,7 @@ body {
   min-height: 26px;
   margin: 0;
   color: rgba(255, 255, 255, 0.85);
-  font: 600 13px/18px var(--q-font);
-  letter-spacing: 0.02em;
+  font: 500 13px/18px var(--q-font);
 }
 .wx-eyebrow > span {
   min-width: 0;
@@ -285,28 +283,22 @@ body {
 }
 .wx-cond {
   margin: 2px 0 0;
-  font: 700 20px/26px var(--q-font);
+  font: 600 20px/26px var(--q-font);
 }
 .wx-pills {
   display: flex;
-  gap: 6px;
-  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 4px var(--q-s-4, 16px);
+  margin-top: var(--q-s-3, 12px);
 }
 .wx-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 32px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.86);
-  font: 600 12.5px/1 var(--q-font);
+  color: rgba(255, 255, 255, 0.8);
+  font: 400 15px/20px var(--q-font);
   white-space: nowrap;
 }
 .wx-pill b {
   color: #fff;
-  font: 700 14px/1 var(--q-font-rounded, var(--q-font));
+  font: 500 15px/20px var(--q-font);
   font-variant-numeric: tabular-nums;
 }
 /* The rain heads-up under the numbers (cards.mjs soonLine). */
@@ -335,8 +327,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 14px;
-  padding-top: 10px;
+  margin-top: var(--q-s-3, 12px);
+  padding-top: var(--q-s-2, 8px);
   border-top: 0.5px solid rgba(255, 255, 255, 0.22);
   color: rgba(255, 255, 255, 0.8);
   font: 500 12.5px/18px var(--q-font);
@@ -346,11 +338,9 @@ body {
   flex: none;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px 4px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 0;
   color: #fff;
-  font-weight: 650;
+  font-weight: 500;
 }
 /* An old copy (cards.mjs heroHtml): what it is, said plainly in the
    更新於 line's place, its "now" faded so it isn't read as now. */
@@ -431,7 +421,7 @@ body {
   min-width: 0;
   padding: 10px 0 8px;
   border: 0;
-  border-radius: 18px;
+  border-radius: var(--q-r-cell, 12px);
   background: var(--q-surface);
   color: var(--q-label);
   font: inherit;
@@ -455,13 +445,13 @@ body {
 }
 .wx-hr-v {
   margin-top: 6px;
-  font: 700 17px/22px var(--q-font-rounded, var(--q-font));
+  font: 500 17px/22px var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
 }
 .wx-hr-p {
   min-height: 15px;
-  color: var(--q-blue);
-  font: 700 11px/15px var(--q-font);
+  color: var(--q-label-2);
+  font: 500 12px/15px var(--q-font);
 }
 .wx-hr.is-now .wx-hr-p {
   color: #fff;
@@ -553,7 +543,7 @@ button.wx-stat {
   overflow: hidden;
 }
 .wx-stat-val {
-  font: 700 30px/34px var(--q-font-rounded, var(--q-font));
+  font: 600 30px/34px var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
   white-space: nowrap;
@@ -633,8 +623,8 @@ button.wx-stat {
   gap: 3px;
 }
 .wx-dpop b {
-  color: var(--q-blue);
-  font: 700 13px/1 var(--q-font);
+  color: var(--q-label-2);
+  font: 500 13px/1 var(--q-font);
   font-variant-numeric: tabular-nums;
 }
 .wx-dpop i {
@@ -644,7 +634,7 @@ button.wx-stat {
 }
 .wx-dlo,
 .wx-dhi {
-  font: 600 15px/1 var(--q-font-rounded, var(--q-font));
+  font: 500 15px/1 var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
 }
 .wx-dlo {
@@ -665,14 +655,10 @@ button.wx-stat {
   background: linear-gradient(90deg, #5ac8fa, #ffd43b, #ff9f0a);
 }
 .wx-duv {
-  border-radius: 7px;
-  background: var(--c);
-  color: #111;
-  font: 750 11px/20px var(--q-font);
+  color: var(--q-label-2);
+  font: 500 13px/20px var(--q-font);
+  font-variant-numeric: tabular-nums;
   text-align: center;
-}
-.wx-duv:empty {
-  background: none;
 }
 
 /* ==== 地點: the places, the settings ==== */
@@ -1367,3 +1353,41 @@ svg.ch {
   .q-panels .q-panel-art .wx-spark { width: 52px; }
 }
 
+
+/* ==== Quiet rows: facts as grey text, kinds as plain glyphs (DESIGN §3, §6) ==== */
+.wx-panels-sec .q-panel {
+  border-radius: var(--q-r-card, 22px);
+}
+.wx-panels-sec .q-panel-l i {
+  color: var(--q-label-2);
+}
+.wx-panels-sec .q-panel-lv {
+  padding: 0;
+  background: none;
+  color: var(--q-label-2);
+  font-weight: 400;
+}
+.wx-panels-sec .q-panel-v {
+  font-weight: 600;
+}
+.wx-stat-head .wx-g {
+  color: var(--q-label-2);
+}
+.wx-lv {
+  color: var(--q-label-2);
+  font: var(--q-t-footnote);
+}
+.wx-life > .q-tile.wx-life-icon {
+  background: none;
+  color: var(--q-label-2);
+  box-shadow: none;
+}
+.wx-quiet-tile.q-tile {
+  background: none;
+  color: var(--q-label-2);
+  box-shadow: none;
+}
+.wx-life > .q-tile.wx-life-icon svg,
+.wx-quiet-tile.q-tile svg {
+  color: var(--q-label-2);
+}
