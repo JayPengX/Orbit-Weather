@@ -16,9 +16,15 @@
 One forecast for where you are and the places you pin, down to the township. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
-  <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today">
-  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Forecast">
-  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Places">
+  <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today, in one look">
+  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Rain, ten days ahead">
+  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Every detail that matters">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/weather-4.webp" width="30%" alt="The air around you">
+  <img src="docs/screenshots/weather-5.webp" width="30%" alt="The week ahead">
+  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Advice for your day">
 </p>
 
 ## Features
