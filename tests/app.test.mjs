@@ -259,6 +259,24 @@ test('the forecast in lines: the first answer at once, the whole one when it com
   assert.equal(await one.rest, null);
 });
 
+test('a forecast request that stalls is dropped: the first answer within firstMs, the whole one within restMs', async () => {
+  const enc = new TextEncoder();
+  // Nothing at all (a connection that hangs): turned down, never left waiting.
+  const t0 = Date.now();
+  await assert.rejects(fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', () => new Promise(() => {}), { firstMs: 50 }), e => e.timeout === true);
+  assert.ok(Date.now() - t0 < 500);
+  // Headers, then silence.
+  await assert.rejects(fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => new Response(new ReadableStream({ start() {} })), { firstMs: 50 }), e => e.timeout === true);
+  // The first line in, the rest never: no rest (the page asks again).
+  let push;
+  const res = new Response(new ReadableStream({ start: c => (push = c) }));
+  const asked = fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => res, { firstMs: 50, restMs: 80 });
+  push.enqueue(enc.encode('{"at":1,"more":true}\n'));
+  const { f, rest } = await asked;
+  assert.equal(f.at, 1);
+  assert.equal(await rest, null);
+});
+
 test('proxy calls carry the session; the device keeps a few places', async () => {
   const urls = [];
   const f = async u => (urls.push(u), { ok: true, json: async () => ({}) });

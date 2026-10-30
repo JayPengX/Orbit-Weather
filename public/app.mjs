@@ -222,13 +222,17 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     const where = page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true };
     const token = await q.ensureToken({ read: true });
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
+    // (A request that stalled: dropped and asked once more, never left on 更新中.)
     const { f, rest } = await fetchForecast(where, token).catch(async err => {
+      if (err.timeout) return fetchForecast(where, token);
       if (err.status !== 401) throw err;
       const fresh = await q.ensureToken({ renew: true });
       if (!fresh) throw err;
       return fetchForecast(where, fresh);
     });
-    await naming;
+    // The place's name drawn with it if it's in within NAME_WAIT_MS, else
+    // the forecast first (the name's lookup can take seconds).
+    if (naming) await Promise.race([naming, new Promise(r => setTimeout(r, NAME_WAIT_MS))]);
     take(page, cell, f);
     // Not the last word yet: the proxy's quick answer (now, two days, the
     // week; `more`: the hours to day 10 and the air forecast follow), or an
@@ -249,6 +253,8 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     render();
   }
 }
+
+const NAME_WAIT_MS = 1200;
 
 // A page's answer kept (a place's on the device, the network's guess on the page).
 // The first forecast drawn (a first opening's loading screen waits on it, not on GPS's finer fix).
@@ -317,13 +323,19 @@ async function locate({ force = false } = {}) {
   state.locating = locateNow(here).finally(() => (state.locating = null));
   return state.locating;
 }
+const EARLY_MS = 700;
 // Wi-Fi's or the cell network's fix first (under a second, or the phone's
 // own from the last two minutes), the forecast asked for it at once; GPS's
 // after it, which takes seconds outdoors and many more inside, the page
 // again only when it's another cell. (GPS's alone, the forecast waited for
 // it: up to 8 s, 14 s with the coarser try after.)
 async function locateNow(here) {
+  // No fix within EARLY_MS (a phone's cold start, indoors): the last
+  // position's forecast asked meanwhile, not after the fix (up to 13 s);
+  // the fix asks again only if it lands in another cell.
+  const early = setTimeout(() => here.lat != null && loadPage(here), EARLY_MS);
   const quick = await getPosition(navigator, { high: false, timeout: 3000, maximumAge: 2 * 60_000 });
+  clearTimeout(early);
   if (quick.error === 'denied') state.permission = 'denied';
   const fine = quick.error === 'denied' ? null : getPosition(navigator, { high: true, timeout: quick.error ? 10_000 : 15_000, maximumAge: 30_000 });
   if (!quick.error) await placeHere(here, quick);
