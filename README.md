@@ -36,7 +36,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 - **Your day (我的行程):** each hour shows the forecast for where you'll be then, from your pinned places.
 - **Typhoon days:** while a warning is out, the county's 停班停課 decision, or the chance of a day off fitted to past decisions.
 - **Notices:** the morning brief at your time, and a rain watch from 07:00 to 21:00.
-- **Opens at once** on the last forecast kept, then refreshes behind it.
+- **Opens at once** on the last forecast kept, then refreshes behind it; a slow request is dropped and asked again, so it never sits on 更新中.
 
 ## Tech stack
 
