@@ -10,13 +10,34 @@ body {
   background: var(--q-page);
   color: var(--q-label);
 }
+/* Every screen: on a wide one (a phone on its side, a tablet, a computer)
+   each tab in two columns, each a phone's (cards.mjs cols), their tops in
+   line; a row of cards scrolls inside its own column. */
+:root.q-wide {
+  --q-page-max: 1180px;
+}
+/* (A phone on its side: the sky card no taller than half the screen.) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .wx-temp {
+    font-size: 64px;
+    letter-spacing: -3px;
+  }
+}
+:root.q-wide .wx-col > :first-child {
+  margin-top: 0;
+}
+:root.q-wide .wx-col .q-rail {
+  margin-inline: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
+}
 /* A page: 16 px in. */
 .wx-panel {
   --q-margin: 16px;
   padding: 0 var(--q-margin) calc(var(--q-nav, 0px) + 32px);
 }
-.wx-panel > .q-section,
-.wx-panel > .q-rowcard + .q-section {
+:is(.wx-panel, .wx-col) > .q-section,
+:is(.wx-panel, .wx-col) > .q-rowcard + .q-section {
   margin-top: 28px;
 }
 .wx-panel .q-section-head {
@@ -520,6 +541,16 @@ body {
 /* ==== 預報: the indicators, a rail of stat cards ==== */
 .wx-stats {
   --q-rail-w: 150px;
+}
+/* (Wide: every indicator in view, a grid in its column, not a row to swipe.) */
+:root.q-wide .wx-col .wx-stats {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: visible;
+}
+/* (An odd one out runs across: never a hole in the grid.) */
+:root.q-wide .wx-col .wx-stats > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
 }
 .wx-stat {
   gap: 2px;

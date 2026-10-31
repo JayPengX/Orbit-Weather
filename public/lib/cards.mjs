@@ -769,8 +769,15 @@ export function nowHtml(f, page, { now, cards, hidden, places } = {}) {
   const hero = heroHtml(f, { page, now });
   if (!f) return head + hero + (page.error ? failed(page) : waiting('wx-hours', 8));
   const show = shownCards(page, cards, hidden);
-  return head + hero + dayOffSec(f, now) + hourStrip(f, { now, key: page.key }) + (show.includes('days') ? daysList(f, { now, key: page.key }) : '') + panelGrid(f, { now, key: page.key, page }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '') + placesShelf(places);
+  // (On a wide screen two columns, read in the phone's order: the sky, the
+  // hours and the days, then the details, the advice and the places.)
+  return head + cols(hero + dayOffSec(f, now) + hourStrip(f, { now, key: page.key }) + (show.includes('days') ? daysList(f, { now, key: page.key }) : ''), panelGrid(f, { now, key: page.key, page }) + (show.includes('advice') ? adviceCards(f, { now, key: page.key }) : '') + placesShelf(places));
 }
+// A page's two columns (kit .q-cols: one on a phone, side by side when there's room).
+const cols = (...parts) => {
+  const full = parts.filter(Boolean);
+  return full.length > 1 ? `<div class="q-cols wx-cols">${full.map(p => `<div class="wx-col">${p}</div>`).join('')}</div>` : full.join('');
+};
 
 // 預報: the indicators and the days, in the owner's order.
 const WEEK = { metrics: metricTiles, days: daysList };
@@ -778,7 +785,7 @@ export function weekHtml(f, page, { now, cards, hidden } = {}) {
   const head = headHtml(placeName(page).title);
   if (!f) return head + (page.error ? failed(page) : waiting('wx-metrics-sec', 3));
   const opts = { now, key: page.key, page };
-  return head + shownCards(page, cards, hidden).filter(k => WEEK[k]).map(k => WEEK[k](f, opts)).join('');
+  return head + cols(...shownCards(page, cards, hidden).filter(k => WEEK[k]).map(k => WEEK[k](f, opts)));
 }
 
 // 地點: each place a row (its picture, its name, where or when, its
@@ -801,5 +808,5 @@ export function placesHtml(rows, { brief, editing = false, canAdd = true } = {})
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="wx-quiet-tile q-tile">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
     </div>`;
   const head = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml(W('地點', 'Places'))}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
-  return head + `<div class="q-rowcard wx-places">${list}${add}</div>` + sec('wx-settings', W('設定', 'Settings'), settings);
+  return head + cols(`<div class="q-rowcard wx-places">${list}${add}</div>`, sec('wx-settings', W('設定', 'Settings'), settings));
 }
