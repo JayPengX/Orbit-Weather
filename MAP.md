@@ -77,7 +77,7 @@ node ../Orbit-Core/tools/preview.mjs weather --live --width 375
 ```
 
 Without `--live`, the preview uses saved fixtures (Taipei 101; `--no-geo`
-refuses the position). A push to `main` tests, stamps versions and deploys to Pages.
+refuses the position). A push to `main` tests, stamps versions and deploys to Cloudflare.
 
 ## If you change…
 
