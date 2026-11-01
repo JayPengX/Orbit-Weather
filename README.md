@@ -13,7 +13,7 @@
   <img alt="JavaScript" src="https://img.shields.io/badge/JavaScript-ES_modules-F7DF1E?logo=javascript&logoColor=000"> <img alt="PWA" src="https://img.shields.io/badge/PWA-works_offline-5A0FC8?logo=pwa&logoColor=fff"> <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=fff"> <img alt="Tests" src="https://img.shields.io/badge/Tests-node_--test-339933?logo=nodedotjs&logoColor=fff">
 </p>
 
-One forecast for where you are and the places you pin, down to the township. Part of **Orbit**, a family of phone apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
+One forecast for where you are and the places you pin, down to the township. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
   <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today, in one look">
@@ -37,6 +37,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 - **Typhoon days:** while a warning is out, the county's 停班停課 decision, or the chance of a day off fitted to past decisions.
 - **Notices:** the morning brief at your time, and a rain watch from 07:00 to 21:00.
 - **Opens at once** on the last forecast kept, then refreshes behind it; a slow request is dropped and asked again, so it never sits on 更新中.
+- **Every screen, either way up:** on a phone on its side, a tablet or a computer each tab is two columns (the sky, hours and days beside the details, advice and places), the indicators as a grid.
 
 ## Tech stack
 
