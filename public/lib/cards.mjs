@@ -570,11 +570,42 @@ export function dayTips(f, date, now) {
   return tips;
 }
 
+// The hours a day's sheet draws. Today's are its earlier hours too (`past`:
+// kept by the proxy and by the device from the last copies; the forecast
+// itself starts at the hour now), so the graph late in the evening is still
+// the whole day; a today with fewer than LATE_MIN hours left and nothing
+// kept runs on into tomorrow morning (to MORNING_TO時): never no graph.
+const LATE_MIN = 6;
+const MORNING_TO = 6;
+export function sheetHours(f, date, now) {
+  const tz = f.tz;
+  const all = f.hours || [];
+  const own = all.filter(h => dateOf(h.t, tz) === date);
+  const first = own[0]?.t ?? Infinity;
+  const past = (f.past || []).filter(h => h.t < first && dateOf(h.t, tz) === date);
+  const hours = [...past, ...own];
+  if (date !== dateOf(now, tz) || hours.filter(h => h.temp != null).length >= LATE_MIN) return hours;
+  const end = hours.length ? hours[hours.length - 1].t : now;
+  return [...hours, ...all.filter(h => h.t > end && h.t - end < 12 * HOUR && dateOf(h.t, tz) !== date && hourOf(h.t, tz) <= MORNING_TO)];
+}
+// A new copy keeps today's earlier hours from the one it replaces (its own
+// `past`, then its hours before the new copy's first), so the day sheet can
+// draw them.
+export function keepPast(old, f, now) {
+  if (!f?.hours?.length || !old) return f;
+  const tz = f.tz;
+  const day = dateOf(now, tz);
+  const first = f.hours[0].t;
+  const byT = new Map();
+  for (const h of [...(old.past || []), ...(old.hours || []), ...(f.past || [])]) if (h.t < first && dateOf(h.t, tz) === day) byT.set(h.t, h);
+  return byT.size ? { ...f, past: [...byT.values()].sort((a, b) => a.t - b.t) } : f;
+}
+
 // The sheet for one day: its numbers, its charts (a finger on them reads
 // each hour), and what to do that day (the days around it: the app's strip).
 export function daySheet(f, date, { now, lat, lon }) {
   const d = f.days?.find(x => x.date === date);
-  const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
+  const hours = sheetHours(f, date, now);
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
   const fc = f.air?.forecast?.days?.find(x => x.date === date);
   const c = d?.day?.condition || {};
@@ -595,7 +626,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>
     <div class="wx-dayg">
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
-      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe data-no-sheet-swipe>${dayCharts(hours, { tz: f.tz })}</div>` : `<p class="wx-foot">${W('沒有逐時預報', 'No hourly forecast')}</p>`}
+      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe data-no-sheet-swipe>${dayCharts(hours, { tz: f.tz, now, date })}</div>` : `<p class="wx-foot">${W('沒有逐時預報', 'No hourly forecast')}</p>`}
     </div>
     ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="q-rowcard wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid q-even">

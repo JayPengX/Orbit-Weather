@@ -49,6 +49,11 @@ Live: https://orbit.jaypengx.com/weather/
 - The line, the graph and the 10-day row read the same hours: one number
   means one thing everywhere. Today's rain chance and advice count only
   the hours still ahead (`dayPop`).
+- A day's sheet always has its graph (Jay 2026-11-01): today's is the whole
+  day, the hours gone by kept (`past`: the proxy's from its last answer, the
+  device's from its last copy) and faded, now marked; with too few kept late
+  in the evening it runs on to 06:00 tomorrow (`sheetHours`). High and low
+  are marked only on most of a day.
 - No source named on screen; a test fails if one reaches it.
 - An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
 - Weather draws its own pictures; a test fails if an emoji reaches the page.

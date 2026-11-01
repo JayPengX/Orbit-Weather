@@ -21,7 +21,7 @@ const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || n
 // (A stop from later in the day leaves the morning's going there as it is.)
 const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));
 useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(dayOffOn(date, pinPlace(pin), pinNeed(pin)))));
-import { nowHtml, weekHtml, placesHtml, placeName, daySheet, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
+import { nowHtml, weekHtml, placesHtml, placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
@@ -262,7 +262,7 @@ let firstIn;
 const firstForecast = new Promise(done => (firstIn = done));
 function take(page, cell, f) {
   queueMicrotask(() => firstIn());
-  if (cell) state.local.forecasts[cell] = { at: Date.now(), f };
+  if (cell) state.local.forecasts[cell] = { at: Date.now(), f: keepPast(state.local.forecasts[cell]?.f, f, Date.now()) };
   else {
     // Where the network said: the page takes the forecast's own place.
     // (Each answer's own place: the network's guess moves as you do.)
@@ -675,7 +675,7 @@ function armScrub(d, f, date) {
   const read = d.querySelector('.wx-scrub');
   if (!plot || !read) return;
   const summary = read.innerHTML;
-  const hours = (f.hours || []).filter(h => dateOf(h.t, f.tz) === date);
+  const hours = sheetHours(f, date, Date.now());
   const temp = plot.querySelector('svg.ch-daytemp');
   const xh = plot.querySelector('.ch-xh');
   const dh = plot.querySelector('.ch-dh');

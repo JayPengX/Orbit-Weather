@@ -277,13 +277,31 @@ const DAY_TOP = 20;
 // Temperature's colours, cold to hot (the line and its fill).
 const TEMP_STOPS = [[8, '#5ac8fa'], [16, '#4fd1c5'], [21, '#9be15d'], [25, '#ffd43b'], [29, '#ff9f0a'], [33, '#ff453a'], [37, '#d0367a']];
 
-export function dayCharts(hours, { tz } = {}) {
+// `now`: the hours before it (today's kept earlier hours) faded, a line at
+// now; `date`: the sheet's day (its high and low are that day's; an hour of
+// the next morning, when today runs on into it, says 明天 at midnight).
+export function dayCharts(hours, { tz, now = null, date = null } = {}) {
   const n = hours.length;
   if (!n) return '';
   const w = PLOT_W / n;
   const x = i => r1((i + 0.5) * w);
   const id = ++made;
-  const under = h => (hourOf(h.t, tz) % 3 === 0 ? W(`${hourOf(h.t, tz)}時`, `${hourOf(h.t, tz)}`) : '');
+  const ni = now == null ? -1 : hours.findIndex(h => h.t <= now && now < h.t + HOUR);
+  const under = (h, i) => {
+    const hr = hourOf(h.t, tz);
+    if (i === ni) return W('現在', 'Now');
+    if (date && hr === 0 && dateOf(h.t, tz) !== date) return W('明天', 'Tmrw');
+    return hr % 3 === 0 ? W(`${hr}時`, `${hr}`) : '';
+  };
+  // The words under the hours, the same under every chart (now's first: an
+  // hour's too close to it gives way).
+  const marks = hours.map((h, i) => [i, under(h, i)]).filter(([, t]) => t);
+  const axis = [];
+  for (const [i, t] of [...marks.filter(([i]) => i === ni), ...marks.filter(([i]) => i !== ni)]) if (!axis.some(([j]) => Math.abs(x(j) - x(i)) < 30)) axis.push([i, t]);
+  axis.sort((a, b) => a[0] - b[0]);
+  const word = new Map(axis);
+  // (The past's veil over a chart: from the left edge to now's hour.)
+  const fade = (svg, top, bottom) => (ni > 0 ? svg.replace(/<\/svg>$/, `<rect class="ch-past" x="0" y="${top}" width="${r1(ni * w)}" height="${r1(bottom - top)}"/><line class="ch-now" x1="${r1(ni * w)}" x2="${r1(ni * w)}" y1="${top}" y2="${bottom}"/></svg>`) : svg);
 
   // Temperature and feels-like on one scale, whole 2 or 5 degrees marked.
   const vals = hours.flatMap(h => [h.temp, h.feels]).filter(v => v != null);
@@ -305,27 +323,25 @@ export function dayCharts(hours, { tz } = {}) {
   out.push(`<path class="ch-fline" d="${smooth(pts('feels'), DAY_TOP - 12, base)}"/><path class="ch-tline" d="${tl}" stroke="url(#${gid})"/>`);
   // The high and low: a dot, the words just above (the high) or under (the
   // low), the other way when there's no room; a halo where they cross a line.
-  const iHi = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp > hours[a].temp) ? i : a), -1);
-  const iLo = hours.reduce((a, h, i) => (h.temp != null && (a < 0 || h.temp < hours[a].temp) ? i : a), -1);
+  const ofDay = h => h.temp != null && (!date || dateOf(h.t, tz) === date);
+  const iHi = hours.reduce((a, h, i) => (ofDay(h) && (a < 0 || h.temp > hours[a].temp) ? i : a), -1);
+  const iLo = hours.reduce((a, h, i) => (ofDay(h) && (a < 0 || h.temp < hours[a].temp) ? i : a), -1);
+  // (Only on most of a day: a few hours' high isn't the day's.)
+  const most = hours.filter(ofDay).length >= 12;
   for (const [i, above, word] of [[iHi, true, W('最高', 'H')], [iLo, false, W('最低', 'L')]]) {
-    if (i < 0 || (!above && i === iHi)) continue;
+    if (!most || i < 0 || (!above && i === iHi)) continue;
     const yd = y(hours[i].temp);
     const up = above ? yd - 11 >= 12 : yd + 21 > base - 2;
     out.push(`<circle class="ch-hl" cx="${x(i)}" cy="${yd}" r="4.5"/>${valText(x(i), up ? yd - 11 : yd + 21, `${word} ${Math.round(hours[i].temp)}°`, 'ch-val ch-big')}`);
   }
   let last = -99;
-  hours.forEach((h, i) => {
-    const t = under(h);
-    if (!t || x(i) - last < 30) return;
-    last = x(i);
-    out.push(`<text class="ch-t" x="${r1(Math.min(PLOT_W - 12, Math.max(12, x(i))))}" y="${base + 17}">${t}</text>`);
-  });
-  const temp = `<svg class="ch ch-daytemp" data-graph="day" data-n="${n}" data-pw="${PLOT_W}" data-ys="${hours.map(h => (h.temp == null ? '' : y(h.temp))).join(',')}" viewBox="0 0 ${CHART_W} ${base + 24}" role="img" aria-label="${W('這一天的溫度與體感', 'Temperature and feels-like this day')}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`;
+  for (const [i, t] of axis) out.push(`<text class="ch-t${i === ni ? ' ch-strong' : ''}" x="${r1(Math.min(PLOT_W - 12, Math.max(12, x(i))))}" y="${base + 17}">${t}</text>`);
+  const temp = fade(`<svg class="ch ch-daytemp" data-graph="day" data-n="${n}" data-pw="${PLOT_W}" data-ys="${hours.map(h => (h.temp == null ? '' : y(h.temp))).join(',')}" viewBox="0 0 ${CHART_W} ${base + 24}" role="img" aria-label="${W('這一天的溫度與體感', 'Temperature and feels-like this day')}" xmlns="http://www.w3.org/2000/svg">${out.join('')}</svg>`, DAY_TOP - 12, base);
 
   const dry = isDry(hours);
   const wet = hours.some(h => h.mm >= 0.1);
-  const rain = dry ? '' : chart('day-rain', hours.map(h => ({ t: h.t, v: h.pop, fill: mmColour(h.mm), under: under(h) })), { max: 100, stops: RAIN_STOPS, tz, label: W('這一天的降雨機率', 'Chance of rain this day'), bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false });
-  const uv = hours.some(h => h.uv > 0) ? chart('day-uv', hours.map(h => ({ t: h.t, v: h.uv, under: under(h) })), { max: Math.max(11, ...hours.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: W('這一天的紫外線', 'UV this day'), ticks: UV_TICKS, minLabel: 1, height: 56, dates: false }) : '';
+  const rain = dry ? '' : fade(chart('day-rain', hours.map((h, i) => ({ t: h.t, v: h.pop, fill: mmColour(h.mm), under: word.get(i) || '', strong: i === ni })), { max: 100, stops: RAIN_STOPS, tz, label: W('這一天的降雨機率', 'Chance of rain this day'), bars: true, ticks: RAIN_TICKS, minLabel: 10, fmt: v => `${Math.round(v)}%`, height: 70, dates: false }), TOP, TOP + 70);
+  const uv = hours.some(h => h.uv > 0) ? fade(chart('day-uv', hours.map((h, i) => ({ t: h.t, v: h.uv, under: word.get(i) || '', strong: i === ni })), { max: Math.max(11, ...hours.map(h => h.uv ?? 0)), stops: UV_STOPS, tz, label: W('這一天的紫外線', 'UV this day'), ticks: UV_TICKS, minLabel: 1, height: 56, dates: false }), TOP, TOP + 56) : '';
   const rainNote = dry ? `<span class="wx-dch-note">${dryNote(hours)}</span>` : wet ? mmKey : '';
   return `<div class="wx-dch"><p class="wx-dch-h">${glyph('thermo', { size: 16 })}${W('溫度', 'Temperature')}<span class="l-feels">${W('體感', 'Feels')}</span></p>${temp}</div>
     <div class="wx-dch${dry ? ' is-dry' : ''}"><p class="wx-dch-h">${glyph('umbrella', { size: 16 })}${W('降雨機率', 'Chance of rain')} ${rainNote}</p>${rain}</div>

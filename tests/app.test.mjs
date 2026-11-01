@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards, offGroups, dayOffSec } from '../public/lib/cards.mjs';
+import { nowHtml, weekHtml, adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, adviceCards, offGroups, dayOffSec } from '../public/lib/cards.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
@@ -564,4 +564,30 @@ test('typhoon: a chance next to nothing (the storm gone by then) is not shown', 
   const told = dayOffSec({ ...f, dayOff: { ...f.dayOff, local: { lines: [{ text: '今天停止上班、停止上課', off: 'all', at: null }] } } }, now);
   assert.doesNotMatch(told, /機率/);
   assert.match(told, /新竹縣/);
+});
+
+test('today\'s sheet late in the evening still has its graph (Jay 2026-11-01)', () => {
+  const late = tpe('2026-10-02T21:10:00');
+  const f = { ...forecast, hours: hours.filter(h => h.t >= tpe('2026-10-02T21:00:00')) };
+  // Nothing kept: the three hours left run on into tomorrow morning, to 06:00.
+  const run = sheetHours(f, '2026-10-02', late);
+  assert.equal(run.length, 3 + 7);
+  assert.equal(clock(run[run.length - 1].t), '06:00');
+  const html = daySheet(f, '2026-10-02', { now: late });
+  assert.match(html, /ch-daytemp/);
+  assert.doesNotMatch(html, /沒有逐時預報/);
+  assert.match(html, />明天</, 'midnight says so');
+  // The day's earlier hours kept: the whole day, the past faded, now marked.
+  const morning = { ...forecast, hours: hours.map(h => ({ ...h, t: h.t - 19 * H })) };
+  const kept = keepPast(morning, f, late);
+  assert.equal(kept.past.length, 21, '00:00–20:00');
+  assert.equal(sheetHours(kept, '2026-10-02', late).length, 24);
+  const full = daySheet(kept, '2026-10-02', { now: late });
+  assert.match(full, /ch-past/);
+  assert.match(full, /ch-strong"[^>]*>現在</);
+  assert.doesNotMatch(full, />明天</);
+  // Another day's sheet never takes today's kept hours, nor the next morning.
+  assert.equal(sheetHours(kept, '2026-10-03', late).length, 24);
+  // Yesterday's kept hours are dropped the next day.
+  assert.equal(keepPast(kept, { ...f, hours: f.hours.filter(h => h.t >= tpe('2026-10-03T08:00:00')) }, tpe('2026-10-03T08:10:00')).past.length, 8, 'only 10/3 00:00–07:00');
 });

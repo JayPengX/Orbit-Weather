@@ -1181,6 +1181,12 @@ svg.ch {
   stroke-width: 1.5;
   opacity: 0.5;
 }
+/* The day sheet's hours before now: faded under a veil of the card's own colour. */
+.ch-past {
+  fill: var(--q-surface);
+  opacity: 0.55;
+  pointer-events: none;
+}
 .ch-t {
   fill: var(--q-label-2);
   font-size: 11px;
