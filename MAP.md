@@ -21,6 +21,12 @@ Live: https://orbit.jaypengx.com/weather/
 - **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a change of place or tab, and each minute while on screen).
+- **Never stuck on 更新中:** a stalled request is dropped and asked again; the
+  forecast is asked before the phone's fix and drawn before the place's name.
+- **Every screen** (Jay 2026-10-31; Orbit-Core DESIGN.md §10): on a phone on
+  its side, a tablet or a computer each tab is two columns (sky, hours, days |
+  details, advice, places), the indicators a grid, a smaller sky on a phone on
+  its side; the app turns with the phone.
 - **Three tabs, one place:** 今天 (the date over the place, the sky card
   opening today's sheet with 更多資訊, the next 24 hours, 建議 with 全部);
   預報 (指標: 降雨 / 紫外線 / 空氣 each open a sheet of day tabs and graphs,
