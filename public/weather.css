@@ -1409,29 +1409,65 @@ svg.ch {
   content: '';
   position: absolute;
   top: 68px;
-  bottom: 16px;
+  height: 40px;
   left: 50%;
   right: auto;
   border-left: 1px dashed var(--ot-line);
 }
-/* 我的行程: where you'll be, under the hours. */
+/* 我的行程: one rail under the hours, a stretch a place, a ring where you move. */
 .ot-where {
   position: absolute;
-  top: 128px;
-  display: grid;
-  gap: 3px;
+  top: 124px;
+  height: 26px;
   min-width: 0;
 }
 .ot-where i {
-  display: block;
-  height: 2px;
-  border-radius: 1px;
-  background: color-mix(in srgb, var(--q-accent) 70%, transparent);
+  position: absolute;
+  top: 3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--q-accent) 78%, transparent);
 }
+.ot-where.is-alt i {
+  background: color-mix(in srgb, var(--q-accent) 38%, transparent);
+}
+.ot-where.is-first i {
+  left: 6px;
+  border-radius: 2px 0 0 2px;
+}
+.ot-where.is-last i {
+  right: 6px;
+  border-radius: 0 2px 2px 0;
+}
+.ot-where.is-first.is-last i {
+  border-radius: 2px;
+}
+/* The move: a ring on the rail at the first hour in the new place. */
+.ot-where.is-move::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: -4.5px;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: 2px solid var(--q-accent);
+  border-radius: 50%;
+  background: var(--nv-card, var(--q-bg));
+}
+/* Its name, kept at the left edge while the stretch is in view. */
 .ot-where small {
+  position: sticky;
+  left: 8px;
+  display: block;
+  width: max-content;
+  max-width: calc(100% - 7px);
+  margin: 11px 0 0 5px;
   overflow: hidden;
-  color: var(--q-label-2);
-  font: 500 11.5px/14px var(--q-font);
+  color: var(--q-label);
+  font: 600 11px/14px var(--q-font);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1469,11 +1505,16 @@ svg.ch {
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
 }
+/* The highs warm, the lows cool: the two lines say which is which by their colour. */
+.ot-days {
+  --ot-hi: var(--q-orange);
+  --ot-lo: var(--q-teal);
+}
 .ot-sk-hiline {
-  stroke: color-mix(in srgb, var(--q-label) 50%, transparent);
+  stroke: color-mix(in srgb, var(--ot-hi) 80%, transparent);
 }
 .ot-sk-loline {
-  stroke: color-mix(in srgb, var(--q-label) 24%, transparent);
+  stroke: color-mix(in srgb, var(--ot-lo) 70%, transparent);
 }
 .ot-sk-lines path.ot-sk-band {
   fill: color-mix(in srgb, var(--q-label) 6%, transparent);
@@ -1546,27 +1587,48 @@ svg.ch {
   height: 6px;
   margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: var(--q-label);
+  background: var(--ot-hi);
 }
 .ot-sk-dot.is-lo {
-  background: var(--q-label-3);
+  background: var(--ot-lo);
 }
-/* Today: its high a lit dot, in the app's colour (the track's mark). */
-.ot-sk.is-today .ot-sk-dot:not(.is-lo) {
+/* Today: its dots larger, ringed in the card's colour. */
+.ot-sk.is-today .ot-sk-dot {
   width: 9px;
   height: 9px;
   margin: -4.5px 0 0 -4.5px;
-  background: var(--q-accent);
-  box-shadow: var(--ot-glow);
+  box-shadow: 0 0 0 2.5px var(--q-grouped-2);
 }
-.ot-sk-w {
-  max-width: 100%;
-  min-height: 13px;
-  overflow: hidden;
+/* The head names the two lines: a short stroke of each colour, then its word. */
+.ot-sk-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
   color: var(--q-label-2);
-  font: 500 10.5px/13px var(--q-font);
-  white-space: nowrap;
-  text-overflow: clip;
+  font: 500 11.5px/14px var(--q-font);
+}
+.ot-sk-key i {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ot-hi);
+}
+.ot-sk-key i.is-lo {
+  margin-left: 6px;
+  background: var(--ot-lo);
+}
+/* 我的行程 in the ten days: the hours' rail, under the lows, a stretch of days a place. */
+.ot-where.is-days {
+  position: relative;
+  top: auto;
+  grid-row: 2;
+}
+.ot-where.is-days.is-first i {
+  left: 10px;
+}
+.ot-where.is-days.is-last i {
+  right: 10px;
 }
 
 /* ---------- The readings: each on its own track ---------- */

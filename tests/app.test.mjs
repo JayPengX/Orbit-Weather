@@ -403,6 +403,19 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.match(html, /data-metric="rain"/);
   assert.match(metricSheet('rain', f, { now: at10, key: 'plan', ranges: {} }), /class="ch-place"[^>]*>家</, 'the big graph names the city where you move');
   assert.ok(!/更多資訊/.test(html), 'not what doesn\'t matter on the move');
+  // The hours' rail of places: end to end, no gap (a sunrise or sunset column
+  // included), every stretch named.
+  // (The sun sets at 16:40 here, its column just before the move at 17:00.)
+  const dusk = { ...f, days: f.days.map(d => (d.date === '2026-10-05' ? { ...d, sunrise: tpe('2026-10-05T05:50:00'), sunset: tpe('2026-10-05T16:40:00') } : d)) };
+  const duskHtml = pageHtml(dusk, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
+  assert.match(duskHtml, /ot-hr is-sun/);
+  const rail = [...duskHtml.matchAll(/class="ot-where[^"]*" style="left:(\d+)px;width:(\d+)px"><i><\/i><small>([^<]*)</g)].map(m => ({ from: +m[1], to: +m[1] + +m[2], name: m[3] }));
+  assert.deepEqual(rail.map(r => r.name).slice(0, 2), ['學校', '家']);
+  rail.slice(1).forEach((r, i) => assert.equal(r.from, rail[i].to, 'no gap between places'));
+  assert.ok(rail.every(r => r.name), 'every stretch named');
+  const dayRail = [...html.matchAll(/class="ot-where is-days[^"]*" style="grid-column:(\d+) \/ (\d+)"><i><\/i><small>([^<]*)</g)].map(m => ({ from: +m[1], to: +m[2], name: m[3] }));
+  assert.ok(dayRail.length > 1 && dayRail.every(r => r.name), 'the ten days\' places: every stretch named, a weekend at home too');
+  dayRail.slice(1).forEach((r, i) => assert.equal(r.from, dayRail[i].to, 'one stretch after another'));
   assert.match(html, /學校·家/, 'a day\'s places in the 10 days');
   assert.equal(routeForecast(pins, () => null, at10), null, 'nothing until the place you\'re in has loaded');
 });

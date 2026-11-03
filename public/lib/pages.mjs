@@ -200,17 +200,26 @@ function hourTrack(f, { now, key, page }) {
       </button>`;
     })
     .join('');
-  // 我的行程: under the hours, where you'll be, a stretch of line each.
+  // 我的行程: under the hours, one rail of where you'll be. A stretch a place,
+  // end to end with no gap (a sunrise or sunset column belongs to the hour it
+  // falls in); a move is a ring on the rail where the new place's first hour
+  // starts, its name just after; each name stays at the left edge while its
+  // stretch is in view, so the place you scrolled into is always named.
   let band = '';
   if (plan) {
     const segs = [];
     for (const c of cols) {
-      if (!c.h) continue;
       const last = segs[segs.length - 1];
-      if (last && last.place === c.h.place) last.to = c.x + COL;
-      else segs.push({ place: c.h.place || '', from: c.x, to: c.x + COL });
+      const w = c.h ? COL : SUN_COL;
+      if (!c.h || (last && last.place === c.h.place)) {
+        if (last) last.to = c.x + w;
+        continue;
+      }
+      segs.push({ place: c.h.place || '', from: c.x, to: c.x + w });
     }
-    band = segs.map(s => `<span class="ot-where" style="left:${s.from + 6}px;width:${s.to - s.from - 12}px"><i></i><small>${e(s.place)}</small></span>`).join('');
+    band = segs
+      .map((s, i) => `<span class="ot-where${i ? ' is-move' : ' is-first'}${i % 2 ? ' is-alt' : ''}${i === segs.length - 1 ? ' is-last' : ''}" style="left:${s.from}px;width:${s.to - s.from}px"><i></i><small>${e(s.place)}</small></span>`)
+      .join('');
   }
   const nowDot = cols[0].y == null ? '' : `<i class="ot-now-dot" style="left:${COL / 2}px;top:${r1(cols[0].y)}px" aria-hidden="true"></i>`;
   const dots = pts.slice(1).map(([px, py]) => `<circle cx="${r1(px)}" cy="${r1(py)}" r="2.4"/>`).join('');
@@ -226,8 +235,9 @@ function hourTrack(f, { now, key, page }) {
 // ---- The ten days: side by side, the highs and the lows as two lines on one scale --------------
 
 // Each day a column (its name, sky and rain chance), then the ten highs as one
-// line and the ten lows as another, the days' range shaded between: the
-// week's warming and cooling reads at a glance, each number at its dot.
+// warm line and the ten lows as one cool line, the days' range shaded
+// between: the week's warming and cooling reads at a glance, each number at
+// its dot, the head naming the two lines in their own colours.
 const SPAN = 58; // the scale's height (px), top high to bottom low
 const LIFT = 20; // room for a high's number above its dot, a low's below
 function skyline(f, { now, key, page, home = '' }) {
@@ -243,6 +253,7 @@ function skyline(f, { now, key, page, home = '' }) {
   const n = list.length;
   const his = [];
   const los = [];
+  const days = [];
   const cols = list
     .map((d, i) => {
       const isToday = d.date === today;
@@ -253,9 +264,11 @@ function skyline(f, { now, key, page, home = '' }) {
       const c = d.day?.condition || {};
       const pop = dayPop(f, d, now);
       const name = isToday ? W('今天', 'Today') : en ? weekday(d.date) : dayLabel(d.date, now, f.tz);
-      // (我的行程: where you'll be that day away from home; all of them in its label.)
+      // (我的行程: where you'll be that day, away from home first; all of them in its label.)
       const where = page.plan && d.places?.length > 1 ? d.places : [];
-      const away = where.filter(p => p !== home && p !== W('目前位置', 'Current location'))[0] || '';
+      const here = W('目前位置', 'Current location');
+      // (The phone's own place, short as a day's column: 這裡.)
+      if (page.plan) days.push(where.find(p => p !== home && p !== here) || d.places?.find(p => p !== here) || (d.places?.length ? W('這裡', 'Here') : ''));
       return `<button class="ot-sk q-press${isToday ? ' is-today' : ''}" type="button" data-day="${e(d.date)}" data-page="${e(key)}" aria-label="${e(`${name} ${shortDate(d.date)} ${deg(d.lo)}–${deg(d.hi)}${pop >= 20 ? ` ${W('降雨', 'rain')} ${pop}%` : ''}${where.length ? ` · ${where.join('·')}` : ''}`)}">
         <span class="ot-sk-d">${e(name)}<small>${e(shortDate(d.date))}</small></span>
         <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 24 })}</span>
@@ -264,7 +277,6 @@ function skyline(f, { now, key, page, home = '' }) {
           ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 20)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
           ${yl == null ? '' : `<i class="ot-sk-dot is-lo" style="top:${r1(yl)}px"></i><b class="ot-sk-lo" style="top:${r1(yl + 4)}px">${deg(d.lo)}</b>`}
         </span>
-        ${page.plan ? `<small class="ot-sk-w">${e(away)}</small>` : ''}
       </button>`;
     })
     .join('');
@@ -274,9 +286,21 @@ function skyline(f, { now, key, page, home = '' }) {
   const back = los.slice().reverse();
   const band = his.length > 1 && los.length > 1 ? `<path class="ot-sk-band" d="${smooth(his)} L${smooth(back).slice(1)} Z"/>` : '';
   const lines = `<svg class="ot-sk-lines" viewBox="0 0 ${n * 100} ${H}" preserveAspectRatio="none" style="height:${H}px" aria-hidden="true">${band}<path class="ot-sk-hiline" d="${smooth(his)}"/><path class="ot-sk-loline" d="${smooth(los)}"/></svg>`;
+  // 我的行程: the days' places as the hours' rail, a stretch a place, a ring
+  // where it changes, every stretch named (a weekend at home too).
+  const segs = [];
+  days.forEach((p, i) => {
+    const last = segs[segs.length - 1];
+    if (last && last.place === p) last.to = i + 1;
+    else segs.push({ place: p, from: i, to: i + 1 });
+  });
+  const rail = segs.length && segs.some(s => s.place)
+    ? segs.map((s, i) => `<span class="ot-where is-days${i ? ' is-move' : ' is-first'}${i % 2 ? ' is-alt' : ''}${i === segs.length - 1 ? ' is-last' : ''}" style="grid-column:${s.from + 1} / ${s.to + 1}"><i></i><small>${e(s.place)}</small></span>`).join('')
+    : '';
+  const key2 = `<span class="ot-sk-key" aria-hidden="true"><i class="is-hi"></i>${W('最高', 'High')}<i class="is-lo"></i>${W('最低', 'Low')}</span>`;
   return `<section class="ot-card ot-days">
-    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${n} 天`, `${n} days`)}</h2>
-    <div class="ot-sks"><div class="ot-sks-in" style="--n:${n}">${lines}${cols}</div></div>
+    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${n} 天`, `${n} days`)}${key2}</h2>
+    <div class="ot-sks"><div class="ot-sks-in" style="--n:${n}">${lines}${cols}${rail}</div></div>
   </section>`;
 }
 

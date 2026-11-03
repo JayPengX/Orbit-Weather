@@ -41,8 +41,8 @@ Live: https://orbit.jaypengx.com/weather/
   the temperature, the sun's rising and setting among them, and the owner's
   cards in 版面's order: 今日數據 (降雨 / 紫外線 / 空氣 each opening its sheet of
   day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
-  建議 four and 全部; the ten days side by side, the highs as one line and the lows as
-  another on one scale, the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
+  建議 four and 全部; the ten days side by side, the highs as one warm line and the lows as
+  one cool line on one scale (最高 / 最低 named in the head in their colours), the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
   place with its now and its day, 新增地點, 早晨天氣, 版面. `#tab=places`,
   `#pin=<id>` (an old `#tab=week` opens 天氣).
 - **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
@@ -59,7 +59,10 @@ Live: https://orbit.jaypengx.com/weather/
   read is never written over.
 - **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll
   be then (from the pins; the phone's real position wins). A school pin is
-  off on Taiwan's holidays.
+  off on Taiwan's holidays. Under the hours and the ten days, one rail of
+  places (`.ot-where`): a stretch a place end to end (a sunrise or sunset
+  column belongs to its hour, so no gap), a ring where you move, each name
+  held at the left edge while its stretch is in view.
 - **Notices** (the kit's): the morning brief at the set time, and the rain
   watch 07:00–21:00.
 - **Offline:** opens on the last forecast with the kit's 沒有網路連線 capsule.
