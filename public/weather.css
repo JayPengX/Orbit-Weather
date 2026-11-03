@@ -963,6 +963,10 @@ svg.ch {
 .ot-flow .q-flow-col > * + * {
   margin-top: 12px;
 }
+/* (Laid in columns on a wide screen, each column's top in line with the first's.) */
+.ot-flow > .q-flow-col {
+  margin-top: 0;
+}
 .ot-cap {
   display: flex;
   align-items: center;
