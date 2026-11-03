@@ -8,6 +8,6 @@ MAP.md is this repo's map (README.md is the short public front page).
 
 - A change to how this app is built (a module, a data or sync path, a pattern) updates MAP.md
   in the same push; anything the kit or a Worker gains goes into `../Orbit-Core/CLAUDE.md`.
-- `npm test`, then `git push origin HEAD:main`.
+- Push with `sh ../Orbit-Core/tools/push.sh`: it rebases onto `origin/main`, runs what the deploy runs (tests against main's kit), and pushes main only if they pass (a red deploy mails Jay).
 - See it on a phone: `node ../Orbit-Core/tools/preview.mjs weather --live --width 375`.
 - Screenshots for a change: `node ../Orbit-Core/tools/shots.mjs weather --before main` (320/390, light/dark, live data, a diff against what's live; `../Orbit-Core/tools/README.md`).
