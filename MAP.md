@@ -16,22 +16,42 @@ Live: https://orbit.jaypengx.com/weather/
   Location: a quick Wi-Fi/cell fix first, GPS after; the forecast is asked
   again only if GPS lands in another ~1 km cell. iOS is asked for the
   position unprompted once, never at every opening.
+- **Orbit's own look** (Jay 2026-11-03; Orbit-Core DESIGN.md §11; `<html data-look="native">`):
+  today's dark page and graphite cards; the sky stays in its card at the top.
+  Its mark is the track: time, a scale or a day as one thin line, where you
+  are now a lit dot on it (`lib/pages.mjs`).
 - **Rain soon:** under the numbers, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old).
-- **颱風:** only while CWA has a typhoon warning out, a row under the sky: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Orbit-Core/typhoon.js`).
+- **颱風:** only while CWA has a typhoon warning out, a panel under the head: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Orbit-Core/typhoon.js`).
 - **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
 - **Fresh:** asked again once the numbers are 15 minutes old (on opening,
   coming back, a change of place or tab, and each minute while on screen).
 - **Never stuck on 更新中:** a stalled request is dropped and asked again; the
   forecast is asked before the phone's fix and drawn before the place's name.
 - **Every screen** (Jay 2026-10-31; Orbit-Core DESIGN.md §10): on a phone on
-  its side, a tablet or a computer each tab is two columns (sky, hours, days |
-  details, advice, places), the indicators a grid, a smaller sky on a phone on
-  its side; the app turns with the phone.
-- **Three tabs, one place:** 今天 (the date over the place, the sky card
-  opening today's sheet with 更多資訊, the next 24 hours, 建議 with 全部);
-  預報 (指標: 降雨 / 紫外線 / 空氣 each open a sheet of day tabs and graphs,
-  濕度, 風; then 10 天預報, a day opens its sheet); 地點 (the places, 新增地點,
-  早晨天氣, 版面). The title on 今天 opens 地點. `#tab=week|places`, `#pin=<id>`.
+  its side, a tablet or a computer 天氣's head and hours run across and the
+  owner's cards go into the kit's flow columns (`.q-flow` + `flowColumns`,
+  the phone's order), 地點 two columns, a smaller head on a phone on its side;
+  the app turns with the phone.
+- **Two tabs, one place:** 天氣 (the place's name, which opens 地點; the sky
+  card: the temperature big and thin, the sky's word, the high and low, 體感,
+  the rain soon line, and the day's track: 我的行程's stops, each place with
+  its time and weather, else the day's turns, rain coming or easing, the high
+  or the night's low, the sun; the card opens today's sheet with 更多資訊;
+  then every hour of the next day as one track whose dots rise and fall with
+  the temperature, the sun's rising and setting among them, and the owner's
+  cards in 版面's order: 今日數據 (降雨 / 紫外線 / 空氣 each opening its sheet of
+  day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
+  建議 four and 全部; the ten days side by side on one warmth scale, a day
+  opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
+  place with its now and its day, 新增地點, 早晨天氣, 版面. `#tab=places`,
+  `#pin=<id>` (an old `#tab=week` opens 天氣).
+- **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
+  reading's hourly track shows only when a chance of 30%+ comes in the next
+  24 hours; else it is one line saying when rain comes next (the second day's
+  hours, then the ten days: 「週五可能下雨 40%」, 「10 天都不太會下雨」,
+  `nextRain`). The sun's reading is the strongest UV still to come today, after
+  dark tomorrow's peak with its day (never a 0 on an empty bar). 地點 draws a
+  place's twelve-hour rain track only where rain comes.
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
   on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
   newest). The Pass's copy is read again before a write whenever another
@@ -57,7 +77,8 @@ Live: https://orbit.jaypengx.com/weather/
 - No source named on screen; a test fails if one reaches it.
 - An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
 - Weather draws its own pictures; a test fails if an emoji reaches the page.
-- Light and dark (the kit's tokens); the sky hero stays a sky. No warning banner.
+- Light and dark (the kit's tokens); the sky stays a sky in both (sheets follow the theme). No warning banner.
+- No sentence over the hours: the sky card's track and the readings say it (a test fails on one).
 - English screens through `W(zh, en)`; place names stay Chinese.
 
 ## Files
@@ -66,7 +87,8 @@ Live: https://orbit.jaypengx.com/weather/
 | --- | --- |
 | `public/app.mjs`, `index.html`, `weather.css` | The page and its flow: session, location, pages, pins, sheets |
 | `public/lib/api.mjs` | The proxy, the device's position, this device's copies |
-| `public/lib/cards.mjs` | The tabs (今天, 預報, 地點) and the sheets they open |
+| `public/lib/pages.mjs` | 天氣 (the sky card and its track, the hours, the readings, the advice, the ten days) and 地點 (each place, its rain track where rain comes, the settings) |
+| `public/lib/cards.mjs` | The sheets 天氣 opens (a day, a metric, the advice, 更多資訊), the day off, and the rules the pages share (the sky, a place's name, a day's rain chance, the advice in order) |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
 | `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |

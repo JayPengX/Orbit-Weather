@@ -4,8 +4,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { realpathSync, existsSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
-const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
-import { nowHtml, weekHtml, daysCols, daysList, dayPop, dayTips, daySheet, infoCard } from '../public/lib/cards.mjs';
+import { daysCols, dayPop, dayTips, daySheet, infoCard } from '../public/lib/cards.mjs';
+import { nowHtml as skyPage } from '../public/lib/pages.mjs';
+// 天氣: one page (the old 今天 and 預報 in one, Native).
+const pageHtml = (f, page, opts) => skyPage(f, page, opts);
 import { readout } from '../public/lib/graph.mjs';
 import { rainLevel, wearFor, outFeel, aqiName, aqiColor, moonName, updatedText, staleText, hereNote } from '../public/lib/format.mjs';
 import { cleanPin, mergeData, emptyData, encodeData, decodeData } from '../public/lib/pins.mjs';
@@ -33,8 +35,12 @@ test("the 10-day row's today says what the graphs say: the hours still ahead, no
   assert.equal(ahead, 10);
   assert.equal(dayPop(f, f.days[0], NOW), 10);
   assert.equal(daysCols(f, NOW)[0].pop, 10, 'the 10-day graph');
-  const row = daysList(f, { now: NOW, key: 'here' }).split('<button class="wx-day"')[1];
-  assert.match(row, /<b>10%<\/b>/, 'the 10-day row: ' + row.match(/wx-dpop[^]*?<\/b>/)?.[0]);
+  // The 10-day row: today's chance from the hours ahead (10%, under the 20% a
+  // row shows), never the morning's gone 90%; ahead at 40%, it says 40%.
+  const row = f2 => pageHtml(f2, { key: 'here', place: { town: '信義區' } }, { now: NOW }).split('<button class="ot-sk q-press')[1].split('</button>')[0];
+  assert.doesNotMatch(row(f), /90%|10%/, 'the 10-day row: ' + row(f));
+  const wetter = { ...f, hours: f.hours.map(h => (h.t + H > NOW && h.t < tpe('2026-10-03T00:00:00') ? { ...h, pop: 40 } : h)) };
+  assert.match(row(wetter), /<span class="ot-sk-p">40%<\/span>/);
   // Another day: its own whole day.
   assert.equal(dayPop(f, f.days[1], NOW), f.days[1].pop);
   // Nothing left of today (the last hour gone): the day's own.
@@ -238,7 +244,7 @@ test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh num
 test('the 位置 tile names the place the header shows, and the Today sheet labels the day\'s highs', () => {
   for (const place of [{ town: '信義區', county: '臺北市' }, { county: '臺北市' }]) {
     const page = { key: 'here', place };
-    const title = nowHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-title"[^>]*><span>([^<]*)<\/span>/)[1];
+    const title = pageHtml(forecast, page, { now: NOW, cards: [] }).match(/class="wx-title"[^>]*><span>([^<]*)<\/span>/)[1];
     const tile = infoCard(forecast, { now: NOW, page }).match(/位置<\/span>(?:<small>[^<]*<\/small>)?<\/span><span class="q-ritem-value">([^<]*)<\/span>/)[1];
     assert.equal(tile, title);
   }

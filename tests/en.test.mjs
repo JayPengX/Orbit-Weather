@@ -11,8 +11,9 @@ globalThis.document = any();
 globalThis.localStorage = { getItem: k => (k === 'orbit.lang' ? 'en' : null), setItem() {}, removeItem() {} };
 
 const { en } = await import('#kit/lang.mjs');
-const { nowHtml, weekHtml, adviceCards } = await import('../public/lib/cards.mjs');
-const pageHtml = (f, page, opts) => nowHtml(f, page, opts) + weekHtml(f, page, opts);
+const { nowHtml: skyPage } = await import('../public/lib/pages.mjs');
+// 天氣: one page (the old 今天 and 預報 in one, Native).
+const pageHtml = (f, page, opts) => skyPage(f, page, opts);
 const { routeForecast } = await import('../public/lib/plan.mjs');
 const { cleanPin } = await import('../public/lib/pins.mjs');
 const { forecast, tpe, H } = await import('./fixture.mjs');
@@ -29,7 +30,7 @@ test("my route in English: its own sentence and tiles shown, a Chinese pin name 
   const f = routeForecast([home, sch], k => fc[k] || null, at10);
   assert.match(f.headline, /^In 學校; 17:00 to 家/);
   const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
-  assert.match(html, /<p class="wx-say">In 學校; 17:00 to 家/, 'the route\'s sentence, not hidden for its Chinese names');
+  assert.match(html, /<ol class="ot-day"[^>]*aria-label="Now 學校 [^"]*, 17:00 家 /, 'the route\'s stops, not hidden for their Chinese names');
   assert.match(html, /k-move[^]*?17:00 to 家/, 'the move to 家 kept');
   assert.match(html, /k-umbrella[^]*?Bring one, 15:00 70%/);
 });
@@ -42,7 +43,7 @@ test("the proxy's advice in English; what can't be read is left out, never half 
     { kind: 'sleep', level: 'none', text: '睡覺：今晚 20°，打開窗戶' },
     { kind: 'run', level: 'good', text: '跑步：明天 6–8時 18°' }
   ] };
-  const html = adviceCards(f, { now: tpe('2026-10-02T08:00:00') });
+  const html = pageHtml(f, { key: 'here', place: { town: '信義區' } }, { now: tpe('2026-10-02T08:00:00') });
   assert.match(html, /Unlikely today/);
   assert.match(html, /Tonight -2°, thick blanket/);
   assert.match(html, /Tomorrow morning -1°, 6° colder/);
@@ -50,8 +51,8 @@ test("the proxy's advice in English; what can't be read is left out, never half 
   assert.doesNotMatch(html, /打開窗戶|今晚/, 'an unknown phrase drops its tile');
   // The proxy's own sentence (Chinese) isn't shown in English; its numbers are.
   const page = pageHtml(forecast, { key: 'here', place: { town: '信義區' } }, { now: tpe('2026-10-02T19:46:00') });
-  assert.doesNotMatch(page, /wx-say/);
-  assert.match(page, /Feels <b>27°<\/b>/);
+  assert.doesNotMatch(page, /ot-say|wx-say/);
+  assert.match(page, /<p class="ot-feel">Feels 27°<\/p>/);
 });
 
 test('an old copy says "Not updated" and "3 h old", short enough to sit beside Today', async () => {

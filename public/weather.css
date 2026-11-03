@@ -1,8 +1,9 @@
 /* Orbit Weather on the Orbit kit (orbit.css: tokens, tab bar, sheets,
-   lists, the premium layer). Organised by screen: the frame, 今天 (the sky,
-   the next hours, the advice), 預報 (the indicators, the days), 地點, then
-   the sheets, the graphs and the pictures. Light and dark come from the
-   kit's tokens; the sky card stays a sky in both. */
+   lists, and the graphite surfaces of <html data-look="native">). Organised by
+   screen: the frame, the sky's moving layer, the advice's rows, the day off,
+   地點, the sheets, the graphs and the pictures; at the end 天氣 and 地點 in
+   Orbit's own look (the track). Light and dark come from the kit's tokens;
+   the sky stays a sky in both, inside its card. */
 
 /* ==== The frame ==== */
 body {
@@ -11,17 +12,10 @@ body {
   color: var(--q-label);
 }
 /* Every screen: on a wide one (a phone on its side, a tablet, a computer)
-   each tab in two columns, each a phone's (cards.mjs cols), their tops in
-   line; a row of cards scrolls inside its own column. */
+   地點 in two columns, each a phone's, their tops in line; 天氣's cards in
+   the kit's flow columns (pages.mjs). */
 :root.q-wide {
   --q-page-max: 1180px;
-}
-/* (A phone on its side: the sky card no taller than half the screen.) */
-@media (orientation: landscape) and (max-height: 520px) {
-  .wx-temp {
-    font-size: 64px;
-    letter-spacing: -3px;
-  }
 }
 :root.q-wide .wx-col > :first-child {
   margin-top: 0;
@@ -55,92 +49,8 @@ body {
   font: var(--q-t-footnote);
 }
 
-/* A tab's head: the place (a button: it opens 地點). */
-.wx-head h1 {
-  min-width: 0;
-}
-.wx-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.wx-title span {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.wx-title .wx-g {
-  margin-top: 4px;
-  color: var(--q-label-3);
-  stroke-width: 2.4;
-}
-.wx-title:active {
-  opacity: 0.6;
-}
-
-/* ==== 今天: the sky ==== */
-.wx-hero {
-  --sky-glow: rgba(255, 255, 255, 0.26);
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  padding: var(--q-s-4, 16px);
-  border-radius: var(--q-r-card, 22px);
-  color: #fff;
-  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.16s ease;
-}
-.wx-hero[data-day] {
-  cursor: pointer;
-}
-.wx-hero[data-day]:active {
-  transform: scale(0.985);
-}
-.wx-hero:focus-visible {
-  outline: 2px solid var(--q-accent);
-  outline-offset: 3px;
-}
-.sky-clear.sky-day {
-  --sky: linear-gradient(165deg, #174fb8 0%, #2c78e0 55%, #5aa2ee 100%);
-  --sky-glow: rgba(255, 226, 140, 0.5);
-}
-.sky-part.sky-day {
-  --sky: linear-gradient(165deg, #264e94 0%, #4676ba 55%, #7898c6 100%);
-}
-.sky-cloud.sky-day {
-  --sky: linear-gradient(165deg, #414d64 0%, #5e6b84 58%, #8090a8 100%);
-}
-.sky-rain {
-  --sky: linear-gradient(165deg, #172235 0%, #263a57 60%, #375377 100%);
-  --sky-glow: rgba(150, 180, 255, 0.22);
-}
-.sky-storm {
-  --sky: linear-gradient(165deg, #161126 0%, #2b224b 60%, #45367a 100%);
-  --sky-glow: rgba(150, 180, 255, 0.22);
-}
-.sky-clear.sky-night,
-.sky-part.sky-night {
-  --sky: linear-gradient(165deg, #060a22 0%, #131d52 62%, #2b2f78 100%);
-  --sky-glow: rgba(120, 130, 255, 0.28);
-}
-.sky-cloud.sky-night {
-  --sky: linear-gradient(165deg, #0f1218 0%, #1d232d 62%, #2d3441 100%);
-  --sky-glow: rgba(120, 130, 255, 0.2);
-}
-
-/* The sky's moving layer: each <i> placed by --x, --y and timed by --d, --s. */
+/* ==== The sky's moving layer (天氣's sky, 地點's cards) ====
+   Each <i> placed by --x, --y and timed by --d, --s. */
 .wx-fx {
   position: absolute;
   inset: 0;
@@ -251,21 +161,6 @@ body {
 }
 
 /* The sky's words: where, now, the day's high and low. */
-.wx-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 26px;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.85);
-  font: 500 13px/18px var(--q-font);
-}
-.wx-eyebrow > span {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 .wx-relocate {
   display: inline-flex;
   flex: none;
@@ -280,47 +175,6 @@ body {
   color: #fff;
   font: 600 12px/1 var(--q-font);
   cursor: pointer;
-}
-.wx-now {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
-}
-.wx-temp {
-  font: 300 88px/1 var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -4px;
-  text-shadow: 0 4px 22px rgba(0, 0, 0, 0.16);
-}
-.wx-icon {
-  flex: none;
-  line-height: 0;
-}
-.wx-icon .wx-art-i {
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22));
-  animation: wx-float 6s ease-in-out infinite;
-}
-.wx-cond {
-  margin: 2px 0 0;
-  font: 600 20px/26px var(--q-font);
-}
-.wx-pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px var(--q-s-4, 16px);
-  margin-top: var(--q-s-3, 12px);
-}
-.wx-pill {
-  color: rgba(255, 255, 255, 0.8);
-  font: 400 15px/20px var(--q-font);
-  white-space: nowrap;
-}
-.wx-pill b {
-  color: #fff;
-  font: 500 15px/20px var(--q-font);
-  font-variant-numeric: tabular-nums;
 }
 /* The rain heads-up under the numbers (cards.mjs soonLine). */
 .wx-soon {
@@ -341,26 +195,6 @@ body {
 }
 .wx-soon-stop {
   background: rgba(255, 255, 255, 0.12);
-  font-weight: 500;
-}
-.wx-hero-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: var(--q-s-3, 12px);
-  padding-top: var(--q-s-2, 8px);
-  border-top: 0.5px solid rgba(255, 255, 255, 0.22);
-  color: rgba(255, 255, 255, 0.8);
-  font: 500 12.5px/18px var(--q-font);
-}
-.wx-more {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 0;
-  color: #fff;
   font-weight: 500;
 }
 /* An old copy (cards.mjs heroHtml): what it is, said plainly in the
@@ -413,72 +247,13 @@ body {
 .is-loading .wx-stale.failed {
   background: rgba(0, 0, 0, 0.32);
 }
-.wx-old .wx-temp,
-.wx-old .wx-cond,
-.wx-old .wx-pills {
-  opacity: 0.42;
-  transition: opacity 0.3s;
-}
 @keyframes wx-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* ==== 今天: the next 24 hours, a rail of small cards ==== */
-.wx-say {
-  margin: -2px 0 12px;
-  color: var(--q-label-2);
-  font: var(--q-t-subhead);
-}
-.wx-rail {
-  --q-rail-w: 64px;
-  gap: 8px;
-}
-.wx-hr {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  min-width: 0;
-  padding: 10px 0 8px;
-  border: 0;
-  border-radius: var(--q-r-cell, 12px);
-  background: var(--q-surface);
-  color: var(--q-label);
-  font: inherit;
-  text-align: center;
-  cursor: pointer;
-}
-.wx-hr.is-now {
-  background: var(--q-accent);
-  color: #fff;
-}
-.wx-hr-t {
-  color: var(--q-label-2);
-  font: 600 12px/16px var(--q-font);
-  white-space: nowrap;
-}
-.wx-hr.is-newday .wx-hr-t {
-  color: var(--q-accent);
-}
-.wx-hr.is-now .wx-hr-t {
-  color: rgba(255, 255, 255, 0.9);
-}
-.wx-hr-v {
-  margin-top: 6px;
-  font: 500 17px/22px var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-}
-.wx-hr-p {
-  min-height: 15px;
-  color: var(--q-label-2);
-  font: 500 12px/15px var(--q-font);
-}
-.wx-hr.is-now .wx-hr-p {
-  color: #fff;
-}
-
-/* ==== 今天: the advice, rows with colour tiles (also in the sheets) ==== */
+/* ==== The advice's rows, with colour tiles (its sheet, a day's sheet) ==== */
 /* The tile, the name with its tag beside it, what to do across the row. */
 .wx-life {
   display: grid;
@@ -514,7 +289,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-/* ==== 今天: the typhoon day off (an advice row; the chance on its right) ==== */
+/* ==== The typhoon day off (an advice row; the chance on its right) ==== */
 .wx-dayoff {
   grid-template-columns: 40px minmax(0, 1fr) auto;
   grid-template-areas: 'tile title tag' 'tile text tag';
@@ -538,199 +313,7 @@ body {
   grid-template-areas: 'tile title tag' 'tile text text';
 }
 
-/* ==== 預報: the indicators, a rail of stat cards ==== */
-.wx-stats {
-  --q-rail-w: 150px;
-}
-/* (Wide: every indicator in view, a grid in its column, not a row to swipe.) */
-:root.q-wide .wx-col .wx-stats {
-  grid-auto-flow: row;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  overflow: visible;
-}
-/* (An odd one out runs across: never a hole in the grid.) */
-:root.q-wide .wx-col .wx-stats > :last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-.wx-stat {
-  gap: 2px;
-  padding: 14px 14px 10px;
-  border: 0;
-  font: inherit;
-  text-align: left;
-}
-button.wx-stat {
-  cursor: pointer;
-}
-.wx-stat-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.wx-lv {
-  min-width: 0;
-  overflow: hidden;
-}
-.wx-stat-val {
-  font: 600 30px/34px var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-.wx-stat-val small {
-  margin-left: 2px;
-  color: var(--q-label-2);
-  font: 600 13px/1 var(--q-font);
-  letter-spacing: 0;
-}
-.wx-stat-sub {
-  min-height: 16px;
-  overflow: hidden;
-  color: var(--q-label-2);
-  font: 12px/16px var(--q-font);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.wx-spark {
-  display: block;
-  width: 100%;
-  height: 30px;
-  margin-top: 6px;
-}
-.wx-compass {
-  display: inline-grid;
-  transform: rotate(calc(var(--d) + 135deg));
-}
-
-/* ==== 預報: the days, a row each; the whole row opens the day ==== */
-.wx-day {
-  position: relative;
-  display: grid;
-  grid-template-columns: 42px 28px 40px 28px minmax(24px, 1fr) 30px 20px;
-  gap: 6px;
-  align-items: center;
-  width: 100%;
-  min-height: 58px;
-  padding: 0 12px;
-  border: 0;
-  background: none;
-  color: var(--q-label);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.wx-day + .wx-day::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12px;
-  right: 0;
-  border-top: var(--q-hairline, 0.5px) solid var(--q-sep);
-}
-.wx-day:active {
-  background: var(--q-fill-4);
-}
-.wx-dname {
-  display: grid;
-  font: 600 15px/19px var(--q-font);
-  white-space: nowrap;
-}
-.wx-dname small {
-  overflow: hidden;
-  color: var(--q-label-2);
-  font: 500 11px/14px var(--q-font);
-  text-overflow: ellipsis;
-}
-.wx-dicon {
-  display: grid;
-  justify-items: center;
-  line-height: 0;
-}
-.wx-dpop {
-  display: grid;
-  gap: 3px;
-}
-.wx-dpop b {
-  color: var(--q-label-2);
-  font: 500 13px/1 var(--q-font);
-  font-variant-numeric: tabular-nums;
-}
-.wx-dpop i {
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--q-blue) var(--p), var(--q-fill-3) var(--p));
-}
-.wx-dlo,
-.wx-dhi {
-  font: 500 15px/1 var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-}
-.wx-dlo {
-  color: var(--q-label-2);
-  text-align: right;
-}
-.wx-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--q-fill-3);
-}
-.wx-bar i {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #5ac8fa, #ffd43b, #ff9f0a);
-}
-.wx-duv {
-  color: var(--q-label-2);
-  font: 500 13px/20px var(--q-font);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
 /* ==== 地點: the places, the settings ==== */
-.wx-place-row {
-  cursor: pointer;
-}
-.wx-place-row:active {
-  background: var(--q-fill-4);
-  transition-duration: 0s;
-}
-.wx-place-row .q-ritem-title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.wx-on {
-  flex: none;
-  color: var(--q-accent);
-  stroke-width: 2.6;
-}
-.wx-place-now {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 4px;
-}
-.wx-place-now b {
-  min-width: 34px;
-  font: 600 20px/1 var(--q-font-rounded, var(--q-font));
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.wx-place-row.is-still {
-  cursor: default;
-  opacity: 0.45;
-}
-@media (max-width: 359px) {
-  .wx-place-now .wx-art-i {
-    display: none;
-  }
-}
 .wx-head-row {
   display: flex;
   align-items: baseline;
@@ -745,9 +328,6 @@ button.wx-stat {
   color: var(--q-accent);
   font: 400 17px/1 var(--q-font);
   cursor: pointer;
-}
-.wx-add .q-ritem-title {
-  color: var(--q-accent);
 }
 .wx-brief {
   cursor: default;
@@ -1273,15 +853,12 @@ svg.ch {
   stroke-width: 2;
 }
 
-/* ==== Before the forecast: each tab's shape, shimmering ==== */
+/* ==== Before the forecast: the shapes, shimmering ==== */
 .sk {
   display: block;
   border-radius: 8px;
   background: linear-gradient(100deg, var(--q-fill-3) 30%, var(--q-fill-4) 50%, var(--q-fill-3) 70%) 0 0 / 300% 100%;
   animation: wx-sk 1.4s ease-in-out infinite;
-}
-.wx-hero .sk {
-  background-image: linear-gradient(100deg, rgba(255, 255, 255, 0.1) 30%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.1) 70%);
 }
 @keyframes wx-sk {
   from {
@@ -1291,129 +868,22 @@ svg.ch {
     background-position: 0 0;
   }
 }
-.sk-temp {
-  width: 132px;
-  height: 72px;
-  margin: 8px 0;
-  border-radius: 18px;
-}
-.sk-cond {
-  width: 72px;
-  height: 22px;
-}
-.sk-pill {
-  width: 76px;
-  height: 32px;
-  border-radius: 999px;
-}
-.wx-skel-hero.wx-pills {
-  margin-bottom: 42px;
-}
-.sk-head {
-  width: 120px;
-  height: 22px;
-}
-.wx-skel-card {
-  display: grid;
-  gap: 10px;
-  min-height: 112px;
-  padding: 14px;
-  border-radius: 18px;
-  background: var(--q-surface);
-}
-.sk-ic {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-}
-.sk-h {
-  width: 60%;
-  height: 22px;
-}
-.sk-line {
-  width: 80%;
-  height: 12px;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .wx-fx i,
   .wx-fx::after,
-  .wx-icon .wx-art-i,
   .sk,
   .wx-day-sheet > * {
     animation: none !important;
   }
 }
 
-/* ==== 今天 (round 4): the places shelf ==== */
-.wx-pcards {
-  --q-rail-w: 112px;
-}
-.wx-place-card {
-  display: grid;
-  justify-items: start;
-  gap: 4px;
-  padding: 14px;
-  border: 0;
-  border-radius: 22px;
-  font: inherit;
-  text-align: left;
-}
-.wx-place-card.is-on {
-  box-shadow: inset 0 0 0 2px var(--q-accent);
-}
-.wx-pc-temp {
-  font: 700 28px/32px var(--q-font-rounded, var(--q-font));
-}
-.wx-pc-art {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-}
-.wx-place-card {
-  position: relative;
-}
-.wx-place-card small {
-  max-width: 100%;
-  color: var(--q-label-2);
-  font: 600 13px/18px var(--q-font);
-  overflow-wrap: anywhere;
-}
+/* (A section's 全部 at its head's end.) */
 .wx-section .q-sh-more {
   margin-left: auto;
 }
 
-/* 今日數據 in the kit's panels: the sparkline sits beside the number and never takes its room. */
-.q-panels .q-panel-art { min-width: 0; }
-.q-panels .q-panel-art .wx-spark { width: 72px; height: 26px; }
-@media (max-width: 359px) {
-  .q-panels .q-panel-art .wx-spark { width: 52px; }
-}
-
-
 /* ==== Quiet rows: facts as grey text, kinds as plain glyphs (DESIGN §3, §6) ==== */
-.wx-panels-sec .q-panel {
-  border-radius: var(--q-r-card, 22px);
-}
-.wx-panels-sec .q-panel-l i {
-  color: var(--q-label-2);
-}
-.wx-panels-sec .q-panel-lv {
-  padding: 0;
-  background: none;
-  color: var(--q-label-2);
-  font-weight: 400;
-}
-.wx-panels-sec .q-panel-v {
-  font-weight: 600;
-}
-.wx-stat-head .wx-g {
-  color: var(--q-label-2);
-}
-.wx-lv {
-  color: var(--q-label-2);
-  font: var(--q-t-footnote);
-}
 .wx-life > .q-tile.wx-life-icon {
   background: none;
   color: var(--q-label-2);
@@ -1427,4 +897,831 @@ svg.ch {
 .wx-life > .q-tile.wx-life-icon svg,
 .wx-quiet-tile.q-tile svg {
   color: var(--q-label-2);
+}
+
+/* ==== Orbit's own look (Jay 2026-11-03, RULEBOOK §3): the track ====
+   The page stays dark (light in light); colour lives inside a card, one to a
+   surface. Time, a scale or a day is one thin line; where you are now is a
+   lit dot on it, in the app's colour (white on the sky). */
+.ot {
+  --ot-line: color-mix(in srgb, var(--q-label) 16%, transparent);
+  --ot-rain: #4aa8ff;
+  --ot-glow: 0 0 0 4px color-mix(in srgb, var(--q-accent) 26%, transparent), 0 0 14px color-mix(in srgb, var(--q-accent) 80%, transparent);
+}
+:root[data-theme='light'] .ot {
+  --ot-rain: #1a7fe0;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .ot {
+    --ot-rain: #1a7fe0;
+  }
+}
+
+/* The head: the place (a button: it opens 地點). */
+.wx-head h1 {
+  min-width: 0;
+}
+.wx-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.wx-title span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wx-title .wx-g {
+  margin-top: 4px;
+  color: var(--q-label-3);
+  stroke-width: 2.4;
+}
+.wx-title:active {
+  opacity: 0.6;
+}
+
+/* ---------- Cards ---------- */
+.ot-card {
+  position: relative;
+  padding: 12px 14px;
+  border-radius: var(--q-r-card, 20px);
+  background: var(--nv-card, var(--q-grouped-2));
+  box-shadow: inset 0 0 0 0.5px var(--nv-edge, rgba(0, 0, 0, 0.06)), var(--nv-lift, none);
+}
+.ot-flow > * + *,
+.ot-flow .q-flow-col > * + * {
+  margin-top: 12px;
+}
+.ot-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--q-label-2);
+  font: 600 13px/18px var(--q-font);
+  white-space: nowrap;
+}
+.ot-cap .wx-g {
+  flex: none;
+}
+.ot-cap-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ot-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--q-label-2);
+  font: 600 13px/18px var(--q-font);
+  cursor: pointer;
+}
+.ot-wait {
+  height: 150px;
+  margin-top: 12px;
+  background: var(--q-fill-4);
+  box-shadow: none;
+}
+.ot-wait.tall {
+  height: 380px;
+}
+
+/* ---------- Now: the sky in its card ---------- */
+.ot-hero {
+  --sky-glow: rgba(255, 255, 255, 0.24);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 14px 16px 16px;
+  border-radius: var(--q-r-card, 20px);
+  color: #fff;
+  background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
+  -webkit-tap-highlight-color: transparent;
+}
+.ot-hero[data-day] {
+  cursor: pointer;
+}
+.ot-hero:focus-visible {
+  outline: 2px solid var(--q-accent);
+  outline-offset: 2px;
+}
+.ot-hero.sky-clear.sky-day {
+  --sky: linear-gradient(165deg, #174fb8 0%, #2c78e0 55%, #5aa2ee 100%);
+  --sky-glow: rgba(255, 226, 140, 0.5);
+}
+.ot-hero.sky-part.sky-day {
+  --sky: linear-gradient(165deg, #264e94 0%, #4676ba 55%, #7898c6 100%);
+}
+.ot-hero.sky-cloud.sky-day {
+  --sky: linear-gradient(165deg, #414d64 0%, #5e6b84 58%, #8090a8 100%);
+}
+.ot-hero.sky-rain {
+  --sky: linear-gradient(165deg, #172235 0%, #263a57 60%, #375377 100%);
+  --sky-glow: rgba(150, 180, 255, 0.22);
+}
+.ot-hero.sky-storm {
+  --sky: linear-gradient(165deg, #161126 0%, #2b224b 60%, #45367a 100%);
+  --sky-glow: rgba(150, 180, 255, 0.22);
+}
+.ot-hero:is(.sky-clear, .sky-part).sky-night {
+  --sky: linear-gradient(165deg, #060a22 0%, #131d52 62%, #2b2f78 100%);
+  --sky-glow: rgba(120, 130, 255, 0.28);
+}
+.ot-hero.sky-cloud.sky-night {
+  --sky: linear-gradient(165deg, #0f1218 0%, #1d232d 62%, #2d3441 100%);
+  --sky-glow: rgba(120, 130, 255, 0.2);
+}
+.ot-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font: 500 13px/18px var(--q-font);
+  white-space: nowrap;
+}
+.ot-eyebrow > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ot-eyebrow .wx-g {
+  flex: none;
+}
+.ot-now {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 4px;
+}
+.ot-temp {
+  position: relative;
+  justify-self: start;
+  font: 200 86px/0.95 var(--nv-display, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  white-space: nowrap;
+}
+.ot-temp i {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  font-style: normal;
+}
+.ot-sky {
+  display: grid;
+  justify-items: end;
+  gap: 1px;
+  min-width: 0;
+  text-align: right;
+}
+.ot-icon {
+  margin: -6px -2px 0 0;
+}
+.ot-cond {
+  margin: 0;
+  font: 600 17px/22px var(--q-font);
+  white-space: nowrap;
+}
+.ot-hilo {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font: 500 13px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-feel {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font: 500 13px/18px var(--q-font);
+  white-space: nowrap;
+}
+.ot-hero .wx-soon {
+  margin-top: 12px;
+}
+.ot-foot {
+  margin-top: 12px;
+}
+.ot-sk-temp {
+  width: 120px;
+  height: 80px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.ot-day-wait .sk {
+  height: 52px;
+  margin-top: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.ot-hero.wx-old :is(.ot-temp, .ot-sky, .ot-day) {
+  opacity: 0.55;
+}
+
+/* The day's track: a stop a column, the line through their dots, now lit. */
+.ot-day {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: 0 6px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ot-day::before {
+  content: '';
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  right: calc((100% + 6px) / var(--n));
+  height: 1.5px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.42);
+}
+.ot-stop {
+  position: relative;
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding-top: 19px;
+}
+.ot-dot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(14, 20, 34, 0.55);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+.ot-stop.is-now .ot-dot {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.24), 0 0 14px rgba(255, 255, 255, 0.75);
+}
+.ot-stop small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.78);
+  font: 500 12px/16px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ot-stop b {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 600 17px/22px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-stop b :is(.wx-g, .wx-art-i) {
+  flex: none;
+}
+.ot-stop b .wx-art-i {
+  margin: -2px 1px -2px -1px;
+}
+.ot-stop > span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.86);
+  font: 500 12px/16px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ot-stop.is-wet > span {
+  color: #a9ddff;
+}
+.ot-stop > span .wx-g {
+  flex: none;
+}
+
+/* ---------- The hours: one line through the hours' dots ---------- */
+.ot-hrs {
+  margin: 6px -14px -6px;
+  padding: 0 8px 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.ot-hrs::-webkit-scrollbar {
+  display: none;
+}
+.ot-hrs-in {
+  position: relative;
+  display: flex;
+}
+.ot-curve {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.ot-curve path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--q-label) 46%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.ot-curve circle {
+  fill: var(--q-label-2);
+}
+.ot-now-dot {
+  position: absolute;
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
+  border-radius: 50%;
+  background: var(--q-accent);
+  box-shadow: var(--ot-glow);
+  pointer-events: none;
+}
+.ot-hr {
+  position: relative;
+  flex: none;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ot-hr > * {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+.ot-ht {
+  top: 0;
+  color: var(--q-label-2);
+  font: 600 12.5px/16px var(--q-font);
+  white-space: nowrap;
+}
+.ot-hr.is-now .ot-ht {
+  color: var(--q-label);
+  font-weight: 700;
+}
+.ot-hi {
+  top: 19px;
+  display: grid;
+  justify-items: center;
+}
+.ot-hp {
+  top: 47px;
+  color: var(--ot-rain);
+  font: 700 11px/13px var(--q-font);
+  white-space: nowrap;
+}
+.ot-hv {
+  font: 500 15px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-hr.is-now .ot-hv {
+  font-weight: 700;
+}
+.ot-hr.is-sun {
+  cursor: default;
+}
+.ot-hr.is-sun .ot-hi .wx-g {
+  color: var(--q-yellow);
+}
+.ot-hr.is-sun .ot-hp {
+  color: var(--q-label-2);
+  font-weight: 600;
+}
+.ot-hr.is-sun::after {
+  content: '';
+  position: absolute;
+  top: 68px;
+  bottom: 16px;
+  left: 50%;
+  right: auto;
+  border-left: 1px dashed var(--ot-line);
+}
+/* 我的行程: where you'll be, under the hours. */
+.ot-where {
+  position: absolute;
+  top: 128px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.ot-where i {
+  display: block;
+  height: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--q-accent) 70%, transparent);
+}
+.ot-where small {
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: 500 11.5px/14px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- The ten days, side by side ---------- */
+.ot-sks {
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(32px, 1fr));
+  margin: 8px -6px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.ot-sks::-webkit-scrollbar {
+  display: none;
+}
+.ot-sk {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 0 0;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ot-sk:active {
+  background: var(--q-fill-4);
+}
+.ot-sk-d {
+  display: grid;
+  justify-items: center;
+  font: 600 13px/17px var(--q-font);
+  white-space: nowrap;
+}
+.ot-sk-d small {
+  color: var(--q-label-3);
+  font: 500 10.5px/13px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.ot-sk.is-today .ot-sk-d {
+  color: var(--q-accent);
+}
+.ot-sk-i {
+  display: grid;
+  place-items: center;
+  height: 28px;
+}
+.ot-sk-bar {
+  position: relative;
+  width: 100%;
+}
+.ot-sk-bar > b {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font: 600 13px/16px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-sk-bar > b.ot-sk-lo {
+  color: var(--q-label-2);
+  font-weight: 500;
+}
+.ot-sk-bar > i {
+  position: absolute;
+  left: 50%;
+  width: 6px;
+  margin-left: -3px;
+  border-radius: 3px;
+}
+.ot-sk-now {
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--q-accent), 0 0 10px var(--q-accent);
+}
+.ot-sk-p {
+  min-height: 13px;
+  color: var(--ot-rain);
+  font: 700 11px/13px var(--q-font);
+  white-space: nowrap;
+}
+.ot-sk-w {
+  max-width: 100%;
+  min-height: 13px;
+  margin-top: -2px;
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: 500 10.5px/13px var(--q-font);
+  white-space: nowrap;
+  text-overflow: clip;
+}
+
+/* ---------- The readings: each on its own track ---------- */
+.ot-reads .ot-cap {
+  margin-bottom: 2px;
+}
+.ot-g {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 8px 10px;
+  width: 100%;
+  padding: 11px 0;
+  border: 0;
+  border-top: 0.5px solid var(--q-sep);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.ot-cap + .ot-g {
+  border-top: 0;
+}
+button.ot-g {
+  cursor: pointer;
+}
+.ot-g.no-track {
+  grid-template-rows: auto;
+}
+.ot-g:last-child {
+  padding-bottom: 2px;
+}
+.ot-g-ic {
+  display: grid;
+  place-items: center;
+  color: var(--q-label-2);
+}
+.ot-g-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font: 500 15px/20px var(--q-font);
+  white-space: nowrap;
+}
+.ot-g-name small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--q-label-2);
+  font: 500 12.5px/16px var(--q-font);
+  text-overflow: ellipsis;
+}
+.ot-g-v {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  font: 500 19px/22px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-g-v small {
+  color: var(--q-label-2);
+  font: 600 12px/16px var(--q-font);
+}
+.ot-gt,
+.ot-gr {
+  grid-column: 2 / 4;
+  position: relative;
+}
+.ot-gt {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--q-fill-3);
+}
+.ot-gt i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--a);
+  width: calc(var(--p) - var(--a));
+  border-radius: 2px;
+  background: var(--c);
+}
+.ot-gt b {
+  position: absolute;
+  top: 50%;
+  left: var(--p);
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent), 0 0 10px color-mix(in srgb, var(--c) 60%, transparent);
+}
+/* A dry day's rain: the next rain said in words where the number goes. */
+.ot-g.is-dry .ot-g-v {
+  font: 500 15px/20px var(--q-font);
+}
+.ot-g.is-night .ot-gt i {
+  opacity: 0.35;
+}
+.ot-gr {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 2px;
+  height: 6px;
+}
+.ot-gr i {
+  border-radius: 1.5px;
+  background: color-mix(in srgb, var(--ot-rain) calc(var(--k) * 100%), var(--q-fill-3));
+}
+.ot-gr b {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--q-accent);
+  box-shadow: var(--ot-glow);
+}
+
+/* ---------- What to do ---------- */
+.ot-tip {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--q-sep);
+}
+.ot-cap-row + .ot-tip {
+  margin-top: 4px;
+  border-top: 0;
+}
+.ot-tip:last-child {
+  padding-bottom: 2px;
+}
+.ot-tip-ic {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--t) 18%, transparent);
+  color: var(--t);
+}
+.ot-tip-text {
+  display: grid;
+  min-width: 0;
+}
+.ot-tip-text b {
+  font: 600 15px/20px var(--q-font);
+}
+.ot-tip-text small {
+  color: var(--q-label-2);
+  font: 500 13px/18px var(--q-font);
+}
+.ot-flag {
+  color: var(--q-orange);
+  font: 700 12px/16px var(--q-font);
+  white-space: nowrap;
+}
+
+/* ---------- The typhoon's day off ---------- */
+.ot-off .q-section {
+  margin: 0;
+}
+.ot-off .q-rowcard {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* ---------- Every screen ---------- */
+/* (A phone on its side: the sky's card shorter.) */
+@media (orientation: landscape) and (max-height: 520px) {
+  .ot-temp {
+    font-size: 64px;
+  }
+  .ot-day {
+    margin-top: 10px;
+  }
+}
+
+/* ---------- 地點: each place, its next twelve hours of rain ---------- */
+.wx-place-row {
+  cursor: pointer;
+}
+.wx-place-row:active {
+  background: var(--q-fill-4);
+  transition-duration: 0s;
+}
+.wx-place-row .q-ritem-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wx-on {
+  flex: none;
+  color: var(--q-accent);
+  stroke-width: 2.6;
+}
+.wx-place-row.is-still {
+  cursor: default;
+  opacity: 0.45;
+}
+.ot-place-now {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-items: end;
+  column-gap: 4px;
+  flex: none;
+}
+.ot-place-now b {
+  min-width: 34px;
+  font: 600 20px/1 var(--q-font-rounded, var(--q-font));
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.ot-place-now small {
+  grid-column: 1 / -1;
+  color: var(--q-label-2);
+  font: 500 12px/16px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ot-pr {
+  --ot-rain: #4aa8ff;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: 220px;
+}
+.ot-pr .ot-gr {
+  grid-column: 2;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  height: 5px;
+}
+.ot-pr .ot-gr b {
+  display: none;
+}
+.ot-pr small {
+  grid-row: 1;
+  color: var(--q-label-3);
+  font: 500 10.5px/12px var(--q-font);
+  white-space: nowrap;
+}
+.ot-pr small:last-of-type {
+  grid-column: 3;
+}
+@media (max-width: 359px) {
+  .ot-place-now .wx-art-i {
+    display: none;
+  }
+  /* (「明天 07:00」 whole in a quarter of a 320 card.) */
+  .ot-stop small {
+    font-size: 11px;
+  }
+  /* (A day sheet's 白天 / 晚上 side by side: 晴朗偶有雲 on one line.) */
+  .wx-half {
+    column-gap: 8px;
+  }
+  .wx-half > svg {
+    width: 32px;
+    height: 32px;
+  }
+  .wx-half b {
+    font-size: 14px;
+  }
 }

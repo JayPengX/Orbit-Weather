@@ -1,0 +1,418 @@
+// Weather's two tabs in Orbit's own look (Jay 2026-11-03: a whole UX
+// redesign with every feature kept, today's dark page, nothing drawn after
+// another app; RULEBOOK §3). Its mark is the track: time, a scale or a day
+// drawn as one thin line, where you are now a lit dot on it.
+//
+// 天氣: your day first. The sky stays in its card: where you are, now, and
+// under it the day's track, the stops you'll make (我的行程: each place, when
+// you're there, its weather) or the day's turns (rain coming, the high,
+// sunset). Then the hours as one track whose dots rise and fall with the
+// temperature (the places you'll be in under it), the ten days side by side on
+// one scale, the readings each on its own track, the advice: the owner's cards
+// (版面) in their order. A swipe goes to the place beside; the title opens 地點.
+// 地點: each place with its next twelve hours of rain as a track.
+
+import { W, en } from '#kit/lang.mjs';
+import { escHtml as e } from '#kit/ui.mjs';
+import * as kitUI from '#kit/ui.mjs';
+import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, uvLevel, aqiLevel, windDir, beaufort, conditionText, staleText, RAIN_YES, RAIN_MAYBE } from './format.mjs';
+import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
+import { placeName, skyOf, fxHtml, soonLine, dayOffSec, hoursFrom, dayPop, rainSummary, uvDays, adviceList, LIFE, KIND_COLOR, LEVEL_TAG, todayOf } from './cards.mjs';
+import { rainSoon } from './soon.mjs';
+import { OLD_MS } from './api.mjs';
+
+const HOUR = 3_600_000;
+const hh = n => W(`${n}時`, `${n}:00`);
+const r1 = n => Math.round(n * 10) / 10;
+
+// The sky's classes for a forecast (a cloudy day while there's none yet).
+export const skyClass = f => (f?.now ? skyOf(f.now) : 'sky-cloud sky-day');
+export { fxHtml };
+
+// ---- The head: the place's name, which opens 地點 -----------------------------------------------
+
+function head(page) {
+  const { title } = placeName(page);
+  return `<header class="q-page-head wx-head"><h1><button class="wx-title" type="button" data-act="places" aria-label="${e(title)} · ${W('換地點', 'Change place')}"><span>${e(title)}</span>${glyph('chevD', { size: 20 })}</button></h1></header>`;
+}
+
+// ---- The day's track: where you'll be, or the day's turns --------------------------------------
+
+// A stop: { t, label, v (its number), name, wet (a rain chance worth saying), now }.
+// 我的行程: each new place in the next day, its first hour's temperature and
+// the wettest hour of the stay. Elsewhere (or a day in one place): rain
+// coming or easing, the high still to come or the night's low, the sun.
+function stopsOf(f, page, now) {
+  const tz = f.tz;
+  const list = hoursFrom(f, now).slice(0, 25);
+  if (!list.length) return [];
+  const n = f.now || {};
+  const sameDay = t => dateOf(t, tz) === dateOf(now, tz);
+  const when = t => (sameDay(t) ? clock(t, tz) : `${dayLabel(dateOf(t, tz), now, tz)} ${clock(t, tz)}`);
+  const out = [{ t: now, now: true, label: W('現在', 'Now'), v: deg(n.temp ?? list[0].temp), name: page.plan ? list[0].place || '' : conditionText(n.condition?.code, n.condition?.text) }];
+  if (page.plan) {
+    let cur = list[0].place;
+    for (let i = 1; i < list.length && out.length < 4; i++) {
+      if (!list[i].place || list[i].place === cur) continue;
+      cur = list[i].place;
+      const stay = [];
+      for (let j = i; j < list.length && list[j].place === cur; j++) stay.push(list[j]);
+      const wet = Math.max(...stay.map(x => x.pop ?? 0));
+      out.push({ t: list[i].t, label: when(list[i].t), v: deg(list[i].temp), name: cur, wet: wet >= RAIN_MAYBE ? wet : null, place: true, sky: list[i] });
+    }
+  }
+  if (out.length >= 3) return out;
+  // The day's turns, in time order, after any places.
+  const turns = [];
+  const pops = list.filter(h => h.pop != null);
+  const wetNow = (pops[0]?.pop ?? 0) >= RAIN_YES;
+  const change = pops.slice(1, 13).find(h => (wetNow ? h.pop < RAIN_MAYBE : h.pop >= RAIN_YES));
+  if (change) turns.push({ t: change.t, label: when(change.t), v: wetNow ? W('雨停', 'Dry') : `${change.pop}%`, name: wetNow ? '' : W('下雨', 'Rain'), wet: wetNow ? null : change.pop, icon: 'umbrella' });
+  const day = list.filter(h => sameDay(h.t) && hourOf(h.t, tz) <= 17 && h.temp != null);
+  const peak = day.slice(1).reduce((a, h) => (h.temp > (a?.temp ?? -99) ? h : a), null);
+  const nowT = n.temp ?? list[0].temp;
+  if (peak && peak.temp > (nowT ?? -99) + 0.5) turns.push({ t: peak.t, label: when(peak.t), v: deg(peak.temp), name: W('最高', 'High'), sky: peak });
+  else {
+    const night = list.slice(1, 16).filter(h => h.temp != null);
+    const low = night.reduce((a, h) => (h.temp < (a?.temp ?? 99) ? h : a), null);
+    if (low && low.temp < (nowT ?? 99) - 0.5) turns.push({ t: low.t, label: when(low.t), v: deg(low.temp), name: W('最低', 'Low'), sky: low });
+  }
+  for (const d of f.days || [])
+    for (const [kind, t] of [['sunrise', d.sunrise], ['sunset', d.sunset]])
+      if (t && t > now && t < now + 20 * HOUR && !turns.some(x => x.sun)) turns.push({ t, label: when(t), v: clock(t, tz), name: kind === 'sunset' ? W('日落', 'Sunset') : W('日出', 'Sunrise'), icon: kind, sun: true });
+  const placesEnd = out[out.length - 1].t;
+  return [...out, ...turns.filter(x => x.t > placesEnd).sort((a, b) => a.t - b.t)].slice(0, 4);
+}
+
+function dayTrack(f, page, now) {
+  const stops = stopsOf(f, page, now);
+  if (stops.length < 2) return '';
+  const say = stops.map(s => [s.label, s.name, s.v, s.wet ? W(`雨 ${s.wet}%`, `rain ${s.wet}%`) : ''].filter(Boolean).join(' ')).join(W('，', ', '));
+  return `<ol class="ot-day" style="--n:${stops.length}" aria-label="${e(say)}">${stops
+    .map(
+      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 20 }) : s.icon && !s.wet ? glyph(s.icon, { size: 15 }) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 11 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
+    )
+    .join('')}</ol>`;
+}
+
+// ---- Now: the place's sky, in its card ----------------------------------------------------------
+
+function hero(f, page, { now }) {
+  const n = f?.now || {};
+  const d = f ? todayOf(f, now) : null;
+  const { sub } = placeName(page);
+  const sky = f ? skyOf(n) : 'sky-cloud sky-day';
+  const date = f ? d?.date || dateOf(now, f.tz) : null;
+  const open = f ? ` role="button" tabindex="0" data-day="${e(date)}" data-page="${e(page.key)}" aria-label="${W('今天的詳細預報', "Today's full forecast")}"` : '';
+  // An old copy (OLD_MS) says so at the card's foot and fades its "now" until
+  // the new one is in: 更新中 while asked, 無法更新 when the read failed, a tap tries again.
+  const old = f && f.at && now - f.at > OLD_MS;
+  const stale = old
+    ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
+    : '';
+  const locate = page.askable && !page.pin && !page.plan ? `<button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : '';
+  const eyebrow = `<p class="ot-eyebrow">${placeGlyph(page, { size: 13 })}<span>${e(sub) || '&nbsp;'}</span>${locate}</p>`;
+  if (!f) return `<section class="ot-hero ${sky}">${fxHtml(sky)}${eyebrow}${page.error ? '' : '<div class="ot-now" aria-hidden="true"><i class="sk ot-sk-temp"></i></div><div class="ot-day-wait" aria-hidden="true"><i class="sk"></i></div>'}</section>`;
+  // (A rain heads-up within two hours stays a line of its own; the track then says the rest.)
+  const soon = old ? '' : soonLine(f, now, f.tz);
+  return `<section class="ot-hero ${sky}${old ? ' wx-old' : ''}"${open}>
+    ${fxHtml(sky)}
+    ${eyebrow}
+    <div class="ot-now">
+      <div class="ot-temp" data-q-live="wx:temp">${n.temp == null ? '–' : Math.round(n.temp)}<i>°</i></div>
+      <div class="ot-sky">
+        <span class="ot-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 52 })}</span>
+        <p class="ot-cond">${e(conditionText(n.condition?.code, n.condition?.text))}</p>
+        <p class="ot-hilo"><span>${W('最高', 'H')} ${deg(d?.hi)}</span><span>${W('最低', 'L')} ${deg(d?.lo)}</span></p>
+        <p class="ot-feel">${W('體感', 'Feels')} ${deg(n.feels)}</p>
+      </div>
+    </div>
+    ${soon}
+    ${old ? '' : dayTrack(f, page, now)}
+    ${stale ? `<div class="ot-foot">${stale}</div>` : ''}
+  </section>`;
+}
+
+// ---- The hours: one track, its dots as high as each hour is warm -------------------------------
+
+// Sunrise and sunset in the hours shown: a narrow column of their own, after their hour.
+function sunEvents(f, from, to) {
+  const out = [];
+  for (const d of f.days || []) for (const [kind, t] of [['sunrise', d.sunrise], ['sunset', d.sunset]]) if (t && t > from && t < to) out.push({ kind, t });
+  return out.sort((a, b) => a.t - b.t);
+}
+// A smooth line through the points (Catmull-Rom as cubic Béziers).
+function smooth(pts) {
+  if (pts.length < 2) return '';
+  let d = `M${r1(pts[0][0])},${r1(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [p0, p1, p2, p3] = [pts[i - 1] || pts[i], pts[i], pts[i + 1], pts[i + 2] || pts[i + 1]];
+    d += ` C${r1(p1[0] + (p2[0] - p0[0]) / 6)},${r1(p1[1] + (p2[1] - p0[1]) / 6)} ${r1(p2[0] - (p3[0] - p1[0]) / 6)},${r1(p2[1] - (p3[1] - p1[1]) / 6)} ${r1(p2[0])},${r1(p2[1])}`;
+  }
+  return d;
+}
+const COL = 52;
+const SUN_COL = 44;
+const Y0 = 86;
+const YH = 30;
+function hourTrack(f, { now, key, page }) {
+  const list = hoursFrom(f, now).slice(0, 25);
+  if (list.length < 6) return '';
+  const hs = list.map((h, i) => (i === 0 && f.now?.temp != null ? { ...h, temp: f.now.temp, condition: f.now.condition ?? h.condition, day: f.now.day ?? h.day } : h));
+  const temps = hs.map(h => h.temp).filter(v => v != null);
+  const hi = Math.max(...temps);
+  const lo = Math.min(...temps);
+  // (At least 4° of height, so a flat day reads flat.)
+  const span = Math.max(4, hi - lo);
+  const top = (hi + lo) / 2 + span / 2;
+  const yOf = t => Y0 + ((top - t) / span) * YH;
+  const sun = sunEvents(f, hs[0].t, hs[hs.length - 1].t + HOUR);
+  const cols = [];
+  const pts = [];
+  let x = 0;
+  hs.forEach((h, i) => {
+    const y = h.temp == null ? null : yOf(h.temp);
+    if (y != null) pts.push([x + COL / 2, y]);
+    cols.push({ h, i, x, y });
+    x += COL;
+    for (const s of sun.filter(s => s.t >= h.t && s.t < h.t + HOUR)) {
+      cols.push({ s, x });
+      x += SUN_COL;
+    }
+  });
+  const width = x;
+  const plan = page.plan && hs.some(h => h.place);
+  const height = plan ? 150 : 124;
+  const cells = cols
+    .map(c => {
+      if (c.s)
+        return `<span class="ot-hr is-sun" style="width:${SUN_COL}px"><span class="ot-ht">${clock(c.s.t, f.tz)}</span><span class="ot-hi">${glyph(c.s.kind, { size: 24 })}</span><span class="ot-hp">${c.s.kind === 'sunrise' ? W('日出', 'Rise') : W('日落', 'Set')}</span></span>`;
+      const { h, i } = c;
+      const date = dateOf(h.t, f.tz);
+      const hr = hourOf(h.t, f.tz);
+      const label = i === 0 ? W('現在', 'Now') : hr === 0 ? (en ? weekday(date) : dayLabel(date, now, f.tz)) : hh(hr);
+      return `<button class="ot-hr q-press${i === 0 ? ' is-now' : ''}" type="button" style="width:${COL}px" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}${h.pop >= 20 ? ` ${W('降雨', 'rain')} ${h.pop}%` : ''}`)}">
+        <span class="ot-ht">${e(label)}</span>
+        <span class="ot-hi">${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 26 })}</span>
+        <span class="ot-hp">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
+        ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 26 : 21))}px">${deg(h.temp)}</b>`}
+      </button>`;
+    })
+    .join('');
+  // 我的行程: under the hours, where you'll be, a stretch of line each.
+  let band = '';
+  if (plan) {
+    const segs = [];
+    for (const c of cols) {
+      if (!c.h) continue;
+      const last = segs[segs.length - 1];
+      if (last && last.place === c.h.place) last.to = c.x + COL;
+      else segs.push({ place: c.h.place || '', from: c.x, to: c.x + COL });
+    }
+    band = segs.map(s => `<span class="ot-where" style="left:${s.from + 6}px;width:${s.to - s.from - 12}px"><i></i><small>${e(s.place)}</small></span>`).join('');
+  }
+  const nowDot = cols[0].y == null ? '' : `<i class="ot-now-dot" style="left:${COL / 2}px;top:${r1(cols[0].y)}px" aria-hidden="true"></i>`;
+  const dots = pts.slice(1).map(([px, py]) => `<circle cx="${r1(px)}" cy="${r1(py)}" r="2.4"/>`).join('');
+  return `<section class="ot-card ot-hours">
+    <h2 class="ot-cap">${glyph('clock', { size: 14 })}${W('每小時', 'Hourly')}</h2>
+    <div class="ot-hrs"><div class="ot-hrs-in" style="width:${width}px;height:${height}px">
+      <svg class="ot-curve" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><path d="${smooth(pts)}"/>${dots}</svg>
+      ${nowDot}${cells}${band}
+    </div></div>
+  </section>`;
+}
+
+// ---- The ten days: side by side on one scale ----------------------------------------------------
+
+// A day's colour, one for its whole bar, by how warm it is (cold blue to hot red).
+// (The kit's colours, so each reads on the light page as on the dark.)
+const WARM = [[8, 'var(--q-indigo)'], [14, 'var(--q-blue)'], [19, 'var(--q-teal)'], [24, 'var(--q-yellow)'], [28, 'var(--q-orange)'], [99, 'var(--q-red)']];
+const warmth = t => WARM.find(([upTo]) => t <= upTo)[1];
+const BAR = 80;
+function skyline(f, { now, key, page, home = '' }) {
+  const list = (f.days || []).filter(d => d.date >= dateOf(now, f.tz)).slice(0, 10);
+  if (!list.length) return '';
+  const lo = Math.min(...list.map(d => d.lo ?? Infinity));
+  const hi = Math.max(...list.map(d => d.hi ?? -Infinity));
+  const span = Math.max(1, hi - lo);
+  const yOf = t => ((hi - t) / span) * BAR;
+  const today = dateOf(now, f.tz);
+  const cols = list
+    .map(d => {
+      const isToday = d.date === today;
+      const dHi = d.hi ?? hi;
+      const dLo = d.lo ?? lo;
+      const y = yOf(dHi);
+      const h = Math.max(6, yOf(dLo) - y);
+      const c = d.day?.condition || {};
+      const pop = dayPop(f, d, now);
+      const name = isToday ? W('今天', 'Today') : en ? weekday(d.date) : dayLabel(d.date, now, f.tz);
+      // Today: where the temperature is now, a dot on its bar.
+      const dot = isToday && f.now?.temp != null ? `<span class="ot-sk-now" style="top:${r1(18 + Math.min(Math.max(yOf(f.now.temp), y), y + h))}px" aria-hidden="true"></span>` : '';
+      // (我的行程: where you'll be that day away from home, under its rain; all of them in its label.)
+      const where = page.plan && d.places?.length > 1 ? d.places : [];
+      const away = where.filter(p => p !== home && p !== W('目前位置', 'Current location'))[0] || '';
+      return `<button class="ot-sk q-press${isToday ? ' is-today' : ''}" type="button" data-day="${e(d.date)}" data-page="${e(key)}" aria-label="${e(`${name} ${shortDate(d.date)} ${deg(d.lo)}–${deg(d.hi)}${pop >= 20 ? ` ${W('降雨', 'rain')} ${pop}%` : ''}${where.length ? ` · ${where.join('·')}` : ''}`)}">
+        <span class="ot-sk-d">${e(name)}<small>${e(shortDate(d.date))}</small></span>
+        <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 24 })}</span>
+        <span class="ot-sk-bar" style="height:${BAR + 40}px">
+          <b class="ot-sk-hi" style="top:${r1(y)}px">${deg(d.hi)}</b>
+          <i style="top:${r1(18 + y)}px;height:${r1(h)}px;background:${warmth((dHi + dLo) / 2)}"></i>
+          ${dot}
+          <b class="ot-sk-lo" style="top:${r1(22 + y + h)}px">${deg(d.lo)}</b>
+        </span>
+        <span class="ot-sk-p">${pop >= 20 ? `${pop}%` : ''}</span>
+        ${page.plan ? `<small class="ot-sk-w">${e(away)}</small>` : ''}
+      </button>`;
+    })
+    .join('');
+  return `<section class="ot-card ot-days">
+    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${list.length} 天`, `${list.length} days`)}</h2>
+    <div class="ot-sks" style="--n:${list.length}">${cols}</div>
+  </section>`;
+}
+
+// ---- The readings: each on its own track, its dot where it is now -----------------------------
+
+// A track filled to p (0–100) in one colour, the dot at its end.
+const fill = (p, c, { from = 0 } = {}) => `<span class="ot-gt" style="--a:${r1(from)}%;--p:${r1(Math.min(100, Math.max(0, p)))}%;--c:${c}" aria-hidden="true"><i></i><b></b></span>`;
+// The next day's rain: an hour each, as dark as its chance, the dot at now.
+const rainTrack = list =>
+  `<span class="ot-gr" aria-hidden="true">${list
+    .slice(0, 24)
+    .map(h => `<i style="--k:${h.pop == null || h.pop < 20 ? 0 : r1(0.2 + ((h.pop - 20) / 80) * 0.8)}"></i>`)
+    .join('')}<b></b></span>`;
+const UV_C = uv => (uv >= 11 ? 'var(--q-purple)' : uv >= 8 ? 'var(--q-red)' : uv >= 6 ? 'var(--q-orange)' : uv >= 3 ? 'var(--q-yellow)' : 'var(--q-green)');
+const AQI_C = a => (a > 200 ? 'var(--q-purple)' : a > 150 ? 'var(--q-red)' : a > 100 ? 'var(--q-orange)' : a > 50 ? 'var(--q-yellow)' : 'var(--q-green)');
+const gauge = ({ kind, metric = '', key = '', icon, name, sub = '', v, unit = '', track = '' }) => {
+  const tag = metric ? 'button' : 'div';
+  const open = metric ? ` type="button" data-metric="${metric}" data-page="${e(key)}"` : '';
+  return `<${tag} class="ot-g k-${kind}${metric ? ' q-press' : ''}${track ? '' : ' no-track'}"${open}>
+    <span class="ot-g-ic">${glyph(icon, { size: 17 })}</span>
+    <span class="ot-g-name">${name}${sub ? `<small>${sub}</small>` : ''}</span>
+    <b class="ot-g-v">${e(v)}${unit ? `<small>${e(unit)}</small>` : ''}</b>
+    ${track}
+  </${tag}>`;
+};
+// A dry day's rain row: when rain comes next, from the second day's hours,
+// then the ten days; else how long it stays dry ({ v, unit } for the row).
+function nextRain(f, list, now) {
+  const tz = f.tz;
+  const h = list.slice(24, 48).find(x => (x.pop ?? 0) >= RAIN_MAYBE);
+  if (h) return { v: W(`${dayLabel(dateOf(h.t, tz), now, tz)} ${hourOf(h.t, tz)}時起`, `${dayLabel(dateOf(h.t, tz), now, tz)} from ${hourOf(h.t, tz)}:00`), unit: `${h.pop}%` };
+  const after = dateOf(list[Math.min(list.length, 48) - 1].t, tz);
+  const days = (f.days || []).filter(d => d.date >= dateOf(now, tz));
+  const wet = days.find(d => d.date > after && (d.pop ?? 0) >= RAIN_MAYBE);
+  if (wet) return { v: W(`${dayLabel(wet.date, now, tz)}可能下雨`, `Rain likely ${dayLabel(wet.date, now, tz)}`), unit: `${wet.pop}%` };
+  return { v: days.length > 2 ? W(`${days.length} 天都不太會下雨`, `Dry for ${days.length} days`) : W('兩天內不太會下雨', 'Dry for 2 days') };
+}
+function readings(f, { now, key }) {
+  const n = f.now || {};
+  const list = hoursFrom(f, now);
+  const out = [];
+  if (list.length) {
+    // Rain in the track's day: its hours lit. A dry day (most days) is one line
+    // saying when rain comes next, never an empty track (Jay 2026-11-03).
+    if (list.slice(0, 24).some(h => (h.pop ?? 0) >= RAIN_MAYBE)) out.push(gauge({ kind: 'rain', metric: 'rain', key, icon: 'umbrella', name: W('降雨', 'Rain'), sub: e(rainSummary(list, f.tz, now, { short: true })), v: `${list[0].pop ?? '–'}`, unit: '%', track: rainTrack(list) }));
+    else out.push(gauge({ kind: 'rain is-dry', metric: 'rain', key, icon: 'umbrella', name: W('降雨', 'Rain'), ...nextRain(f, list, now) }));
+  }
+  // UV: the strongest sun still to come today, after dark tomorrow's (never a 0 on an empty track).
+  const uvDay = uvDays(f, now)
+    .map(d => ({ date: d.date, peak: d.hours.filter(h => h.uv != null).reduce((a, h) => (h.uv > (a?.uv ?? -1) ? h : a), null) }))
+    .find(d => d.peak?.uv >= 1);
+  if (uvDay) {
+    const { peak } = uvDay;
+    const day = uvDay.date === dateOf(now, f.tz) ? '' : dayLabel(uvDay.date, now, f.tz);
+    out.push(gauge({ kind: 'uv', metric: 'uv', key, icon: 'sun', name: W('紫外線', 'UV'), sub: e(W(`${day ? `${day} ` : ''}${hourOf(peak.t, f.tz)}時最高`, `${day ? `${day}, ` : ''}peak ${hourOf(peak.t, f.tz)}:00`)), v: `${peak.uv}`, unit: uvLevel(peak.uv) || '', track: fill((peak.uv / 11) * 100, UV_C(peak.uv)) }));
+  }
+  if (f.air) out.push(gauge({ kind: 'air', metric: 'air', key, icon: 'air', name: W('空氣', 'Air'), sub: `PM2.5 ${f.air.pm25 ?? '–'}`, v: `${f.air.aqi ?? '–'}`, unit: aqiLevel(f.air.level) || '', track: fill(((f.air.aqi ?? 0) / 200) * 100, AQI_C(f.air.aqi ?? 0)) }));
+  const hum = n.humidity ?? list[0]?.humidity;
+  if (hum != null) {
+    const dew = n.dew ?? list[0]?.dew;
+    out.push(gauge({ kind: 'humidity', icon: 'drop', name: W('濕度', 'Humidity'), sub: dew != null ? e(`${W('露點', 'Dew point')} ${deg(dew)}`) : '', v: `${Math.round(hum)}`, unit: '%', track: fill(hum, 'var(--q-cyan)') }));
+  }
+  const w = n.wind || {};
+  if (w.speed != null) {
+    const bf = beaufort(w.speed);
+    out.push(gauge({ kind: 'wind', icon: 'wind', name: W('風', 'Wind'), sub: e(`${windDir(w.dir)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`), v: W(`${bf}`, `${bf}`), unit: W(`級 · ${Math.round(w.speed)} km/h`, `· ${Math.round(w.speed)} km/h`), track: fill((bf / 12) * 100, 'var(--q-teal)') }));
+  }
+  // The sun: the day's light from sunrise to sunset, the dot where it is now.
+  const d = todayOf(f, now);
+  if (d?.sunrise && d?.sunset) {
+    const before = now < d.sunrise;
+    const up = !before && now < d.sunset;
+    const tomorrow = (f.days || []).find(x => x.date > d.date);
+    const next = before ? ['sunrise', d.sunrise] : up ? ['sunset', d.sunset] : ['sunrise', tomorrow?.sunrise];
+    const other = up ? `${W('日出', 'Sunrise')} ${clock(d.sunrise, f.tz)}` : `${W('日落', 'Sunset')} ${clock(d.sunset, f.tz)}`;
+    const p = ((now - d.sunrise) / (d.sunset - d.sunrise)) * 100;
+    if (next[1]) out.push(gauge({ kind: `sun${up ? '' : ' is-night'}`, icon: next[0], name: next[0] === 'sunrise' ? W('日出', 'Sunrise') : W('日落', 'Sunset'), sub: e(other), v: clock(next[1], f.tz), track: fill(up ? p : before ? 0 : 100, 'var(--q-yellow)') }));
+  }
+  if (n.feels != null) out.push(gauge({ kind: 'feels', icon: 'thermo', name: W('體感', 'Feels like'), sub: n.temp != null ? e(`${W('氣溫', 'Actual')} ${deg(n.temp)}`) : '', v: deg(n.feels) }));
+  if (n.vis != null) out.push(gauge({ kind: 'vis', icon: 'eye', name: W('能見度', 'Visibility'), sub: n.cloud != null ? e(`${W('雲量', 'Cloud')} ${Math.round(n.cloud)}%`) : '', v: `${n.vis}`, unit: W('公里', 'km'), track: fill((Math.min(n.vis, 20) / 20) * 100, 'var(--q-gray)') }));
+  return out.length ? `<section class="ot-card ot-reads"><h2 class="ot-cap">${glyph('gauge', { size: 14 })}${W('今日數據', 'Today')}</h2>${out.join('')}</section>` : '';
+}
+
+// ---- What to do -------------------------------------------------------------------------------
+
+const SHOWN = 4;
+function advice(f, { now, key }) {
+  const { list, tomorrow } = adviceList(f, now);
+  if (!list.length) return '';
+  const rows = list
+    .slice(0, SHOWN)
+    .map(a => {
+      const tag = LEVEL_TAG[a.level];
+      return `<div class="ot-tip k-${e(a.kind)} lv-${e(a.level)}"><span class="ot-tip-ic" style="--t:var(--q-${KIND_COLOR[a.kind] || 'indigo'})">${glyph(ADVICE_GLYPH[a.kind] || 'bulb', { size: 17 })}</span><span class="ot-tip-text"><b>${e(LIFE[a.kind])}</b><small>${e(a.text)}</small></span>${tag ? `<span class="ot-flag">${tag[1]}</span>` : ''}</div>`;
+    })
+    .join('');
+  const more = list.length > SHOWN ? `<button class="ot-more" type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}${glyph('chevR', { size: 12 })}</button>` : '';
+  return `<section class="ot-card ot-advice">
+    <div class="ot-cap-row"><h2 class="ot-cap">${glyph('bulb', { size: 14 })}${tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today')}</h2>${more}</div>
+    ${rows}
+  </section>`;
+}
+
+// ---- 天氣: the whole page --------------------------------------------------------------------
+
+// The owner's cards (版面) on 天氣, in their order: the readings, the advice,
+// the ten days (更多資訊 is in today's sheet). 我的行程: what matters on the
+// move, all shown.
+const CARD = { metrics: readings, advice, days: skyline };
+const shownCards = (page, cards = ['metrics', 'advice', 'days', 'info'], hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
+export function nowHtml(f, page, { now, cards, hidden, home = '' } = {}) {
+  const top = head(page);
+  // Before the forecast: the cards' shapes, shimmering; a failure says so, with 再試一次.
+  if (!f)
+    return `<div class="ot">${top}${hero(null, page, { now })}${page.error ? kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } }) : `<div class="ot-waiting" role="status" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="ot-card ot-wait"></div><div class="ot-card ot-wait tall"></div></div>`}</div>`;
+  const opts = { now, key: page.key, page, home };
+  const off = dayOffSec(f, now);
+  // (The cards in columns on a wide screen, read in the phone's order: kit flowColumns.)
+  const parts = [hero(f, page, opts), off ? `<div class="ot-card ot-off">${off}</div>` : '', hourTrack(f, opts), ...shownCards(page, cards, hidden).filter(k => CARD[k]).map(k => CARD[k](f, opts))].filter(Boolean);
+  return `<div class="ot">${top}<div class="q-flow ot-flow">${parts.join('')}</div></div>`;
+}
+
+// ---- 地點: each place, its next twelve hours of rain on a track ---------------------------------
+
+// rows: placeRows' plus { page, f } (the place's page and forecast).
+export function placesHtml(rows, { brief, editing = false, now = Date.now() } = {}) {
+  const row = r => {
+    const f = r.f;
+    const d = f ? todayOf(f, now) : null;
+    const list = f ? hoursFrom(f, now).slice(0, 12) : [];
+    // (Its rain track only where rain comes in the twelve hours: a dry place is no empty track.)
+    const track = list.length >= 6 && list.some(h => (h.pop ?? 0) >= RAIN_MAYBE) ? `<span class="ot-pr" aria-hidden="true">${rainTrack(list)}<small>${e(W('現在', 'Now'))}</small><small>${e(hh(hourOf(list[list.length - 1].t, f.tz)))}</small></span>` : '';
+    const tile = `<span class="q-tile" style="--t:var(--q-${r.color})">${r.glyph}</span>`;
+    const text = `<span class="q-ritem-text"><span class="q-ritem-title">${e(r.title)}${r.on && !editing ? glyph('check', { size: 16, cls: 'wx-on' }) : ''}</span>${r.sub ? `<small>${e(r.sub)}</small>` : ''}${editing ? '' : track}</span>`;
+    if (editing && r.pin) return `<button class="q-ritem chevron wx-place-row" type="button" data-act="edit-pin" data-pin="${e(r.pin)}" aria-label="${W(`編輯「${e(r.title)}」`, `Edit “${e(r.title)}”`)}">${tile}${text}</button>`;
+    const nowCell = r.temp != null && !editing ? `<span class="ot-place-now">${r.art || ''}<b>${deg(r.temp)}</b>${d?.hi != null ? `<small>${deg(d.lo)} / ${deg(d.hi)}</small>` : ''}</span>` : '';
+    return `<div class="q-ritem wx-place-row${r.on ? ' is-on' : ''}${editing ? ' is-still' : ''}"${editing ? '' : ` role="button" tabindex="0" data-go-key="${e(r.key)}"`} aria-current="${r.on ? 'true' : 'false'}">${tile}${text}${nowCell}</div>`;
+  };
+  const pins = rows.some(r => r.pin);
+  const add = `<button class="q-ritem chevron wx-add" type="button" data-act="add-pin"><span class="wx-quiet-tile q-tile">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>`;
+  const settings = `<div class="q-rowcard">
+      <label class="q-ritem wx-brief"><span class="wx-quiet-tile q-tile">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
+      <button class="q-ritem chevron" type="button" data-act="layout"><span class="wx-quiet-tile q-tile">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
+    </div>`;
+  const headRow = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml(W('地點', 'Places'))}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
+  return `${headRow}<div class="q-cols wx-cols"><div class="wx-col"><div class="q-rowcard wx-places">${rows.map(row).join('')}${add}</div></div><div class="wx-col"><section class="q-section wx-section wx-settings"><div class="q-section-head q-shd"><h2>${W('設定', 'Settings')}</h2></div>${settings}</section></div></div>`;
+}

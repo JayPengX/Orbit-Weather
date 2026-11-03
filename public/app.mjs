@@ -23,12 +23,13 @@ const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || n
 // (A stop from later in the day leaves the morning's going there as it is.)
 const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));
 useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(dayOffOn(date, pinPlace(pin), pinNeed(pin)))));
-import { nowHtml, weekHtml, placesHtml, placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
+import { placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast } from './lib/plan.mjs';
+import { nowHtml as skyPage, placesHtml as placesPage } from './lib/pages.mjs';
 
 const $ = id => document.getElementById(id);
 const VERSION = document.querySelector('meta[name="build-version"]')?.content || 'dev';
@@ -110,16 +111,16 @@ function notePlan(now) {
   page.place = cur ? { county: cur.county, town: cur.town } : pageOf('here')?.place || null;
 }
 
-// ---- Tabs: 今天, 預報, 地點 (the kit's bar; one place shared by all) -------------------------
+// ---- Tabs: 天氣 and 地點 (the kit's bar; one place shared by both) -------------------------
+// (天氣 is the old 今天 and 預報 in one page: Orbit's own look, RULEBOOK §3.)
 
-const TABS = ['now', 'week', 'places'];
+const TABS = ['now', 'places'];
 const tabs = tabBar({
   tabs: [
-    { id: 'now', label: W('今天', 'Today'), icon: '<circle cx="9" cy="8.5" r="3.2"/><path d="M9 2.5v1.2M3 8.5h1.2M4.8 4.3l.9.9M13.2 4.3l-.9.9"/><path d="M8 20.5a4 4 0 0 1-.4-8 5.2 5.2 0 0 1 9.9 1.3 3.4 3.4 0 0 1-.3 6.7z"/>' },
-    { id: 'week', label: W('預報', 'Forecast'), icon: 'calendar' },
+    { id: 'now', label: W('天氣', 'Weather'), icon: '<circle cx="9" cy="8.5" r="3.2"/><path d="M9 2.5v1.2M3 8.5h1.2M4.8 4.3l.9.9M13.2 4.3l-.9.9"/><path d="M8 20.5a4 4 0 0 1-.4-8 5.2 5.2 0 0 1 9.9 1.3 3.4 3.4 0 0 1-.3 6.7z"/>' },
     { id: 'places', label: W('地點', 'Places'), icon: '<path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.3"/>' }
   ],
-  // (The address: #tab=week, #pin=<id>, kept by the app.)
+  // (The address: #tab=places, #pin=<id>, kept by the app.)
   hash: () => null,
   onSelect: id => showTab(id),
   label: W('分頁', 'Tabs')
@@ -152,7 +153,7 @@ const pageSig = page =>
     : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}|${page.place?.town || ''}|${page.note || ''}|${page.askable ? 1 : 0}|${page.error || ''}`;
 const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
-  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}${state.tab === 'week' ? '' : `|${state.pages.map(p => forecastOf(p)?.at || 0).join()}`}`;
+  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}|${state.pages.map(p => p.key).join()}`;
 };
 // (A typhoon day off announced where a pin is: where you'll be moves on.)
 onDayOff(() => {
@@ -170,11 +171,21 @@ function render() {
   const sig = viewSig(page);
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
-  if (state.tab === 'places') return void ((panel.innerHTML = placesHtml(placeRows(page), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0 })), kitUI.wireNavTitles(panel));
-  const opts = { now, cards: state.data.cards, hidden: state.data.hidden, places: placeRows(page) };
-  panel.innerHTML = (state.tab === 'week' ? weekHtml : nowHtml)(forecastOf(page), page, opts);
-  kitUI.wireNavTitles(panel);
+  if (state.tab === 'places') return void ((panel.innerHTML = placesPage(placeRows(page).map((r, i) => ({ ...r, page: state.pages[i], f: forecastOf(state.pages[i]) })), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0, now })), kitUI.wireNavTitles(panel));
+  panel.innerHTML = skyPage(forecastOf(page), page, { now, cards: state.data.cards, hidden: state.data.hidden, home: state.data.pins.find(p => p.home)?.name || '' });
+  // (The owner's cards in columns on a wide screen, in the phone's order.)
+  kitUI.flowColumns?.(panel);
 }
+kitCore.onScreen?.(() => state.tab === 'now' && kitUI.flowColumns?.($('panel-now')));
+
+// A swipe across 天氣 goes to the place beside, from its top (the title says which).
+kitUI.daySwipe?.($('panel-now'), dir => {
+  const next = state.pages[state.pages.indexOf(current()) + dir];
+  if (!next) return false;
+  state.key = next.key;
+  showTab('now', { top: true });
+  return true;
+});
 
 // 地點's rows: each place's picture and colour, what it is, its temperature now.
 const PLACE_COLOR = page => (page.plan ? 'indigo' : page.pin?.home ? 'orange' : page.pin ? 'pink' : 'blue');
@@ -555,9 +566,9 @@ async function pinSheet(pin = null) {
 }
 
 // 版面: the owner's cards, where each now lives, in their order, each shown or
-// not (kept on the Pass). 建議 is 今天's; 指標 and the days are 預報's, in this
-// order; 更多資訊 is in today's sheet.
-const CARD_ROWS = { metrics: ['chart', W('指標', 'Conditions'), W('預報', 'Forecast')], advice: ['bulb', W('建議', 'Advice'), W('今天', 'Today')], days: ['calendar', W('10 天預報', '10-day forecast'), W('預報', 'Forecast')], info: ['list', W('更多資訊', 'Details'), W('今天的詳情', 'Today’s sheet')] };
+// not (kept on the Pass). 指標, 建議 and the days are 天氣's, under the hours,
+// in this order; 更多資訊 is in today's sheet.
+const CARD_ROWS = { metrics: ['chart', W('指標', 'Conditions'), W('天氣', 'Weather')], advice: ['bulb', W('建議', 'Advice'), W('天氣', 'Weather')], days: ['calendar', W('10 天預報', '10-day forecast'), W('天氣', 'Weather')], info: ['list', W('更多資訊', 'Details'), W('今天的詳情', 'Today’s sheet')] };
 function layoutSheet() {
   const rows = () =>
     state.data.cards
@@ -773,12 +784,11 @@ document.addEventListener('click', ev => {
   if (day) return openDay(day.dataset.page, day.dataset.day);
 });
 
-// The sky and a place's row are role="button": Enter or space opens them too.
+// The sky's card and a place's row are role="button": Enter or space opens them too.
 document.addEventListener('keydown', ev => {
-  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.wx-hero[data-day], [data-go-key], .q-panel[data-metric]')) return;
+  if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.matches?.('.ot-hero[data-day], [data-go-key]')) return;
   ev.preventDefault();
-  if (ev.target.dataset.metric) openMetric(ev.target.dataset.page, ev.target.dataset.metric);
-  else if (ev.target.dataset.goKey) choose(ev.target.dataset.goKey);
+  if (ev.target.dataset.goKey) choose(ev.target.dataset.goKey);
   else openDay(ev.target.dataset.page, ev.target.dataset.day);
 });
 
@@ -886,13 +896,13 @@ document.addEventListener('visibilitychange', () => {
   loadShown();
 });
 
-// The address: a notice's tap (#pin=<id>) opens that pin; #tab=week or
-// #tab=places a tab.
+// The address: a notice's tap (#pin=<id>) opens that pin; #tab=places a tab.
 const hashPin = () => {
   const m = /pin=(p[a-z0-9]+)/.exec(location.hash);
   return m && pageOf(m[1]) ? m[1] : null;
 };
-const hashTab = () => /tab=(week|places)/.exec(location.hash)?.[1] || null;
+// (#tab=week, from before 天氣 was one page: 天氣.)
+const hashTab = () => ({ week: 'now', places: 'places' })[/tab=(week|places)/.exec(location.hash)?.[1]] || null;
 window.addEventListener('hashchange', () => {
   const key = hashPin();
   if (key) return choose(key);
