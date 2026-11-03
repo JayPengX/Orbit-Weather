@@ -601,10 +601,15 @@ test("a dry day: the rain reading is one line saying when rain comes next, never
   const dry = { ...forecast, hours: forecast.hours.map(h => ({ ...h, pop: 10 })), days: forecast.days.map(d => ({ ...d, pop: 10 })) };
   assert.doesNotMatch(reading(dry, 'rain'), /ot-gr/, 'no empty rain track');
   assert.match(pageHtml(dry, page, { now: NOW }), /class="ot-g k-rain is-dry /);
-  assert.match(reading(dry, 'rain'), /class="ot-g-v">10 天都不太會下雨</);
-  // Rain on a later day: that day named, with its chance.
-  const later = { ...dry, days: dry.days.map((d, i) => (i === 4 ? { ...d, pop: 60 } : d)) };
-  assert.match(reading(later, 'rain'), new RegExp(`${weekday(later.days[4].date)}可能下雨<small>60%</small>`));
+  // Never a claim past three days (Jay 2026-11-03: a ten-day dry spell is a guess).
+  assert.match(reading(dry, 'rain'), /class="ot-g-v">三天內不太會下雨</);
+  assert.doesNotMatch(pageHtml(dry, page, { now: NOW }), /10 天都不太會下雨/);
+  // Rain the day after tomorrow, past the hours there are: that day named, with its chance.
+  const later = { ...dry, hours: dry.hours.filter(h => h.t < NOW + 26 * H), days: dry.days.map((d, i) => (i === 2 ? { ...d, pop: 60 } : d)) };
+  assert.match(reading(later, 'rain'), new RegExp(`${dayLabel(later.days[2].date, NOW)}可能下雨<small>60%</small>`));
+  // Rain further out isn't named on the reading (the ten days show its chance).
+  const far = { ...later, days: dry.days.map((d, i) => (i === 5 ? { ...d, pop: 60 } : d)) };
+  assert.match(reading(far, 'rain'), /class="ot-g-v">三天內不太會下雨</);
   // Rain within the day: its hours lit, as before.
   assert.match(reading(forecast, 'rain'), /ot-gr/);
   assert.doesNotMatch(pageHtml(forecast, page, { now: NOW }), /k-rain is-dry/);

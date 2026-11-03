@@ -853,26 +853,9 @@ svg.ch {
   stroke-width: 2;
 }
 
-/* ==== Before the forecast: the shapes, shimmering ==== */
-.sk {
-  display: block;
-  border-radius: 8px;
-  background: linear-gradient(100deg, var(--q-fill-3) 30%, var(--q-fill-4) 50%, var(--q-fill-3) 70%) 0 0 / 300% 100%;
-  animation: wx-sk 1.4s ease-in-out infinite;
-}
-@keyframes wx-sk {
-  from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .wx-fx i,
   .wx-fx::after,
-  .sk,
   .wx-day-sheet > * {
     animation: none !important;
   }
@@ -997,13 +980,26 @@ svg.ch {
   cursor: pointer;
 }
 .ot-wait {
-  height: 150px;
+  display: grid;
+  gap: 14px;
   margin-top: 12px;
-  background: var(--q-fill-4);
-  box-shadow: none;
+  padding: 14px 14px 18px;
 }
-.ot-wait.tall {
-  height: 380px;
+.ot-wait > i {
+  display: block;
+}
+.ot-wait-cap {
+  width: 72px;
+  height: 14px;
+  border-radius: 7px;
+}
+.ot-wait-line {
+  height: 96px;
+  border-radius: 14px;
+}
+.ot-wait-row {
+  height: 34px;
+  border-radius: 10px;
 }
 
 /* ---------- Now: the sky in its card ---------- */
@@ -1020,6 +1016,19 @@ svg.ch {
 }
 .ot-hero[data-day] {
   cursor: pointer;
+}
+/* Before the forecast: the page's graphite card, no sky guessed. */
+.ot-hero.is-wait {
+  color: var(--q-label);
+  background: var(--nv-card, var(--q-grouped-2));
+  box-shadow: inset 0 0 0 0.5px var(--nv-edge, rgba(0, 0, 0, 0.06)), var(--nv-lift, none);
+}
+.ot-hero.is-wait .ot-eyebrow {
+  color: var(--q-label-2);
+}
+.ot-hero.is-wait .wx-relocate {
+  background: var(--q-fill-3);
+  color: var(--q-label);
 }
 .ot-hero:focus-visible {
   outline: 2px solid var(--q-accent);
@@ -1126,16 +1135,16 @@ svg.ch {
   margin-top: 12px;
 }
 .ot-sk-temp {
+  display: block;
   width: 120px;
   height: 80px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.16);
 }
-.ot-day-wait .sk {
+.ot-day-wait .q-skel {
+  display: block;
   height: 52px;
   margin-top: 16px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.14);
 }
 .ot-hero.wx-old :is(.ot-temp, .ot-sky, .ot-day) {
   opacity: 0.55;
@@ -1353,25 +1362,57 @@ svg.ch {
   text-overflow: ellipsis;
 }
 
-/* ---------- The ten days, side by side ---------- */
+/* ---------- The ten days: the highs and the lows as two lines ---------- */
 .ot-sks {
-  display: grid;
-  grid-template-columns: repeat(var(--n), minmax(32px, 1fr));
-  margin: 8px -6px 0;
+  margin: 8px -8px 0;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
 }
 .ot-sks::-webkit-scrollbar {
   display: none;
 }
-.ot-sk {
+.ot-sks-in {
+  position: relative;
   display: grid;
+  grid-template-columns: repeat(var(--n), minmax(34px, 1fr));
+  min-width: calc(var(--n) * 34px);
+}
+/* (The lines sit under the columns, at the scale's top: the rows above it are fixed heights.) */
+.ot-sk-lines {
+  position: absolute;
+  top: 80px;
+  left: 0;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.ot-sk-lines path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.ot-sk-hiline {
+  stroke: color-mix(in srgb, var(--q-label) 50%, transparent);
+}
+.ot-sk-loline {
+  stroke: color-mix(in srgb, var(--q-label) 24%, transparent);
+}
+.ot-sk-lines path.ot-sk-band {
+  fill: color-mix(in srgb, var(--q-label) 6%, transparent);
+  stroke: none;
+}
+.ot-sk {
+  position: relative;
+  display: grid;
+  grid-template-rows: 31px 30px 15px auto auto;
   justify-items: center;
   align-content: start;
-  gap: 4px;
   min-width: 0;
-  padding: 2px 0 0;
+  padding: 4px 0 2px;
   border: 0;
   border-radius: 12px;
   background: none;
@@ -1386,12 +1427,13 @@ svg.ch {
 .ot-sk-d {
   display: grid;
   justify-items: center;
+  align-content: start;
   font: 600 13px/17px var(--q-font);
   white-space: nowrap;
 }
 .ot-sk-d small {
   color: var(--q-label-3);
-  font: 500 10.5px/13px var(--q-font);
+  font: 500 10px/13px var(--q-font);
   font-variant-numeric: tabular-nums;
 }
 .ot-sk.is-today .ot-sk-d {
@@ -1400,7 +1442,11 @@ svg.ch {
 .ot-sk-i {
   display: grid;
   place-items: center;
-  height: 28px;
+}
+.ot-sk-p {
+  color: var(--ot-rain);
+  font: 700 11px/13px var(--q-font);
+  white-space: nowrap;
 }
 .ot-sk-bar {
   position: relative;
@@ -1419,34 +1465,29 @@ svg.ch {
   color: var(--q-label-2);
   font-weight: 500;
 }
-.ot-sk-bar > i {
+.ot-sk-dot {
   position: absolute;
   left: 50%;
   width: 6px;
-  margin-left: -3px;
-  border-radius: 3px;
-}
-.ot-sk-now {
-  position: absolute;
-  left: 50%;
-  z-index: 1;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 0 2px var(--q-accent), 0 0 10px var(--q-accent);
+  background: var(--q-label);
 }
-.ot-sk-p {
-  min-height: 13px;
-  color: var(--ot-rain);
-  font: 700 11px/13px var(--q-font);
-  white-space: nowrap;
+.ot-sk-dot.is-lo {
+  background: var(--q-label-3);
+}
+/* Today: its high a lit dot, in the app's colour (the track's mark). */
+.ot-sk.is-today .ot-sk-dot:not(.is-lo) {
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  background: var(--q-accent);
+  box-shadow: var(--ot-glow);
 }
 .ot-sk-w {
   max-width: 100%;
   min-height: 13px;
-  margin-top: -2px;
   overflow: hidden;
   color: var(--q-label-2);
   font: 500 10.5px/13px var(--q-font);

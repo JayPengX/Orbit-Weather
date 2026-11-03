@@ -41,14 +41,14 @@ Live: https://orbit.jaypengx.com/weather/
   the temperature, the sun's rising and setting among them, and the owner's
   cards in 版面's order: 今日數據 (降雨 / 紫外線 / 空氣 each opening its sheet of
   day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
-  建議 four and 全部; the ten days side by side on one warmth scale, a day
-  opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
+  建議 four and 全部; the ten days side by side, the highs as one line and the lows as
+  another on one scale, the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
   place with its now and its day, 新增地點, 早晨天氣, 版面. `#tab=places`,
   `#pin=<id>` (an old `#tab=week` opens 天氣).
 - **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
   reading's hourly track shows only when a chance of 30%+ comes in the next
   24 hours; else it is one line saying when rain comes next (the second day's
-  hours, then the ten days: 「週五可能下雨 40%」, 「10 天都不太會下雨」,
+  hours, then the day after, never further (Jay 2026-11-03: past three days rain is a guess): 「週日可能下雨 40%」, 「三天內不太會下雨」,
   `nextRain`). The sun's reading is the strongest UV still to come today, after
   dark tomorrow's peak with its day (never a 0 on an empty bar). 地點 draws a
   place's twelve-hour rain track only where rain comes.

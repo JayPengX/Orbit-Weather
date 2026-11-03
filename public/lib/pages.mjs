@@ -101,7 +101,7 @@ function hero(f, page, { now }) {
   const n = f?.now || {};
   const d = f ? todayOf(f, now) : null;
   const { sub } = placeName(page);
-  const sky = f ? skyOf(n) : 'sky-cloud sky-day';
+  const sky = f ? skyOf(n) : '';
   const date = f ? d?.date || dateOf(now, f.tz) : null;
   const open = f ? ` role="button" tabindex="0" data-day="${e(date)}" data-page="${e(page.key)}" aria-label="${W('今天的詳細預報', "Today's full forecast")}"` : '';
   // An old copy (OLD_MS) says so at the card's foot and fades its "now" until
@@ -112,7 +112,8 @@ function hero(f, page, { now }) {
     : '';
   const locate = page.askable && !page.pin && !page.plan ? `<button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : '';
   const eyebrow = `<p class="ot-eyebrow">${placeGlyph(page, { size: 13 })}<span>${e(sub) || '&nbsp;'}</span>${locate}</p>`;
-  if (!f) return `<section class="ot-hero ${sky}">${fxHtml(sky)}${eyebrow}${page.error ? '' : '<div class="ot-now" aria-hidden="true"><i class="sk ot-sk-temp"></i></div><div class="ot-day-wait" aria-hidden="true"><i class="sk"></i></div>'}</section>`;
+  // Before the forecast: the card in the page's own graphite (no sky yet, so none guessed), its shapes shimmering.
+  if (!f) return `<section class="ot-hero is-wait">${eyebrow}${page.error ? '' : '<div class="ot-now" aria-hidden="true"><i class="q-skel ot-sk-temp"></i></div><div class="ot-day-wait" aria-hidden="true"><i class="q-skel"></i></div>'}</section>`;
   // (A rain heads-up within two hours stays a line of its own; the track then says the rest.)
   const soon = old ? '' : soonLine(f, now, f.tz);
   return `<section class="ot-hero ${sky}${old ? ' wx-old' : ''}"${open}>
@@ -222,53 +223,60 @@ function hourTrack(f, { now, key, page }) {
   </section>`;
 }
 
-// ---- The ten days: side by side on one scale ----------------------------------------------------
+// ---- The ten days: side by side, the highs and the lows as two lines on one scale --------------
 
-// A day's colour, one for its whole bar, by how warm it is (cold blue to hot red).
-// (The kit's colours, so each reads on the light page as on the dark.)
-const WARM = [[8, 'var(--q-indigo)'], [14, 'var(--q-blue)'], [19, 'var(--q-teal)'], [24, 'var(--q-yellow)'], [28, 'var(--q-orange)'], [99, 'var(--q-red)']];
-const warmth = t => WARM.find(([upTo]) => t <= upTo)[1];
-const BAR = 80;
+// Each day a column (its name, sky and rain chance), then the ten highs as one
+// line and the ten lows as another, the days' range shaded between: the
+// week's warming and cooling reads at a glance, each number at its dot.
+const SPAN = 58; // the scale's height (px), top high to bottom low
+const LIFT = 20; // room for a high's number above its dot, a low's below
 function skyline(f, { now, key, page, home = '' }) {
   const list = (f.days || []).filter(d => d.date >= dateOf(now, f.tz)).slice(0, 10);
   if (!list.length) return '';
   const lo = Math.min(...list.map(d => d.lo ?? Infinity));
   const hi = Math.max(...list.map(d => d.hi ?? -Infinity));
-  const span = Math.max(1, hi - lo);
-  const yOf = t => ((hi - t) / span) * BAR;
+  // (At least 6° of height, so a steady week reads steady.)
+  const span = Math.max(6, hi - lo);
+  const top = (hi + lo) / 2 + span / 2;
+  const yOf = t => LIFT + ((top - t) / span) * SPAN;
   const today = dateOf(now, f.tz);
+  const n = list.length;
+  const his = [];
+  const los = [];
   const cols = list
-    .map(d => {
+    .map((d, i) => {
       const isToday = d.date === today;
-      const dHi = d.hi ?? hi;
-      const dLo = d.lo ?? lo;
-      const y = yOf(dHi);
-      const h = Math.max(6, yOf(dLo) - y);
+      const yh = d.hi == null ? null : yOf(d.hi);
+      const yl = d.lo == null ? null : yOf(d.lo);
+      if (yh != null) his.push([i * 100 + 50, yh]);
+      if (yl != null) los.push([i * 100 + 50, yl]);
       const c = d.day?.condition || {};
       const pop = dayPop(f, d, now);
       const name = isToday ? W('今天', 'Today') : en ? weekday(d.date) : dayLabel(d.date, now, f.tz);
-      // Today: where the temperature is now, a dot on its bar.
-      const dot = isToday && f.now?.temp != null ? `<span class="ot-sk-now" style="top:${r1(18 + Math.min(Math.max(yOf(f.now.temp), y), y + h))}px" aria-hidden="true"></span>` : '';
-      // (我的行程: where you'll be that day away from home, under its rain; all of them in its label.)
+      // (我的行程: where you'll be that day away from home; all of them in its label.)
       const where = page.plan && d.places?.length > 1 ? d.places : [];
       const away = where.filter(p => p !== home && p !== W('目前位置', 'Current location'))[0] || '';
       return `<button class="ot-sk q-press${isToday ? ' is-today' : ''}" type="button" data-day="${e(d.date)}" data-page="${e(key)}" aria-label="${e(`${name} ${shortDate(d.date)} ${deg(d.lo)}–${deg(d.hi)}${pop >= 20 ? ` ${W('降雨', 'rain')} ${pop}%` : ''}${where.length ? ` · ${where.join('·')}` : ''}`)}">
         <span class="ot-sk-d">${e(name)}<small>${e(shortDate(d.date))}</small></span>
         <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 24 })}</span>
-        <span class="ot-sk-bar" style="height:${BAR + 40}px">
-          <b class="ot-sk-hi" style="top:${r1(y)}px">${deg(d.hi)}</b>
-          <i style="top:${r1(18 + y)}px;height:${r1(h)}px;background:${warmth((dHi + dLo) / 2)}"></i>
-          ${dot}
-          <b class="ot-sk-lo" style="top:${r1(22 + y + h)}px">${deg(d.lo)}</b>
-        </span>
         <span class="ot-sk-p">${pop >= 20 ? `${pop}%` : ''}</span>
+        <span class="ot-sk-bar" style="height:${SPAN + 2 * LIFT}px">
+          ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 20)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
+          ${yl == null ? '' : `<i class="ot-sk-dot is-lo" style="top:${r1(yl)}px"></i><b class="ot-sk-lo" style="top:${r1(yl + 4)}px">${deg(d.lo)}</b>`}
+        </span>
         ${page.plan ? `<small class="ot-sk-w">${e(away)}</small>` : ''}
       </button>`;
     })
     .join('');
+  // The lines, stretched to the columns (each column 100 units wide; the
+  // strokes keep their width), the range shaded between them.
+  const H = SPAN + 2 * LIFT;
+  const back = los.slice().reverse();
+  const band = his.length > 1 && los.length > 1 ? `<path class="ot-sk-band" d="${smooth(his)} L${smooth(back).slice(1)} Z"/>` : '';
+  const lines = `<svg class="ot-sk-lines" viewBox="0 0 ${n * 100} ${H}" preserveAspectRatio="none" style="height:${H}px" aria-hidden="true">${band}<path class="ot-sk-hiline" d="${smooth(his)}"/><path class="ot-sk-loline" d="${smooth(los)}"/></svg>`;
   return `<section class="ot-card ot-days">
-    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${list.length} 天`, `${list.length} days`)}</h2>
-    <div class="ot-sks" style="--n:${list.length}">${cols}</div>
+    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${n} 天`, `${n} days`)}</h2>
+    <div class="ot-sks"><div class="ot-sks-in" style="--n:${n}">${lines}${cols}</div></div>
   </section>`;
 }
 
@@ -295,16 +303,19 @@ const gauge = ({ kind, metric = '', key = '', icon, name, sub = '', v, unit = ''
   </${tag}>`;
 };
 // A dry day's rain row: when rain comes next, from the second day's hours,
-// then the ten days; else how long it stays dry ({ v, unit } for the row).
+// then the day after; else that it stays dry that long. Never further: past
+// three days a forecast's rain is a guess (Jay 2026-11-03), and the ten days
+// below still show each day's chance.
+const RAIN_DAYS = 3;
 function nextRain(f, list, now) {
   const tz = f.tz;
   const h = list.slice(24, 48).find(x => (x.pop ?? 0) >= RAIN_MAYBE);
   if (h) return { v: W(`${dayLabel(dateOf(h.t, tz), now, tz)} ${hourOf(h.t, tz)}時起`, `${dayLabel(dateOf(h.t, tz), now, tz)} from ${hourOf(h.t, tz)}:00`), unit: `${h.pop}%` };
   const after = dateOf(list[Math.min(list.length, 48) - 1].t, tz);
-  const days = (f.days || []).filter(d => d.date >= dateOf(now, tz));
+  const days = (f.days || []).filter(d => d.date >= dateOf(now, tz)).slice(0, RAIN_DAYS);
   const wet = days.find(d => d.date > after && (d.pop ?? 0) >= RAIN_MAYBE);
   if (wet) return { v: W(`${dayLabel(wet.date, now, tz)}可能下雨`, `Rain likely ${dayLabel(wet.date, now, tz)}`), unit: `${wet.pop}%` };
-  return { v: days.length > 2 ? W(`${days.length} 天都不太會下雨`, `Dry for ${days.length} days`) : W('兩天內不太會下雨', 'Dry for 2 days') };
+  return { v: days.length >= RAIN_DAYS ? W('三天內不太會下雨', 'Dry for 3 days') : W('兩天內不太會下雨', 'Dry for 2 days') };
 }
 function readings(f, { now, key }) {
   const n = f.now || {};
@@ -377,13 +388,16 @@ function advice(f, { now, key }) {
 // The owner's cards (版面) on 天氣, in their order: the readings, the advice,
 // the ten days (更多資訊 is in today's sheet). 我的行程: what matters on the
 // move, all shown.
+// The cards to come, as graphite cards of their size: the hours' line, then the readings' rows.
+const WAIT_ROW = '<i class="q-skel ot-wait-row"></i>';
+const WAIT_CARDS = `<div class="ot-card ot-wait" aria-hidden="true"><i class="q-skel ot-wait-cap"></i><i class="q-skel ot-wait-line"></i></div><div class="ot-card ot-wait" aria-hidden="true"><i class="q-skel ot-wait-cap"></i>${WAIT_ROW.repeat(5)}</div>`;
 const CARD = { metrics: readings, advice, days: skyline };
 const shownCards = (page, cards = ['metrics', 'advice', 'days', 'info'], hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
 export function nowHtml(f, page, { now, cards, hidden, home = '' } = {}) {
   const top = head(page);
   // Before the forecast: the cards' shapes, shimmering; a failure says so, with 再試一次.
   if (!f)
-    return `<div class="ot">${top}${hero(null, page, { now })}${page.error ? kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } }) : `<div class="ot-waiting" role="status" aria-label="${W('正在取得天氣', 'Getting the weather')}"><div class="ot-card ot-wait"></div><div class="ot-card ot-wait tall"></div></div>`}</div>`;
+    return `<div class="ot">${top}${hero(null, page, { now })}${page.error ? kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } }) : `<div class="ot-waiting" role="status" aria-label="${W('正在取得天氣', 'Getting the weather')}">${WAIT_CARDS}</div>`}</div>`;
   const opts = { now, key: page.key, page, home };
   const off = dayOffSec(f, now);
   // (The cards in columns on a wide screen, read in the phone's order: kit flowColumns.)
