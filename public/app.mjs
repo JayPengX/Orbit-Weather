@@ -22,7 +22,7 @@ const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || n
 const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));
 useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(dayOffOn(date, pinPlace(pin), pinNeed(pin)))));
 import { nowHtml, weekHtml, placesHtml, placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
-import { readout, scrubHtml, colAt, colSpot, PLOT_BOTTOM } from './lib/graph.mjs';
+import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
@@ -615,6 +615,10 @@ document.addEventListener('change', ev => {
 });
 
 // A metric's sheet: its big graph, tabs and read-out.
+// A sheet's graphs drawn for its width (graph.mjs chartWidth), the page's own
+// graphs back at a phone's frame after.
+const fitCharts = d => chartWidth(Math.max(340, Math.min(720, Math.round(((d.clientWidth || 375) - 60) / 1.15))));
+
 function openMetric(key, kind) {
   const page = pageOf(key);
   const f = page && forecastOf(page);
@@ -623,7 +627,9 @@ function openMetric(key, kind) {
   d.dataset.key = key;
   d.redraw = () => {
     const now = Date.now();
+    fitCharts(d);
     d.innerHTML = metricSheet(kind, f, { now, key, ranges: state.ranges, page });
+    chartWidth(340);
     settleSegs(d);
     state.cols[key] = { ...(state.cols[key] || {}), [kind]: colsFor(kind, f, now, rangeOf(kind, state.ranges)), tz: f.tz };
   };
@@ -655,7 +661,9 @@ function openDay(key, date) {
     shown = when;
     // Today's sheet also holds 更多資訊 (not on the move, nor when hidden).
     const info = when === dateOf(now, f.tz) && !page.plan && !state.data.hidden.includes('info') ? infoCard(f, { now, lat: page.lat, lon: page.lon, page }) : '';
+    fitCharts(d);
     d.innerHTML = daySheet(f, when, { now, lat: page.lat, lon: page.lon }) + info;
+    chartWidth(340);
     d.querySelector('.q-sheet-head')?.after(kitUI.dayBar(strip, { flat: true, days: days(), current: when, today: dateOf(now, f.tz), follow: true, onPick: show }));
     d.scrollTop = 0;
     armScrub(d, f, when);
