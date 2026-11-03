@@ -44,7 +44,7 @@ Live: https://orbit.jaypengx.com/weather/
   day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
   建議 four and 全部; the ten days side by side, the highs as one warm line and the lows as
   one cool line on one scale (最高 / 最低 named in the head in their colours), the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`). 地點: each
-  place with its now and its day, 新增地點, 早晨天氣, 版面. `#tab=places`,
+  place with its now and its day, 新增地點, 早晨天氣, 版面 (天氣's three cards put in order by their grips, kit `reorder`; each shown or not). `#tab=places`,
   `#pin=<id>` (an old `#tab=week` opens 天氣).
 - **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
   reading's hourly track shows only when a chance of 30%+ comes in the next

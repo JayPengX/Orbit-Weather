@@ -670,36 +670,32 @@ body {
   flex: none;
   white-space: nowrap;
 }
-.wx-order-row {
-  gap: 8px;
-  padding-inline: 12px;
+/* 版面: a row per card, its switch, and the kit's grip (ui.mjs reorder). */
+.wx-layout .q-list-head:first-child {
+  margin-top: 4px;
 }
-.wx-order-row .q-cell-icon {
-  --q-cell-tint: var(--q-accent);
+.wx-order-row {
+  gap: 12px;
+  min-height: 60px;
+}
+.wx-order-row > .q-tile {
+  transition: opacity 0.2s;
 }
 .wx-order-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.wx-order-row.is-off .wx-order-name {
-  color: var(--q-label-2);
-  text-decoration: line-through;
-}
-.wx-mini {
-  flex: none;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--q-fill-3);
-  color: var(--q-label);
-  font: 600 15px/1 var(--q-font);
-}
-.wx-mini:disabled {
-  opacity: 0.25;
+.wx-order-row.is-off :is(.wx-order-name, .q-tile) {
+  opacity: 0.45;
 }
 .wx-reset {
-  margin: 4px 0 0 16px;
+  margin: 18px 0 0 16px;
+}
+/* (A card with no grip keeps its switch in line with the ones above.) */
+.wx-grip-room {
+  flex: none;
+  width: 32px;
 }
 
 /* ==== The graphs (lib/graph.mjs): one frame, fitted to the width ==== */
@@ -1972,5 +1968,11 @@ button.ot-g {
   }
   .wx-scrub-vals {
     column-gap: 12px;
+  }
+}
+/* (版面 on a 320 phone: the card's name alone, its line would be cut.) */
+@media (max-width: 359px) {
+  .wx-order-name small {
+    display: none;
   }
 }

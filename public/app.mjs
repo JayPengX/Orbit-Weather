@@ -565,54 +565,65 @@ async function pinSheet(pin = null) {
   });
 }
 
-// 版面: the owner's cards, where each now lives, in their order, each shown or
-// not (kept on the Pass). 指標, 建議 and the days are 天氣's, under the hours,
-// in this order; 更多資訊 is in today's sheet.
-const CARD_ROWS = { metrics: ['chart', W('指標', 'Conditions'), W('天氣', 'Weather')], advice: ['bulb', W('建議', 'Advice'), W('天氣', 'Weather')], days: ['calendar', W('10 天預報', '10-day forecast'), W('天氣', 'Weather')], info: ['list', W('更多資訊', 'Details'), W('今天的詳情', 'Today’s sheet')] };
+// 版面: the owner's cards, each shown or not (kept on the Pass). 指標, 建議
+// and the days are 天氣's, under the hours, put in order by their grips (the
+// kit's reorder, as every list in the family); 更多資訊 is in today's
+// sheet, so it is only shown or not (where it sits in the order changes nothing).
+const CARD_ROWS = {
+  metrics: ['chart', W('指標', 'Conditions'), W('降雨、紫外線、空氣', 'Rain, UV, air')],
+  advice: ['bulb', W('建議', 'Advice'), W('雨傘、穿著、通勤', 'Umbrella, clothes, commute')],
+  days: ['calendar', W('10 天預報', '10-day forecast'), W('每天的高低溫', 'Each day’s high and low')],
+  info: ['list', W('更多資訊', 'Details'), W('氣壓、日出日落、月相', 'Pressure, sun, moon')]
+};
+const PAGE_CARDS = ['metrics', 'advice', 'days'];
 function layoutSheet() {
-  const rows = () =>
-    state.data.cards
-      .map((k, i, all) => {
-        const on = !state.data.hidden.includes(k);
-        const [icon, name, where] = CARD_ROWS[k];
-        return `<div class="q-cell wx-order-row${on ? '' : ' is-off'}">
-          <span class="q-cell-icon" aria-hidden="true">${glyph(icon, { size: 18 })}</span>
-          <span class="q-cell-text wx-order-name"><span>${e(name)}</span><small>${e(where)}</small></span>
-          <button class="wx-mini" type="button" data-move="${k}" data-by="-1" aria-label="${W('上移', 'Move up ')}${e(name)}" ${i ? '' : 'disabled'}>↑</button>
-          <button class="wx-mini" type="button" data-move="${k}" data-by="1" aria-label="${W('下移', 'Move down ')}${e(name)}" ${i < all.length - 1 ? '' : 'disabled'}>↓</button>
-          <button class="q-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="${W('顯示', 'Show ')}${e(name)}"></button>
-        </div>`;
-      })
-      .join('');
+  const row = k => {
+    const on = !state.data.hidden.includes(k);
+    const [icon, name, sub] = CARD_ROWS[k];
+    return `<div class="q-cell wx-order-row${on ? '' : ' is-off'}" data-q-key="${k}">
+      ${kitUI.tileHtml(glyph(icon, { size: 18 }), 'var(--q-accent)', 'sm')}
+      <span class="q-cell-text wx-order-name"><span>${e(name)}</span><small>${e(sub)}</small></span>
+      <button class="q-switch" type="button" role="switch" data-show="${k}" aria-checked="${on}" aria-label="${W('顯示', 'Show ')}${e(name)}"></button>
+      ${PAGE_CARDS.includes(k) ? kitUI.gripHtml(W(`拖曳排序：${name}`, `Reorder ${name}`)) : '<span class="wx-grip-room" aria-hidden="true"></span>'}
+    </div>`;
+  };
+  const body = () => `
+    <h3 class="q-list-head">${W('天氣頁', 'On 天氣')}</h3>
+    <div class="q-list wx-order" id="card-order">${state.data.cards.filter(k => PAGE_CARDS.includes(k)).map(row).join('')}</div>
+    <p class="q-list-foot">${W('按住 ≡ 拖曳，改變順序', 'Hold ≡ and drag to reorder')}</p>
+    <h3 class="q-list-head">${W('今天的詳情', 'Today’s sheet')}</h3>
+    <div class="q-list wx-order">${row('info')}</div>
+    <button class="q-btn plain wx-reset" type="button" data-reset="1">${W('恢復預設', 'Reset')}</button>`;
   const d = sheet(`
     <div class="q-sheet-head"><h2>${W('版面', 'Layout')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
-    <div class="q-list wx-order" id="card-order">${rows()}</div>
-    <button class="q-btn plain wx-reset" type="button" data-reset="1">${W('恢復預設', 'Reset')}</button>`);
-  const redraw = () => (d.querySelector('#card-order').innerHTML = rows());
+    <div class="wx-layout">${body()}</div>`);
+  const box = d.querySelector('.wx-layout');
+  // The page's cards in their new order (更多資訊 kept after them).
+  const wire = () =>
+    kitUI.reorder(box.querySelector('#card-order'), {
+      onChange: keys => {
+        state.data.cards = [...keys, ...state.data.cards.filter(k => !keys.includes(k))];
+        saveData();
+      }
+    });
+  wire();
   d.addEventListener('click', ev => {
-    const move = ev.target.closest('[data-move]');
     const show = ev.target.closest('[data-show]');
     const reset = ev.target.closest('[data-reset]');
-    if (!move && !show && !reset) return;
-    const cards = [...state.data.cards];
-    if (move) {
-      const i = cards.indexOf(move.dataset.move);
-      const j = i + Number(move.dataset.by);
-      if (i < 0 || j < 0 || j >= cards.length) return;
-      [cards[i], cards[j]] = [cards[j], cards[i]];
-      state.data.cards = cards;
-    }
     if (show) {
       const k = show.dataset.show;
-      state.data.hidden = state.data.hidden.includes(k) ? state.data.hidden.filter(x => x !== k) : [...state.data.hidden, k];
-    }
-    if (reset) {
+      const on = state.data.hidden.includes(k);
+      state.data.hidden = on ? state.data.hidden.filter(x => x !== k) : [...state.data.hidden, k];
+      // In place: the switch slides, the row dims.
+      show.setAttribute('aria-checked', String(on));
+      show.closest('.wx-order-row')?.classList.toggle('is-off', !on);
+      kitUI.tick();
+    } else if (reset) {
       state.data.cards = [...DEFAULT_LAYOUT];
       state.data.hidden = [];
-    }
-    redraw();
-    // Keep the button just pressed under the finger.
-    if (move) d.querySelector(`[data-move="${move.dataset.move}"][data-by="${move.dataset.by}"]`)?.focus();
+      box.innerHTML = body();
+      wire();
+    } else return;
     saveData();
   });
 }
