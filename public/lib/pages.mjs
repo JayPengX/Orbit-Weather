@@ -24,6 +24,9 @@ import { OLD_MS } from './api.mjs';
 const HOUR = 3_600_000;
 const hh = n => W(`${n}時`, `${n}:00`);
 const r1 = n => Math.round(n * 10) / 10;
+// A part of 天氣: its name on the page in the kit's section head (a plain word,
+// no glyph), the card under it; `end` sits at the head's right (全部, a key).
+const part = (cls, title, body, end = '') => `<section class="ot-part ${cls}"><div class="q-section-head q-shd ot-head"><h2>${title}</h2>${end}</div><div class="ot-card">${body}</div></section>`;
 
 // The sky's classes for a forecast (a cloudy day while there's none yet).
 export const skyClass = f => (f?.now ? skyOf(f.now) : 'sky-cloud sky-day');
@@ -90,7 +93,7 @@ function dayTrack(f, page, now) {
   const say = stops.map(s => [s.label, s.name, s.v, s.wet ? W(`雨 ${s.wet}%`, `rain ${s.wet}%`) : ''].filter(Boolean).join(' ')).join(W('，', ', '));
   return `<ol class="ot-day" style="--n:${stops.length}" aria-label="${e(say)}">${stops
     .map(
-      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 20 }) : s.icon && !s.wet ? (s.sun ? sunArt(s.icon, { size: 20 }) : glyph(s.icon, { size: 15 })) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 11 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
+      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 22 }) : s.icon && !s.wet ? (s.sun ? sunArt(s.icon, { size: 22 }) : glyph(s.icon, { size: 17 })) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 13 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
     )
     .join('')}</ol>`;
 }
@@ -110,8 +113,8 @@ function hero(f, page, { now }) {
   const stale = old
     ? `<button class="wx-stale${page.error ? ' failed' : ''}" type="button" data-act="retry" data-page="${e(page.key)}"><i class="wx-spin" aria-hidden="true"></i><b class="wx-stale-busy">${W('更新中', 'Updating')}</b><b class="wx-stale-failed">${page.error ? W('無法更新', "Couldn't update") : W('等待更新', 'Not updated')}</b><span class="wx-stale-age" data-at="${Number(f.at)}">${e(staleText(f.at, now))}</span></button>`
     : '';
-  const locate = page.askable && !page.pin && !page.plan ? `<button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 13 })}${W('定位', 'Locate')}</button>` : '';
-  const eyebrow = `<p class="ot-eyebrow">${placeGlyph(page, { size: 13 })}<span>${e(sub) || '&nbsp;'}</span>${locate}</p>`;
+  const locate = page.askable && !page.pin && !page.plan ? `<button class="wx-relocate" type="button" data-locate>${glyph('locate', { size: 14 })}${W('定位', 'Locate')}</button>` : '';
+  const eyebrow = `<p class="ot-eyebrow">${placeGlyph(page, { size: 15 })}<span>${e(sub) || '&nbsp;'}</span>${locate}</p>`;
   // Before the forecast: the card in the page's own graphite (no sky yet, so none guessed), its shapes shimmering.
   if (!f) return `<section class="ot-hero is-wait">${eyebrow}${page.error ? '' : '<div class="ot-now" aria-hidden="true"><i class="q-skel ot-sk-temp"></i></div><div class="ot-day-wait" aria-hidden="true"><i class="q-skel"></i></div>'}</section>`;
   // (A rain heads-up within two hours stays a line of its own; the track then says the rest.)
@@ -122,7 +125,7 @@ function hero(f, page, { now }) {
     <div class="ot-now">
       <div class="ot-temp" data-q-live="wx:temp">${n.temp == null ? '–' : Math.round(n.temp)}<i>°</i></div>
       <div class="ot-sky">
-        <span class="ot-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 52 })}</span>
+        <span class="ot-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 56 })}</span>
         <p class="ot-cond">${e(conditionText(n.condition?.code, n.condition?.text))}</p>
         <p class="ot-hilo"><span>${W('最高', 'H')} ${deg(d?.hi)}</span><span>${W('最低', 'L')} ${deg(d?.lo)}</span></p>
         <p class="ot-feel">${W('體感', 'Feels')} ${deg(n.feels)}</p>
@@ -152,10 +155,10 @@ function smooth(pts) {
   }
   return d;
 }
-const COL = 52;
-const SUN_COL = 44;
-const Y0 = 86;
-const YH = 30;
+const COL = 60;
+const SUN_COL = 54;
+const Y0 = 96;
+const YH = 32;
 function hourTrack(f, { now, key, page }) {
   const list = hoursFrom(f, now).slice(0, 25);
   if (list.length < 6) return '';
@@ -183,20 +186,20 @@ function hourTrack(f, { now, key, page }) {
   });
   const width = x;
   const plan = page.plan && hs.some(h => h.place);
-  const height = plan ? 150 : 124;
+  const height = plan ? 172 : 142;
   const cells = cols
     .map(c => {
       if (c.s)
-        return `<span class="ot-hr is-sun" style="width:${SUN_COL}px"><span class="ot-ht">${clock(c.s.t, f.tz)}</span><span class="ot-hi">${sunArt(c.s.kind, { size: 26 })}</span><span class="ot-hp">${c.s.kind === 'sunrise' ? W('日出', 'Rise') : W('日落', 'Set')}</span></span>`;
+        return `<span class="ot-hr is-sun" style="width:${SUN_COL}px"><span class="ot-ht">${clock(c.s.t, f.tz)}</span><span class="ot-hi">${sunArt(c.s.kind, { size: 28 })}</span><span class="ot-hp">${c.s.kind === 'sunrise' ? W('日出', 'Rise') : W('日落', 'Set')}</span></span>`;
       const { h, i } = c;
       const date = dateOf(h.t, f.tz);
       const hr = hourOf(h.t, f.tz);
       const label = i === 0 ? W('現在', 'Now') : hr === 0 ? (en ? weekday(date) : dayLabel(date, now, f.tz)) : hh(hr);
       return `<button class="ot-hr q-press${i === 0 ? ' is-now' : ''}" type="button" style="width:${COL}px" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}${h.pop >= 20 ? ` ${W('降雨', 'rain')} ${h.pop}%` : ''}`)}">
         <span class="ot-ht">${e(label)}</span>
-        <span class="ot-hi">${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 26 })}</span>
+        <span class="ot-hi">${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 28 })}</span>
         <span class="ot-hp">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
-        ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 26 : 21))}px">${deg(h.temp)}</b>`}
+        ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 29 : 24))}px">${deg(h.temp)}</b>`}
       </button>`;
     })
     .join('');
@@ -222,14 +225,15 @@ function hourTrack(f, { now, key, page }) {
       .join('');
   }
   const nowDot = cols[0].y == null ? '' : `<i class="ot-now-dot" style="left:${COL / 2}px;top:${r1(cols[0].y)}px" aria-hidden="true"></i>`;
-  const dots = pts.slice(1).map(([px, py]) => `<circle cx="${r1(px)}" cy="${r1(py)}" r="2.4"/>`).join('');
-  return `<section class="ot-card ot-hours">
-    <h2 class="ot-cap">${glyph('clock', { size: 14 })}${W('每小時', 'Hourly')}</h2>
-    <div class="ot-hrs"><div class="ot-hrs-in" style="width:${width}px;height:${height}px">
+  const dots = pts.slice(1).map(([px, py]) => `<circle cx="${r1(px)}" cy="${r1(py)}" r="2.8"/>`).join('');
+  return part(
+    'ot-hours',
+    W('每小時', 'Hourly'),
+    `<div class="ot-hrs"><div class="ot-hrs-in" style="width:${width}px;height:${height}px">
       <svg class="ot-curve" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-hidden="true"><path d="${smooth(pts)}"/>${dots}</svg>
       ${nowDot}${cells}${band}
-    </div></div>
-  </section>`;
+    </div></div>`
+  );
 }
 
 // ---- The ten days: side by side, the highs and the lows as two lines on one scale --------------
@@ -238,8 +242,8 @@ function hourTrack(f, { now, key, page }) {
 // warm line and the ten lows as one cool line, the days' range shaded
 // between: the week's warming and cooling reads at a glance, each number at
 // its dot, the head naming the two lines in their own colours.
-const SPAN = 58; // the scale's height (px), top high to bottom low
-const LIFT = 20; // room for a high's number above its dot, a low's below
+const SPAN = 64; // the scale's height (px), top high to bottom low
+const LIFT = 24; // room for a high's number above its dot, a low's below
 function skyline(f, { now, key, page, home = '' }) {
   const list = (f.days || []).filter(d => d.date >= dateOf(now, f.tz)).slice(0, 10);
   if (!list.length) return '';
@@ -271,11 +275,11 @@ function skyline(f, { now, key, page, home = '' }) {
       if (page.plan) days.push(where.find(p => p !== home && p !== here) || d.places?.find(p => p !== here) || (d.places?.length ? W('這裡', 'Here') : ''));
       return `<button class="ot-sk q-press${isToday ? ' is-today' : ''}" type="button" data-day="${e(d.date)}" data-page="${e(key)}" aria-label="${e(`${name} ${shortDate(d.date)} ${deg(d.lo)}–${deg(d.hi)}${pop >= 20 ? ` ${W('降雨', 'rain')} ${pop}%` : ''}${where.length ? ` · ${where.join('·')}` : ''}`)}">
         <span class="ot-sk-d">${e(name)}<small>${e(shortDate(d.date))}</small></span>
-        <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 24 })}</span>
+        <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 28 })}</span>
         <span class="ot-sk-p">${pop >= 20 ? `${pop}%` : ''}</span>
         <span class="ot-sk-bar" style="height:${SPAN + 2 * LIFT}px">
-          ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 20)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
-          ${yl == null ? '' : `<i class="ot-sk-dot is-lo" style="top:${r1(yl)}px"></i><b class="ot-sk-lo" style="top:${r1(yl + 4)}px">${deg(d.lo)}</b>`}
+          ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 23)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
+          ${yl == null ? '' : `<i class="ot-sk-dot is-lo" style="top:${r1(yl)}px"></i><b class="ot-sk-lo" style="top:${r1(yl + 5)}px">${deg(d.lo)}</b>`}
         </span>
       </button>`;
     })
@@ -298,10 +302,7 @@ function skyline(f, { now, key, page, home = '' }) {
     ? segs.map((s, i) => `<span class="ot-where is-days${i ? ' is-move' : ' is-first'}${i % 2 ? ' is-alt' : ''}${i === segs.length - 1 ? ' is-last' : ''}" style="grid-column:${s.from + 1} / ${s.to + 1}"><i></i><small>${e(s.place)}</small></span>`).join('')
     : '';
   const key2 = `<span class="ot-sk-key" aria-hidden="true"><i class="is-hi"></i>${W('最高', 'High')}<i class="is-lo"></i>${W('最低', 'Low')}</span>`;
-  return `<section class="ot-card ot-days">
-    <h2 class="ot-cap">${glyph('calendar', { size: 14 })}${W(`${n} 天`, `${n} days`)}${key2}</h2>
-    <div class="ot-sks"><div class="ot-sks-in" style="--n:${n}">${lines}${cols}${rail}</div></div>
-  </section>`;
+  return part('ot-days', W(`${n} 天`, `${n} days`), `<div class="ot-sks"><div class="ot-sks-in" style="--n:${n}">${lines}${cols}${rail}</div></div>`, key2);
 }
 
 // ---- The readings: each on its own track, its dot where it is now -----------------------------
@@ -318,11 +319,13 @@ const UV_C = uv => (uv >= 11 ? 'var(--q-purple)' : uv >= 8 ? 'var(--q-red)' : uv
 const AQI_C = a => (a > 200 ? 'var(--q-purple)' : a > 150 ? 'var(--q-red)' : a > 100 ? 'var(--q-orange)' : a > 50 ? 'var(--q-yellow)' : 'var(--q-green)');
 const gauge = ({ kind, metric = '', key = '', icon, name, sub = '', v, unit = '', track = '' }) => {
   const tag = metric ? 'button' : 'div';
+  const k = `${track ? '' : ' no-track'}${sub ? '' : ' no-sub'}`;
   const open = metric ? ` type="button" data-metric="${metric}" data-page="${e(key)}"` : '';
-  return `<${tag} class="ot-g k-${kind}${metric ? ' q-press' : ''}${track ? '' : ' no-track'}"${open}>
-    <span class="ot-g-ic">${glyph(icon, { size: 17 })}</span>
-    <span class="ot-g-name">${name}${sub ? `<small>${sub}</small>` : ''}</span>
+  return `<${tag} class="ot-g k-${kind}${metric ? ' q-press' : ''}${k}"${open}>
+    <span class="ot-g-ic">${glyph(icon, { size: 20 })}</span>
+    <span class="ot-g-name">${name}</span>
     <b class="ot-g-v">${e(v)}${unit ? `<small>${e(unit)}</small>` : ''}</b>
+    ${sub ? `<small class="ot-g-sub">${sub}</small>` : ''}
     ${track}
   </${tag}>`;
 };
@@ -360,7 +363,7 @@ function readings(f, { now, key }) {
     const day = uvDay.date === dateOf(now, f.tz) ? '' : dayLabel(uvDay.date, now, f.tz);
     out.push(gauge({ kind: 'uv', metric: 'uv', key, icon: 'sun', name: W('紫外線', 'UV'), sub: e(W(`${day ? `${day} ` : ''}${hourOf(peak.t, f.tz)}時最高`, `${day ? `${day}, ` : ''}peak ${hourOf(peak.t, f.tz)}:00`)), v: `${peak.uv}`, unit: uvLevel(peak.uv) || '', track: fill((peak.uv / 11) * 100, UV_C(peak.uv)) }));
   }
-  if (f.air) out.push(gauge({ kind: 'air', metric: 'air', key, icon: 'air', name: W('空氣', 'Air'), sub: `PM2.5 ${f.air.pm25 ?? '–'}`, v: `${f.air.aqi ?? '–'}`, unit: aqiLevel(f.air.level) || '', track: fill(((f.air.aqi ?? 0) / 200) * 100, AQI_C(f.air.aqi ?? 0)) }));
+  if (f.air) out.push(gauge({ kind: 'air', metric: 'air', key, icon: 'air', name: W('空氣', 'Air'), sub: e([aqiLevel(f.air.level), `PM2.5 ${f.air.pm25 ?? '–'}`].filter(Boolean).join(' · ')), v: `${f.air.aqi ?? '–'}`, track: fill(((f.air.aqi ?? 0) / 200) * 100, AQI_C(f.air.aqi ?? 0)) }));
   const hum = n.humidity ?? list[0]?.humidity;
   if (hum != null) {
     const dew = n.dew ?? list[0]?.dew;
@@ -369,7 +372,7 @@ function readings(f, { now, key }) {
   const w = n.wind || {};
   if (w.speed != null) {
     const bf = beaufort(w.speed);
-    out.push(gauge({ kind: 'wind', icon: 'wind', name: W('風', 'Wind'), sub: e(`${windDir(w.dir)}${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`), v: W(`${bf}`, `${bf}`), unit: W(`級 · ${Math.round(w.speed)} km/h`, `· ${Math.round(w.speed)} km/h`), track: fill((bf / 12) * 100, 'var(--q-teal)') }));
+    out.push(gauge({ kind: 'wind', icon: 'wind', name: W('風', 'Wind'), sub: e(`${windDir(w.dir)} ${Math.round(w.speed)} km/h${w.gust ? ` · ${W(`陣風 ${Math.round(w.gust)}`, `gusts ${Math.round(w.gust)}`)}` : ''}`), v: `${bf}`, unit: W('級', 'Bft'), track: fill((bf / 12) * 100, 'var(--q-teal)') }));
   }
   // The sun: the day's light from sunrise to sunset, the dot where it is now.
   const d = todayOf(f, now);
@@ -384,7 +387,7 @@ function readings(f, { now, key }) {
   }
   if (n.feels != null) out.push(gauge({ kind: 'feels', icon: 'thermo', name: W('體感', 'Feels like'), sub: n.temp != null ? e(`${W('氣溫', 'Actual')} ${deg(n.temp)}`) : '', v: deg(n.feels) }));
   if (n.vis != null) out.push(gauge({ kind: 'vis', icon: 'eye', name: W('能見度', 'Visibility'), sub: n.cloud != null ? e(`${W('雲量', 'Cloud')} ${Math.round(n.cloud)}%`) : '', v: `${n.vis}`, unit: W('公里', 'km'), track: fill((Math.min(n.vis, 20) / 20) * 100, 'var(--q-gray)') }));
-  return out.length ? `<section class="ot-card ot-reads"><h2 class="ot-cap">${glyph('gauge', { size: 14 })}${W('今日數據', 'Today')}</h2>${out.join('')}</section>` : '';
+  return out.length ? part('ot-reads', W('今日數據', 'Today'), out.join('')) : '';
 }
 
 // ---- What to do -------------------------------------------------------------------------------
@@ -397,14 +400,11 @@ function advice(f, { now, key }) {
     .slice(0, SHOWN)
     .map(a => {
       const tag = LEVEL_TAG[a.level];
-      return `<div class="ot-tip k-${e(a.kind)} lv-${e(a.level)}"><span class="ot-tip-ic" style="--t:var(--q-${KIND_COLOR[a.kind] || 'indigo'})">${glyph(ADVICE_GLYPH[a.kind] || 'bulb', { size: 17 })}</span><span class="ot-tip-text"><b>${e(LIFE[a.kind])}</b><small>${e(a.text)}</small></span>${tag ? `<span class="ot-flag">${tag[1]}</span>` : ''}</div>`;
+      return `<div class="ot-tip k-${e(a.kind)} lv-${e(a.level)}"><span class="ot-tip-ic" style="--t:var(--q-${KIND_COLOR[a.kind] || 'indigo'})">${glyph(ADVICE_GLYPH[a.kind] || 'bulb', { size: 19 })}</span><span class="ot-tip-text"><b>${e(LIFE[a.kind])}</b><small>${e(a.text)}</small></span>${tag ? `<span class="ot-flag">${tag[1]}</span>` : ''}</div>`;
     })
     .join('');
-  const more = list.length > SHOWN ? `<button class="ot-more" type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}${glyph('chevR', { size: 12 })}</button>` : '';
-  return `<section class="ot-card ot-advice">
-    <div class="ot-cap-row"><h2 class="ot-cap">${glyph('bulb', { size: 14 })}${tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today')}</h2>${more}</div>
-    ${rows}
-  </section>`;
+  const more = list.length > SHOWN ? `<button class="ot-more" type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}${glyph('chevR', { size: 14 })}</button>` : '';
+  return part('ot-advice', tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'), rows, more);
 }
 
 // ---- 天氣: the whole page --------------------------------------------------------------------
@@ -414,7 +414,8 @@ function advice(f, { now, key }) {
 // move, all shown.
 // The cards to come, as graphite cards of their size: the hours' line, then the readings' rows.
 const WAIT_ROW = '<i class="q-skel ot-wait-row"></i>';
-const WAIT_CARDS = `<div class="ot-card ot-wait" aria-hidden="true"><i class="q-skel ot-wait-cap"></i><i class="q-skel ot-wait-line"></i></div><div class="ot-card ot-wait" aria-hidden="true"><i class="q-skel ot-wait-cap"></i>${WAIT_ROW.repeat(5)}</div>`;
+const WAIT_PART = body => `<div class="ot-part" aria-hidden="true"><i class="q-skel ot-wait-cap"></i><div class="ot-card ot-wait">${body}</div></div>`;
+const WAIT_CARDS = WAIT_PART('<i class="q-skel ot-wait-line"></i>') + WAIT_PART(WAIT_ROW.repeat(5));
 const CARD = { metrics: readings, advice, days: skyline };
 const shownCards = (page, cards = ['metrics', 'advice', 'days', 'info'], hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
 export function nowHtml(f, page, { now, cards, hidden, home = '' } = {}) {

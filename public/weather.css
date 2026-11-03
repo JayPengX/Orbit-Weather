@@ -372,15 +372,15 @@ body {
   line-height: 0;
 }
 .wx-dayg {
-  margin-top: 4px;
-  padding: 8px 10px 10px;
-  border-radius: 18px;
+  margin-top: 8px;
+  padding: 12px 14px 14px;
+  border-radius: var(--q-r-card, 22px);
   background: var(--q-surface);
 }
 .wx-scrub {
   display: grid;
-  gap: 6px;
-  padding: 6px 4px 8px;
+  gap: 10px;
+  padding: 4px 2px 12px;
   border-bottom: 0.5px solid var(--q-sep);
 }
 .wx-scrub-time {
@@ -389,17 +389,17 @@ body {
   gap: 8px;
 }
 .wx-scrub-time b {
-  font: 700 20px/1.1 var(--q-font-rounded, var(--q-font));
+  font: 600 22px/1.1 var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
 }
 .wx-scrub-time span {
   color: var(--q-label-2);
-  font-size: 13px;
+  font-size: 15px;
 }
 .wx-scrub-vals {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 .wx-scrub-vals.is-sum {
   grid-template-columns: repeat(4, auto);
@@ -407,16 +407,18 @@ body {
 }
 .wx-scrub-vals div {
   display: grid;
+  gap: 1px;
   min-width: 0;
 }
 .wx-scrub-vals span,
 .wx-scrub-vals small {
   color: var(--q-label-2);
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 18px;
   white-space: nowrap;
 }
 .wx-scrub-vals b {
-  font: 700 16px/1.3 var(--q-font-rounded, var(--q-font));
+  font: 600 18px/1.3 var(--q-font-rounded, var(--q-font));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -428,19 +430,19 @@ body {
   -webkit-touch-callout: none;
 }
 .wx-dch {
-  margin-top: 6px;
+  margin-top: 12px;
 }
 .wx-dch-h {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 4px 2px 0;
-  font: 700 13px/18px var(--q-font);
+  font: 600 16px/22px var(--q-font);
 }
 .wx-dch-h span {
   color: var(--q-label-2);
-  font-size: 11.5px;
-  font-weight: 550;
+  font-size: 13px;
+  font-weight: 500;
 }
 .wx-dch-h span::before {
   content: '';
@@ -465,8 +467,8 @@ body {
 }
 .wx-dch-h .wx-dch-note {
   color: var(--q-label);
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 600;
 }
 .wx-dch-h .wx-dch-note::before {
   display: none;
@@ -504,11 +506,11 @@ body {
 .wx-half span,
 .wx-half small {
   color: var(--q-label-2);
-  font-size: 12px;
+  font-size: 13px;
 }
 .wx-half b {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: 17px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 /* 更多資訊 (today's sheet): a row each, the value on the right. */
@@ -520,7 +522,7 @@ body {
 }
 .wx-info-row .q-ritem-text small {
   display: block;
-  font-size: 12px;
+  font-size: 13px;
 }
 .wx-info-row .q-ritem-value {
   flex: 0 1 auto;
@@ -552,8 +554,8 @@ body {
   white-space: nowrap;
 }
 .wx-big small {
-  margin-left: 3px;
-  font: 650 13px/1 var(--q-font);
+  margin-left: 4px;
+  font: 600 15px/1 var(--q-font);
 }
 .wx-air .wx-big small {
   display: block;
@@ -593,7 +595,7 @@ body {
   gap: 6px 14px;
   margin: 10px 0 0;
   color: var(--q-label-2);
-  font: 600 12px/16px var(--q-font);
+  font: 500 13px/18px var(--q-font);
   font-variant-numeric: tabular-nums;
 }
 .l-mm::before {
@@ -1014,68 +1016,79 @@ svg.ch {
 /* ---------- Cards ---------- */
 .ot-card {
   position: relative;
-  padding: 12px 14px;
+  padding: 16px;
   border-radius: var(--q-r-card, 20px);
   background: var(--nv-card, var(--q-grouped-2));
   box-shadow: inset 0 0 0 0.5px var(--nv-edge, rgba(0, 0, 0, 0.06)), var(--nv-lift, none);
 }
 .ot-flow > * + *,
 .ot-flow .q-flow-col > * + * {
+  margin-top: 28px;
+}
+/* (The sky's card and the typhoon's sit close: they are one thing, now.) */
+.ot-flow > .ot-hero + .ot-off,
+.ot-flow .q-flow-col > .ot-hero + .ot-off {
   margin-top: 12px;
+}
+/* A part of the page: its name in the kit's section head, the card under it. */
+.ot-part > .ot-card {
+  margin: 0;
+}
+.q-section-head.ot-head {
+  align-items: center;
+  min-height: 26px;
+  margin: 0;
+  padding: 0 4px 10px;
+}
+/* (全部 is a way on, in grey: never an accent link.) */
+.q-section-head.ot-head .ot-more {
+  color: var(--q-label-2);
+  font: 500 17px/22px var(--q-font);
 }
 /* (Laid in columns on a wide screen, each column's top in line with the first's.) */
 .ot-flow > .q-flow-col {
   margin-top: 0;
 }
-.ot-cap {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  color: var(--q-label-2);
-  font: 600 13px/18px var(--q-font);
-  white-space: nowrap;
-}
-.ot-cap .wx-g {
-  flex: none;
-}
-.ot-cap-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
 .ot-more {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 4px 0 4px 8px;
+  min-height: 44px;
+  margin: -12px 0 -12px auto;
+  padding: 0 0 0 12px;
   border: 0;
   background: none;
   color: var(--q-label-2);
-  font: 600 13px/18px var(--q-font);
+  font: 500 17px/22px var(--q-font);
   cursor: pointer;
+}
+.ot-waiting > * + * {
+  margin-top: 28px;
+}
+.ot-waiting {
+  margin-top: 28px;
 }
 .ot-wait {
   display: grid;
-  gap: 14px;
-  margin-top: 12px;
-  padding: 14px 14px 18px;
+  gap: 16px;
+  padding: 16px 16px 20px;
 }
-.ot-wait > i {
+.ot-wait > i,
+.ot-wait-cap {
   display: block;
 }
 .ot-wait-cap {
-  width: 72px;
-  height: 14px;
-  border-radius: 7px;
+  width: 96px;
+  height: 22px;
+  margin: 0 4px 12px;
+  border-radius: 8px;
 }
 .ot-wait-line {
-  height: 96px;
+  height: 120px;
   border-radius: 14px;
 }
 .ot-wait-row {
-  height: 34px;
+  height: 48px;
   border-radius: 10px;
 }
 
@@ -1085,7 +1098,7 @@ svg.ch {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  padding: 14px 16px 16px;
+  padding: 16px 20px 20px;
   border-radius: var(--q-r-card, 20px);
   color: #fff;
   background: radial-gradient(110% 90% at 100% 0%, var(--sky-glow), transparent 62%), var(--sky);
@@ -1140,11 +1153,11 @@ svg.ch {
 .ot-eyebrow {
   display: flex;
   align-items: center;
-  gap: 5px;
-  min-height: 26px;
+  gap: 6px;
+  min-height: 28px;
   margin: 0;
-  color: rgba(255, 255, 255, 0.86);
-  font: 500 13px/18px var(--q-font);
+  color: rgba(255, 255, 255, 0.88);
+  font: 500 15px/20px var(--q-font);
   white-space: nowrap;
 }
 .ot-eyebrow > span {
@@ -1160,12 +1173,12 @@ svg.ch {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 12px;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .ot-temp {
   position: relative;
   justify-self: start;
-  font: 200 86px/0.95 var(--nv-display, var(--q-font));
+  font: 200 96px/0.95 var(--nv-display, var(--q-font));
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em;
   white-space: nowrap;
@@ -1179,7 +1192,7 @@ svg.ch {
 .ot-sky {
   display: grid;
   justify-items: end;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   text-align: right;
 }
@@ -1187,26 +1200,26 @@ svg.ch {
   margin: -6px -2px 0 0;
 }
 .ot-cond {
-  margin: 0;
-  font: 600 17px/22px var(--q-font);
+  margin: 2px 0 2px;
+  font: 600 20px/26px var(--q-font);
   white-space: nowrap;
 }
 .ot-hilo {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
-  font: 500 13px/18px var(--q-font);
+  font: 500 15px/20px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-feel {
   margin: 0;
-  color: rgba(255, 255, 255, 0.78);
-  font: 500 13px/18px var(--q-font);
+  color: rgba(255, 255, 255, 0.8);
+  font: 500 15px/20px var(--q-font);
   white-space: nowrap;
 }
 .ot-hero .wx-soon {
-  margin-top: 12px;
+  margin-top: 16px;
 }
 .ot-foot {
   margin-top: 12px;
@@ -1232,8 +1245,8 @@ svg.ch {
   position: relative;
   display: grid;
   grid-template-columns: repeat(var(--n), minmax(0, 1fr));
-  gap: 0 6px;
-  margin: 16px 0 0;
+  gap: 0 8px;
+  margin: 22px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1242,7 +1255,7 @@ svg.ch {
   position: absolute;
   top: 5px;
   left: 6px;
-  right: calc((100% + 6px) / var(--n));
+  right: calc((100% + 8px) / var(--n));
   height: 1.5px;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.42);
@@ -1251,8 +1264,9 @@ svg.ch {
   position: relative;
   display: grid;
   align-content: start;
+  gap: 1px;
   min-width: 0;
-  padding-top: 19px;
+  padding-top: 22px;
 }
 .ot-dot {
   position: absolute;
@@ -1270,8 +1284,8 @@ svg.ch {
 }
 .ot-stop small {
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.78);
-  font: 500 12px/16px var(--q-font);
+  color: rgba(255, 255, 255, 0.8);
+  font: 500 13px/18px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -1279,8 +1293,8 @@ svg.ch {
 .ot-stop b {
   display: flex;
   align-items: center;
-  gap: 3px;
-  font: 600 17px/22px var(--q-font);
+  gap: 4px;
+  font: 500 20px/26px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1296,8 +1310,8 @@ svg.ch {
   gap: 2px;
   min-width: 0;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.86);
-  font: 500 12px/16px var(--q-font);
+  color: rgba(255, 255, 255, 0.88);
+  font: 500 13px/18px var(--q-font);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1310,8 +1324,8 @@ svg.ch {
 
 /* ---------- The hours: one line through the hours' dots ---------- */
 .ot-hrs {
-  margin: 6px -14px -6px;
-  padding: 0 8px 6px;
+  margin: -2px -16px -6px;
+  padding: 0 10px 6px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -1343,9 +1357,9 @@ svg.ch {
 .ot-now-dot {
   position: absolute;
   z-index: 1;
-  width: 11px;
-  height: 11px;
-  margin: -5.5px 0 0 -5.5px;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
   border-radius: 50%;
   background: var(--q-accent);
   box-shadow: var(--ot-glow);
@@ -1372,31 +1386,33 @@ svg.ch {
 .ot-ht {
   top: 0;
   color: var(--q-label-2);
-  font: 600 12.5px/16px var(--q-font);
+  font: 500 15px/20px var(--q-font);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-hr.is-now .ot-ht {
   color: var(--q-label);
-  font-weight: 700;
+  font-weight: 600;
 }
 .ot-hi {
-  top: 19px;
+  top: 26px;
   display: grid;
   justify-items: center;
 }
 .ot-hp {
-  top: 47px;
+  top: 57px;
   color: var(--ot-rain);
-  font: 700 11px/13px var(--q-font);
+  font: 600 13px/16px var(--q-font);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-hv {
-  font: 500 15px/18px var(--q-font);
+  font: 500 17px/22px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-hr.is-now .ot-hv {
-  font-weight: 700;
+  font-weight: 600;
 }
 .ot-hr.is-sun {
   cursor: default;
@@ -1408,8 +1424,8 @@ svg.ch {
 .ot-hr.is-sun::after {
   content: '';
   position: absolute;
-  top: 68px;
-  height: 40px;
+  top: 78px;
+  height: 52px;
   left: 50%;
   right: auto;
   border-left: 1px dashed var(--ot-line);
@@ -1417,8 +1433,8 @@ svg.ch {
 /* 我的行程: one rail under the hours, a stretch a place, a ring where you move. */
 .ot-where {
   position: absolute;
-  top: 124px;
-  height: 26px;
+  top: 142px;
+  height: 30px;
   min-width: 0;
 }
 .ot-where i {
@@ -1464,17 +1480,18 @@ svg.ch {
   display: block;
   width: max-content;
   max-width: calc(100% - 7px);
-  margin: 11px 0 0 5px;
+  margin: 12px 0 0 5px;
   overflow: hidden;
   color: var(--q-label);
-  font: 600 11px/14px var(--q-font);
+  font: 500 13px/16px var(--q-font);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
 /* ---------- The ten days: the highs and the lows as two lines ---------- */
 .ot-sks {
-  margin: 8px -8px 0;
+  margin: -2px -10px -4px;
+  padding: 0 4px;
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -1486,13 +1503,13 @@ svg.ch {
 .ot-sks-in {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(var(--n), minmax(34px, 1fr));
-  min-width: calc(var(--n) * 34px);
+  grid-template-columns: repeat(var(--n), minmax(56px, 1fr));
+  min-width: calc(var(--n) * 56px);
 }
 /* (The lines sit under the columns, at the scale's top: the rows above it are fixed heights.) */
 .ot-sk-lines {
   position: absolute;
-  top: 80px;
+  top: 104px;
   left: 0;
   width: 100%;
   overflow: visible;
@@ -1523,7 +1540,7 @@ svg.ch {
 .ot-sk {
   position: relative;
   display: grid;
-  grid-template-rows: 31px 30px 15px auto auto;
+  grid-template-rows: 42px 36px 22px auto auto;
   justify-items: center;
   align-content: start;
   min-width: 0;
@@ -1543,12 +1560,12 @@ svg.ch {
   display: grid;
   justify-items: center;
   align-content: start;
-  font: 600 13px/17px var(--q-font);
+  font: 600 15px/20px var(--q-font);
   white-space: nowrap;
 }
 .ot-sk-d small {
-  color: var(--q-label-3);
-  font: 500 10px/13px var(--q-font);
+  color: var(--q-label-2);
+  font: 500 13px/18px var(--q-font);
   font-variant-numeric: tabular-nums;
 }
 .ot-sk.is-today .ot-sk-d {
@@ -1560,7 +1577,8 @@ svg.ch {
 }
 .ot-sk-p {
   color: var(--ot-rain);
-  font: 700 11px/13px var(--q-font);
+  font: 600 13px/18px var(--q-font);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-sk-bar {
@@ -1572,7 +1590,7 @@ svg.ch {
   left: 0;
   right: 0;
   text-align: center;
-  font: 600 13px/16px var(--q-font);
+  font: 600 17px/20px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1583,9 +1601,9 @@ svg.ch {
 .ot-sk-dot {
   position: absolute;
   left: 50%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
   border-radius: 50%;
   background: var(--ot-hi);
 }
@@ -1594,28 +1612,29 @@ svg.ch {
 }
 /* Today: its dots larger, ringed in the card's colour. */
 .ot-sk.is-today .ot-sk-dot {
-  width: 9px;
-  height: 9px;
-  margin: -4.5px 0 0 -4.5px;
-  box-shadow: 0 0 0 2.5px var(--q-grouped-2);
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  box-shadow: 0 0 0 2.5px var(--nv-card, var(--q-grouped-2));
 }
 /* The head names the two lines: a short stroke of each colour, then its word. */
 .ot-sk-key {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   margin-left: auto;
   color: var(--q-label-2);
-  font: 500 11.5px/14px var(--q-font);
+  font: 500 15px/20px var(--q-font);
+  white-space: nowrap;
 }
 .ot-sk-key i {
-  width: 12px;
+  width: 14px;
   height: 3px;
   border-radius: 2px;
   background: var(--ot-hi);
 }
 .ot-sk-key i.is-lo {
-  margin-left: 6px;
+  margin-left: 10px;
   background: var(--ot-lo);
 }
 /* 我的行程 in the ten days: the hours' rail, under the lows, a stretch of days a place. */
@@ -1632,17 +1651,13 @@ svg.ch {
 }
 
 /* ---------- The readings: each on its own track ---------- */
-.ot-reads .ot-cap {
-  margin-bottom: 2px;
-}
 .ot-g {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 8px 10px;
+  gap: 2px 12px;
   width: 100%;
-  padding: 11px 0;
+  padding: 14px 0;
   border: 0;
   border-top: 0.5px solid var(--q-sep);
   background: none;
@@ -1651,54 +1666,68 @@ svg.ch {
   text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
-.ot-cap + .ot-g {
+.ot-g:first-child {
+  padding-top: 0;
   border-top: 0;
 }
 button.ot-g {
   cursor: pointer;
 }
-.ot-g.no-track {
-  grid-template-rows: auto;
-}
 .ot-g:last-child {
-  padding-bottom: 2px;
+  padding-bottom: 0;
 }
+/* The glyph beside the name (a reading with a line under it: by its two lines). */
 .ot-g-ic {
+  grid-row: 1 / span 2;
   display: grid;
   place-items: center;
+  align-self: center;
   color: var(--q-label-2);
 }
-.ot-g-name {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  min-width: 0;
-  font: 500 15px/20px var(--q-font);
-  white-space: nowrap;
+.ot-g.no-sub .ot-g-ic {
+  grid-row: 1;
 }
-.ot-g-name small {
+.ot-g-name {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 500 17px/22px var(--q-font);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ot-g-sub {
+  grid-column: 2 / 4;
+  grid-row: 2;
   min-width: 0;
   overflow: hidden;
   color: var(--q-label-2);
-  font: 500 12.5px/16px var(--q-font);
+  font: 400 15px/20px var(--q-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 .ot-g-v {
+  grid-column: 3;
+  grid-row: 1;
   display: flex;
   align-items: baseline;
-  gap: 3px;
-  font: 500 19px/22px var(--q-font);
+  justify-content: flex-end;
+  gap: 4px;
+  font: 400 24px/26px var(--nv-display, var(--q-font));
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .ot-g-v small {
   color: var(--q-label-2);
-  font: 600 12px/16px var(--q-font);
+  font: 500 15px/20px var(--q-font);
 }
 .ot-gt,
 .ot-gr {
   grid-column: 2 / 4;
+  grid-row: 3;
   position: relative;
+  margin-top: 12px;
 }
 .ot-gt {
   height: 4px;
@@ -1727,7 +1756,7 @@ button.ot-g {
 }
 /* A dry day's rain: the next rain said in words where the number goes. */
 .ot-g.is-dry .ot-g-v {
-  font: 500 15px/20px var(--q-font);
+  font: 500 17px/22px var(--q-font);
 }
 .ot-g.is-night .ot-gt i {
   opacity: 0.35;
@@ -1736,7 +1765,7 @@ button.ot-g {
   display: grid;
   grid-template-columns: repeat(24, minmax(0, 1fr));
   gap: 2px;
-  height: 6px;
+  height: 8px;
 }
 .ot-gr i {
   border-radius: 1.5px;
@@ -1757,42 +1786,43 @@ button.ot-g {
 /* ---------- What to do ---------- */
 .ot-tip {
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) auto;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  padding: 10px 0;
+  gap: 14px;
+  padding: 14px 0;
   border-top: 0.5px solid var(--q-sep);
 }
-.ot-cap-row + .ot-tip {
-  margin-top: 4px;
+.ot-tip:first-child {
+  padding-top: 0;
   border-top: 0;
 }
 .ot-tip:last-child {
-  padding-bottom: 2px;
+  padding-bottom: 0;
 }
 .ot-tip-ic {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--t) 18%, transparent);
   color: var(--t);
 }
 .ot-tip-text {
   display: grid;
+  gap: 2px;
   min-width: 0;
 }
 .ot-tip-text b {
-  font: 600 15px/20px var(--q-font);
+  font: 500 17px/22px var(--q-font);
 }
 .ot-tip-text small {
   color: var(--q-label-2);
-  font: 500 13px/18px var(--q-font);
+  font: 400 15px/20px var(--q-font);
 }
 .ot-flag {
   color: var(--q-orange);
-  font: 700 12px/16px var(--q-font);
+  font: 600 15px/20px var(--q-font);
   white-space: nowrap;
 }
 
@@ -1849,14 +1879,15 @@ button.ot-g {
 }
 .ot-place-now b {
   min-width: 34px;
-  font: 600 20px/1 var(--q-font-rounded, var(--q-font));
+  font: 400 24px/1 var(--nv-display, var(--q-font));
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
 .ot-place-now small {
   grid-column: 1 / -1;
+  margin-top: 4px;
   color: var(--q-label-2);
-  font: 500 12px/16px var(--q-font);
+  font: 500 15px/20px var(--q-font);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1879,8 +1910,8 @@ button.ot-g {
 }
 .ot-pr small {
   grid-row: 1;
-  color: var(--q-label-3);
-  font: 500 10.5px/12px var(--q-font);
+  color: var(--q-label-2);
+  font: 500 12px/16px var(--q-font);
   white-space: nowrap;
 }
 .ot-pr small:last-of-type {
@@ -1891,8 +1922,30 @@ button.ot-g {
     display: none;
   }
   /* (「明天 07:00」 whole in a quarter of a 320 card.) */
+  .ot-hero {
+    padding-inline: 16px;
+  }
+  .ot-day {
+    gap: 0 6px;
+  }
   .ot-stop small {
-    font-size: 11px;
+    font-size: 11.5px;
+  }
+  .ot-stop b {
+    font-size: 18px;
+  }
+  .ot-temp {
+    font-size: 80px;
+  }
+  .ot-hilo,
+  .ot-feel {
+    font-size: 14px;
+  }
+  .ot-place-now b {
+    font-size: 22px;
+  }
+  .ot-place-now small {
+    font-size: 12px;
   }
   /* (A day sheet's 白天 / 晚上 side by side: 晴朗偶有雲 on one line.) */
   .wx-half {
@@ -1904,5 +1957,12 @@ button.ot-g {
   }
   .wx-half b {
     font-size: 14px;
+  }
+  .wx-scrub-vals b {
+    font-size: 16px;
+  }
+  .wx-scrub-vals span,
+  .wx-scrub-vals small {
+    font-size: 12px;
   }
 }
