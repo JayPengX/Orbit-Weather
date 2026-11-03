@@ -491,9 +491,9 @@ export function daySheet(f, date, { now, lat, lon }) {
   const sum = `<div class="wx-scrub-time"><b>${W('全天', 'All day')}</b><span>${e(places || conditionText(c.code, c.text) || '')}</span></div>
     <div class="wx-scrub-vals is-sum">
       <div><span>${W('最高 / 最低', 'High / low')}</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>${W('體感', 'Feels')} ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
-      <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `${d.mm} mm` : ''}</small></div>
-      <div><span>${W('紫外線最高', 'UV high')}</span><b>${d?.uvMax ?? '–'}</b><small>${uvLevel(d?.uvMax) || ''}</small></div>
-      <div><span>${W('空氣最高', 'Air high')}</span><b style="color:${fc ? aqiColor(fc.aqi) : 'inherit'}">${fc?.aqi ?? '–'}</b><small>${e(aqiLevel(fc?.level))}</small></div>
+      <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `${d.mm} mm` : '&nbsp;'}</small></div>
+      <div><span>${W('紫外線最高', 'UV high')}</span><b>${d?.uvMax ?? '–'}</b><small>${e(uvLevel(d?.uvMax) || '') || '&nbsp;'}</small></div>
+      <div><span>${W('空氣最高', 'Air high')}</span><b>${fc?.aqi ?? '–'}</b><small>${fc ? `<i class="wx-lv" style="--c:${aqiColor(fc.aqi)}" aria-hidden="true"></i>${e(aqiLevel(fc.level))}` : '&nbsp;'}</small></div>
     </div>`;
   return `
     <div class="q-sheet-head">

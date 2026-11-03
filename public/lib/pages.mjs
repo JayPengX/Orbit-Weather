@@ -155,9 +155,9 @@ function smooth(pts) {
   }
   return d;
 }
-const COL = 60;
-const SUN_COL = 54;
-const Y0 = 96;
+const COL = 56;
+const SUN_COL = 50;
+const Y0 = 92;
 const YH = 32;
 function hourTrack(f, { now, key, page }) {
   const list = hoursFrom(f, now).slice(0, 25);
@@ -186,7 +186,7 @@ function hourTrack(f, { now, key, page }) {
   });
   const width = x;
   const plan = page.plan && hs.some(h => h.place);
-  const height = plan ? 172 : 142;
+  const height = plan ? 166 : 138;
   const cells = cols
     .map(c => {
       if (c.s)
@@ -199,7 +199,7 @@ function hourTrack(f, { now, key, page }) {
         <span class="ot-ht">${e(label)}</span>
         <span class="ot-hi">${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 28 })}</span>
         <span class="ot-hp">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
-        ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 29 : 24))}px">${deg(h.temp)}</b>`}
+        ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 28 : 23))}px">${deg(h.temp)}</b>`}
       </button>`;
     })
     .join('');
@@ -242,8 +242,8 @@ function hourTrack(f, { now, key, page }) {
 // warm line and the ten lows as one cool line, the days' range shaded
 // between: the week's warming and cooling reads at a glance, each number at
 // its dot, the head naming the two lines in their own colours.
-const SPAN = 64; // the scale's height (px), top high to bottom low
-const LIFT = 24; // room for a high's number above its dot, a low's below
+const SPAN = 60; // the scale's height (px), top high to bottom low
+const LIFT = 22; // room for a high's number above its dot, a low's below
 function skyline(f, { now, key, page, home = '' }) {
   const list = (f.days || []).filter(d => d.date >= dateOf(now, f.tz)).slice(0, 10);
   if (!list.length) return '';
@@ -278,7 +278,7 @@ function skyline(f, { now, key, page, home = '' }) {
         <span class="ot-sk-i">${conditionArt(c.code, c.text, true, { size: 28 })}</span>
         <span class="ot-sk-p">${pop >= 20 ? `${pop}%` : ''}</span>
         <span class="ot-sk-bar" style="height:${SPAN + 2 * LIFT}px">
-          ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 23)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
+          ${yh == null ? '' : `<b class="ot-sk-hi" style="top:${r1(yh - 21)}px">${deg(d.hi)}</b><i class="ot-sk-dot" style="top:${r1(yh)}px"></i>`}
           ${yl == null ? '' : `<i class="ot-sk-dot is-lo" style="top:${r1(yl)}px"></i><b class="ot-sk-lo" style="top:${r1(yl + 5)}px">${deg(d.lo)}</b>`}
         </span>
       </button>`;

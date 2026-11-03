@@ -330,7 +330,8 @@ export function dayCharts(hours, { tz, now = null, date = null } = {}) {
 // every number for it.
 export function scrubHtml(h, { tz, aqi = null } = {}) {
   if (!h) return '';
-  const cell = (k, v, sub = '') => `<div><span>${k}</span><b>${v}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+  // (Every cell keeps its line under, so the read-out holds its height as the finger moves.)
+  const cell = (k, v, sub = '') => `<div><span>${k}</span><b>${v}</b><small>${sub || '&nbsp;'}</small></div>`;
   const deg = v => (v == null ? '–' : `${Math.round(v)}°`);
   const w = h.wind || {};
   return `<div class="wx-scrub-time"><b>${clock(h.t, tz)}</b><span>${h.place ? `${e(h.place)} · ` : ''}${e(conditionText(h.condition?.code, h.condition?.text))}</span></div>
