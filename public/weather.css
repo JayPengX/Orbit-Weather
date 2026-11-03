@@ -853,6 +853,83 @@ svg.ch {
   stroke-width: 2;
 }
 
+/* The weather pictures: flat, no gradient, no shadow (lib/icons.mjs). A
+   cloud is a line in the text's colour; each colour is a token, deeper on a
+   light card, and the sky's card (dark in both themes) keeps the dark set. */
+.wx-art-i {
+  --wxi-sun: #ffc531;
+  --wxi-moon: #dfe1ff;
+  --wxi-rain: #5ab0ff;
+  --wxi-bolt: #ffd23f;
+  --wxi-snow: #cfe8ff;
+  overflow: visible;
+}
+:root[data-theme='light'] .wx-art-i {
+  --wxi-sun: #f5a400;
+  --wxi-moon: #8a8fe0;
+  --wxi-rain: #1a7fe0;
+  --wxi-bolt: #f2a100;
+  --wxi-snow: #5aa6e6;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .wx-art-i {
+    --wxi-sun: #f5a400;
+    --wxi-moon: #8a8fe0;
+    --wxi-rain: #1a7fe0;
+    --wxi-bolt: #f2a100;
+    --wxi-snow: #5aa6e6;
+  }
+}
+:root .ot-hero:not(.is-wait) .wx-art-i {
+  --wxi-sun: #ffc531;
+  --wxi-moon: #e6e8ff;
+  --wxi-rain: #7cc2ff;
+  --wxi-bolt: #ffd23f;
+  --wxi-snow: #e2f1ff;
+}
+.wx-art-i .wxi-c {
+  fill: currentColor;
+  fill-opacity: 0.13;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  stroke-linejoin: round;
+}
+.wx-art-i .wxi-c2 {
+  opacity: 0.5;
+}
+.wx-art-i .wxi-sun {
+  fill: var(--wxi-sun);
+}
+.wx-art-i :is(.wxi-moon, .wxi-star) {
+  fill: var(--wxi-moon);
+}
+.wx-art-i .wxi-drop {
+  fill: var(--wxi-rain);
+}
+.wx-art-i .wxi-bolt {
+  fill: var(--wxi-bolt);
+  stroke: var(--wxi-bolt);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.wx-art-i :is(.wxi-rain, .wxi-snow, .wxi-fog, .wxi-wind, .wxi-line) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wx-art-i .wxi-rain {
+  stroke: var(--wxi-rain);
+}
+.wx-art-i .wxi-snow {
+  stroke: var(--wxi-snow);
+  stroke-width: 2.8;
+}
+.wx-art-i .wxi-fog {
+  opacity: 0.7;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wx-fx i,
   .wx-fx::after,
@@ -1323,9 +1400,6 @@ svg.ch {
 }
 .ot-hr.is-sun {
   cursor: default;
-}
-.ot-hr.is-sun .ot-hi .wx-g {
-  color: var(--q-yellow);
 }
 .ot-hr.is-sun .ot-hp {
   color: var(--q-label-2);

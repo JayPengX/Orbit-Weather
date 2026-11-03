@@ -77,6 +77,12 @@ Live: https://orbit.jaypengx.com/weather/
 - No source named on screen; a test fails if one reaches it.
 - An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
 - Weather draws its own pictures; a test fails if an emoji reaches the page.
+  The pictures (`lib/icons.mjs`, Jay 2026-11-03: the glossy ones read as emoji) are
+  Orbit's own flat drawings: a cloud is a line in the text's colour, the sun a lit disc
+  ringed by dots, the moon a flat crescent, rain lines, drizzle dots; sunrise and sunset
+  (`sunArt`) a half sun on the horizon with an arrow. No gradient, shadow or fixed colour
+  in the drawing (a test checks): colours are `--wxi-*` in weather.css, deeper on a light
+  card, the dark set on the sky.
 - Light and dark (the kit's tokens); the sky stays a sky in both (sheets follow the theme). No warning banner.
 - No sentence over the hours: the sky card's track and the readings say it (a test fails on one).
 - English screens through `W(zh, en)`; place names stay Chinese.

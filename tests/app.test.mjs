@@ -437,7 +437,7 @@ test('notices follow the route: home outside the pins\' hours', () => {
 });
 
 test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon as it is', async () => {
-  const { wxArt, conditionArt, glyph, moonArt, ICON_DEFS } = await import('../public/lib/icons.mjs');
+  const { wxArt, conditionArt, sunArt, glyph, moonArt, ICON_DEFS } = await import('../public/lib/icons.mjs');
   const { conditionKind } = await import('../public/lib/format.mjs');
   assert.equal(conditionKind('THUNDERSTORM'), 'storm');
   assert.equal(conditionKind('', '陣雨'), 'rain');
@@ -447,9 +447,14 @@ test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon
   for (const k of ['clear-day', 'clear-night', 'part-day', 'part-night', 'cloud', 'drizzle-day', 'drizzle-night', 'rain', 'storm', 'snow', 'fog', 'wind']) {
     const svg = wxArt(k);
     assert.match(svg, /^<svg class="wx-art-i" viewBox="0 0 64 64"/, k);
-    // Every gradient a picture uses is defined once for the page.
+    // Every cut-out a picture uses is defined once for the page.
     for (const [, id] of svg.matchAll(/url\(#([\w-]+)\)/g)) assert.ok(ICON_DEFS.includes(`id="${id}"`), `${k}: ${id}`);
+    // Flat drawings (Jay 2026-11-03: the glossy ones read as emoji): no shine, no shadow, colours from the CSS.
+    assert.ok(!/Gradient|filter|#[0-9a-f]{3,6}/i.test(svg), `${k} is flat`);
   }
+  assert.ok(!/Gradient|filter=|feDropShadow/.test(ICON_DEFS), 'no gradients or shadows for the page');
+  assert.match(sunArt('sunrise'), /M32 56v-9/, 'sunrise: the arrow points up');
+  assert.match(sunArt('sunset'), /M32 47v9/, 'sunset: the arrow points down');
   assert.match(conditionArt('THUNDERSTORM', ''), /wxi-bolt/);
   assert.match(glyph('umbrella'), /stroke="currentColor"/);
   assert.match(glyph('nope'), /<svg/, 'an unknown name still draws something');

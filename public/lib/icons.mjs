@@ -1,55 +1,66 @@
-// The app's own pictures, instead of emoji: a colour picture for each kind
-// of weather (64×64, its gradients defined once for the page, `ICON_DEFS`),
-// and line glyphs (24×24, drawn in the text's colour) for everything else.
+// The app's own pictures, instead of emoji: a drawing for each kind of
+// weather (64×64) and line glyphs (24×24, drawn in the text's colour) for
+// everything else.
 
 import { conditionKind } from './format.mjs';
 
 // ---- The weather pictures --------------------------------------------------------------------
+// Orbit's own drawings (Jay 2026-11-03: the glossy ones read as emoji): flat,
+// no gradient, no shadow, no shine. A cloud is a line in the text's colour
+// over a faint fill of it; the sun is a lit disc ringed by dots (the app's
+// mark: a lit dot on a thin line); the moon a flat crescent; rain is lines,
+// drizzle dots. Colours come from weather.css (`--wxi-*`, light and dark),
+// so a picture sits on the sky, a graphite card or a white one alike.
 
-// The gradients and the shadow, once per page (app.mjs puts them in the
-// body; a picture refers to them by id).
+// The cut-outs, once per page (app.mjs puts them in the body): a cloud in
+// front hides what's behind it without painting over the card.
+const CLOUD = 'M19.5 48A8 8 0 0 1 19 32A11.5 11.5 0 0 1 41.8 29.2A9.5 9.5 0 1 1 43.5 48Z';
+const CRESCENT = 'M31.4 17A15 15 0 1 0 46.4 36.3A12.5 12.5 0 0 1 31.4 17Z';
+// Where the cloud sits in each layout.
+const AT = {
+  low: 'translate(8 8) scale(.9)', // in front, low (partly cloudy)
+  high: 'translate(4 -6) scale(.94)', // raised, something falls below it
+  back: 'translate(22 -3) scale(.6)' // the second cloud behind (overcast)
+};
+const cut = (id, t) => `<mask id="${id}" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"><rect width="64" height="64" fill="#fff"/><path d="${CLOUD}" transform="${t}" fill="#000" stroke="#000" stroke-width="9" stroke-linejoin="round"/></mask>`;
 export const ICON_DEFS = `<svg class="wx-defs" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden">
-<defs>
-<radialGradient id="wxi-sun" cx=".38" cy=".34" r=".72"><stop offset="0" stop-color="#fff6c2"/><stop offset=".45" stop-color="#ffcc3d"/><stop offset="1" stop-color="#ff9a1f"/></radialGradient>
-<linearGradient id="wxi-moon" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#f3d27e"/></linearGradient>
-<linearGradient id="wxi-cloud" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d3deed"/></linearGradient>
-<linearGradient id="wxi-cloud2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c9d5e6"/><stop offset="1" stop-color="#8fa1bb"/></linearGradient>
-<linearGradient id="wxi-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa8c0"/><stop offset="1" stop-color="#55627c"/></linearGradient>
-<linearGradient id="wxi-drop" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fd0ff"/><stop offset="1" stop-color="#2f7de1"/></linearGradient>
-<linearGradient id="wxi-bolt" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff07a"/><stop offset="1" stop-color="#ffa21f"/></linearGradient>
-<filter id="wxi-sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="1.6" stdDeviation="1.6" flood-color="#0a1430" flood-opacity=".32"/></filter>
-</defs>
+<defs>${cut('wxi-cut-low', AT.low)}${cut('wxi-cut-high', AT.high)}</defs>
 </svg>`;
 
-const CLOUD = 'M18 48A10 10 0 0 1 16.8 28.07A14 14 0 0 1 43.6 24.4A12 12 0 0 1 46 48Z';
-const CRESCENT = 'M30.5 15.1A17 17 0 1 0 48.7 35.3A14 14 0 0 1 30.5 15.1Z';
-const cloud = (fill, t = '') => `<path d="${CLOUD}" fill="url(#${fill})"${t ? ` transform="${t}"` : ''} filter="url(#wxi-sh)"/>`;
-function sun(cx, cy, r, ray = 5) {
-  const rays = [];
-  for (let i = 0; i < 8; i++) {
-    const a = (i * Math.PI) / 4;
-    const p = d => `${Math.round((cx + Math.cos(a) * d) * 10) / 10} ${Math.round((cy + Math.sin(a) * d) * 10) / 10}`;
-    rays.push(`M${p(r + 3.5)}L${p(r + 3.5 + ray)}`);
+const cloud = (at, cls = 'wxi-c') => `<path class="${cls}" d="${CLOUD}" transform="${AT[at]}"/>`;
+// The sun: a lit disc and its ring of dots.
+function sun(cx, cy, r, { dots = 8, gap = 6.5, dot = 2.3 } = {}) {
+  let ring = '';
+  for (let i = 0; i < dots; i++) {
+    const a = (i * 2 * Math.PI) / dots - Math.PI / 2;
+    const x = Math.round((cx + Math.cos(a) * (r + gap)) * 10) / 10;
+    const y = Math.round((cy + Math.sin(a) * (r + gap)) * 10) / 10;
+    ring += `<circle cx="${x}" cy="${y}" r="${dot}"/>`;
   }
-  return `<path d="${rays.join('')}" stroke="#ffc23d" stroke-width="3.4" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#wxi-sun)"/>`;
+  return `<g class="wxi-sun"><circle cx="${cx}" cy="${cy}" r="${r}"/>${ring}</g>`;
 }
-const moon = (t = '') => `<path d="${CRESCENT}" fill="url(#wxi-moon)"${t ? ` transform="${t}"` : ''}/>`;
-const star = (x, y, s = 1) => `<path d="M${x} ${y - 3 * s}Q${x} ${y} ${x + 3 * s} ${y}Q${x} ${y} ${x} ${y + 3 * s}Q${x} ${y} ${x - 3 * s} ${y}Q${x} ${y} ${x} ${y - 3 * s}Z" fill="#fff4cf"/>`;
-const drops = xs => xs.map(x => `<path d="M${x} 47l-2.6 7" stroke="url(#wxi-drop)" stroke-width="4" stroke-linecap="round"/>`).join('');
+const moon = (t = '') => `<path class="wxi-moon" d="${CRESCENT}"${t ? ` transform="${t}"` : ''}/>`;
+const stars = pts => `<g class="wxi-star">${pts.map(([x, y, r = 1.6]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('')}</g>`;
+const behind = (id, body) => `<g mask="url(#${id})">${body}</g>`;
+// What falls from a raised cloud: rain as lines, drizzle as dots, snow as flakes.
+const RAIN_X = [24, 34, 44];
+const rainLines = xs => `<path class="wxi-rain" d="${xs.map(x => `M${x + 1.5} 47.5l-3 8.5`).join('')}"/>`;
+const drizzle = xs => `<g class="wxi-drop">${xs.map((x, i) => `<circle cx="${x}" cy="${i % 2 ? 54 : 50}" r="2.4"/>`).join('')}</g>`;
+const flake = (x, y) => `M${x} ${y - 4}v8M${x - 3.5} ${y - 2}l7 4M${x - 3.5} ${y + 2}l7-4`;
 
 const ART = {
-  'clear-day': () => sun(32, 32, 13, 6),
-  'clear-night': () => `${moon()}${star(14, 16, 1.1)}${star(20, 46, 0.8)}`,
-  'part-day': () => `${sun(23, 22, 10, 4.5)}${cloud('wxi-cloud', 'translate(10 13) scale(.82)')}`,
-  'part-night': () => `${moon('translate(2 -2) scale(.62)')}${cloud('wxi-cloud', 'translate(10 13) scale(.82)')}`,
-  cloud: () => `${cloud('wxi-cloud2', 'translate(19 1) scale(.72)')}${cloud('wxi-cloud', 'translate(-2 7) scale(.9)')}`,
-  'drizzle-day': () => `${sun(22, 18, 9, 4)}${cloud('wxi-cloud', 'translate(8 4) scale(.82)')}${drops([27, 39])}`,
-  'drizzle-night': () => `${moon('translate(0 -6) scale(.55)')}${cloud('wxi-cloud', 'translate(8 4) scale(.82)')}${drops([27, 39])}`,
-  rain: () => `${cloud('wxi-dark', 'translate(2 -4) scale(.92)')}${drops([22, 33, 44])}`,
-  storm: () => `${cloud('wxi-dark', 'translate(2 -5) scale(.92)')}<path d="M34 39l-9 13h7l-3 10 12-15h-7l4-8z" fill="url(#wxi-bolt)" filter="url(#wxi-sh)"/>`,
-  snow: () => `${cloud('wxi-cloud', 'translate(2 -5) scale(.92)')}${[[22, 50], [32, 56], [42, 50]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="2.8" fill="#fff" stroke="#bcd3f0" stroke-width="1"/>`).join('')}`,
-  fog: () => `${cloud('wxi-cloud', 'translate(4 -7) scale(.86)')}<path d="M12 46h34M18 52h34M14 58h26" stroke="#cfd9e8" stroke-width="3.6" stroke-linecap="round"/>`,
-  wind: () => `<path d="M8 24h28a6 6 0 1 0-6-6M8 34h38a7 7 0 1 1-7 7M8 44h20" fill="none" stroke="#cfe3ff" stroke-width="4" stroke-linecap="round"/>`
+  'clear-day': () => sun(32, 32, 11),
+  'clear-night': () => `${moon('translate(-1 1)')}${stars([[48, 17, 2], [53, 27, 1.4]])}`,
+  'part-day': () => `${behind('wxi-cut-low', sun(24, 24, 8.5, { gap: 5.5, dot: 2 }))}${cloud('low')}`,
+  'part-night': () => `${behind('wxi-cut-low', `${moon('translate(-1 -3) scale(.8)')}`)}${stars([[47, 13, 1.6]])}${cloud('low')}`,
+  cloud: () => `${behind('wxi-cut-low', cloud('back', 'wxi-c wxi-c2'))}${cloud('low')}`,
+  'drizzle-day': () => `${behind('wxi-cut-high', sun(14.5, 14.5, 6, { gap: 4.5, dot: 1.7 }))}${cloud('high')}${drizzle([23, 34, 45])}`,
+  'drizzle-night': () => `${behind('wxi-cut-high', moon('translate(-5 -5) scale(.6)'))}${cloud('high')}${drizzle([23, 34, 45])}`,
+  rain: () => `${cloud('high')}${rainLines(RAIN_X)}`,
+  storm: () => `${cloud('high')}<path class="wxi-bolt" d="M37 40.5l-8.5 11.5h7l-3.5 10 11-14h-7l3.5-7.5z"/>`,
+  snow: () => `${cloud('high')}<path class="wxi-snow" d="${flake(24, 51)}${flake(44, 51)}${flake(34, 58)}"/>`,
+  fog: () => `${cloud('high')}<path class="wxi-fog" d="M16 49h26M48 49h4M20 56h4M30 56h22"/>`,
+  wind: () => `<path class="wxi-wind" d="M10 25h25a6.5 6.5 0 1 0-6.5-6.5M10 34h36a7 7 0 1 1-7 7M10 43h17"/>`
 };
 
 // A weather picture: by kind ('clear-day'…) or straight from a condition.
@@ -58,13 +69,18 @@ export function wxArt(kind, { size = 40, cls = '' } = {}) {
   return `<svg class="wx-art-i${cls ? ` ${cls}` : ''}" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false">${draw()}</svg>`;
 }
 export const conditionArt = (code, text, day = true, opts) => wxArt(conditionKind(code, text, day), opts);
+// The sun rising or setting, in the same hand: the horizon, the sun half
+// over it, an arrow which way it goes.
+export const sunArt = (kind, { size = 24 } = {}) =>
+  `<svg class="wx-art-i wx-sun-i" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true" focusable="false"><g class="wxi-sun"><path d="M19 42a13 13 0 0 1 26 0z"/><circle cx="32" cy="18" r="2.3"/><circle cx="16" cy="27" r="2.3"/><circle cx="48" cy="27" r="2.3"/></g><path class="wxi-line" d="M8 42h48${kind === 'sunset' ? 'M32 47v9M27.5 51.5 32 56l4.5-4.5' : 'M32 56v-9M27.5 51.5 32 47l4.5 4.5'}"/></svg>`;
 
 // ---- Line glyphs -----------------------------------------------------------------------------
 
 const P = {
   umbrella: '<path d="M3.5 12a8.5 8.5 0 0 1 17 0z"/><path d="M12 12v6.5a2.2 2.2 0 0 1-4.4 0M12 2.5v1"/>',
   shirt: '<path d="M8.5 3.5 4 6 2.5 10l3 1.5 1-1.5v10.5h11V10l1 1.5 3-1.5L20 6l-4.5-2.5a3.5 3.5 0 0 1-7 0z"/>',
-  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  // (The sun as the pictures draw it: a disc ringed by dots.)
+  sun: '<circle cx="12" cy="12" r="4.2"/><path d="M12 3.6v.01M12 20.4v.01M3.6 12h.01M20.4 12h.01M6.1 6.1v.01M17.9 17.9v.01M6.1 17.9v.01M17.9 6.1v.01" stroke-width="2.6"/>',
   run: '<circle cx="14.5" cy="4.5" r="1.8"/><path d="m7.5 21 3.2-5.6 3.3 2.6v4M5.5 11.5 9 8.5h4.5l2.4 3.4 3 .6M10.5 8.6 9.2 14.2l3.3 2.8"/>',
   laundry: '<path d="M12 7.6a2 2 0 1 1 2-2c0 1.2-2 1.5-2 2.9l8.4 6.1a1.5 1.5 0 0 1-.9 2.7H4.5a1.5 1.5 0 0 1-.9-2.7L12 8.5"/>',
   train: '<rect x="5.5" y="3" width="13" height="14" rx="3"/><path d="M5.5 10.5h13M9 21l1.5-4M15 21l-1.5-4"/><circle cx="9" cy="13.8" r=".6"/><circle cx="15" cy="13.8" r=".6"/>',
@@ -96,8 +112,8 @@ const P = {
   eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
   rain: '<path d="M7 15.5a4 4 0 0 1-.6-7.95A5.5 5.5 0 0 1 17 7.1a4.2 4.2 0 0 1 .5 8.4"/><path d="m8.5 18-1 2.5M12.5 18l-1 2.5M16.5 18l-1 2.5"/>',
   cloud: '<path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.6 8.6a5 5 0 0 1-.1 9.9z"/>',
-  sunrise: '<path d="M12 3v5M9.5 5.5 12 3l2.5 2.5M6.5 16a5.5 5.5 0 0 1 11 0M2.5 16h19M5 20h14M4 11.5l1.5 1M20 11.5l-1.5 1"/>',
-  sunset: '<path d="M12 3v5M9.5 5.5 12 8l2.5-2.5M6.5 16a5.5 5.5 0 0 1 11 0M2.5 16h19M5 20h14M4 11.5l1.5 1M20 11.5l-1.5 1"/>',
+  sunrise: '<path d="M7 14.5a5 5 0 0 1 10 0M3 14.5h18M12 21v-3.6M10.2 19.2l1.8-1.8 1.8 1.8"/><path d="M12 5.5v.01M5.6 8.6v.01M18.4 8.6v.01" stroke-width="2.6"/>',
+  sunset: '<path d="M7 14.5a5 5 0 0 1 10 0M3 14.5h18M12 17.4V21M10.2 19.2l1.8 1.8 1.8-1.8"/><path d="M12 5.5v.01M5.6 8.6v.01M18.4 8.6v.01" stroke-width="2.6"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   air: '<circle cx="7" cy="8" r="2"/><circle cx="16" cy="6.5" r="1.4"/><circle cx="12.5" cy="13" r="2.4"/><circle cx="6.5" cy="17" r="1.3"/><circle cx="17.5" cy="16.5" r="2"/>',
   station: '<path d="M12 11v10M8.5 21h7M8 5.5a5.5 5.5 0 0 0 0 7M16 5.5a5.5 5.5 0 0 1 0 7"/><circle cx="12" cy="9" r="2"/>',

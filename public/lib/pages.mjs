@@ -16,7 +16,7 @@ import { W, en } from '#kit/lang.mjs';
 import { escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, uvLevel, aqiLevel, windDir, beaufort, conditionText, staleText, RAIN_YES, RAIN_MAYBE } from './format.mjs';
-import { conditionArt, glyph, placeGlyph, ADVICE_GLYPH } from './icons.mjs';
+import { conditionArt, glyph, placeGlyph, sunArt, ADVICE_GLYPH } from './icons.mjs';
 import { placeName, skyOf, fxHtml, soonLine, dayOffSec, hoursFrom, dayPop, rainSummary, uvDays, adviceList, LIFE, KIND_COLOR, LEVEL_TAG, todayOf } from './cards.mjs';
 import { rainSoon } from './soon.mjs';
 import { OLD_MS } from './api.mjs';
@@ -90,7 +90,7 @@ function dayTrack(f, page, now) {
   const say = stops.map(s => [s.label, s.name, s.v, s.wet ? W(`雨 ${s.wet}%`, `rain ${s.wet}%`) : ''].filter(Boolean).join(' ')).join(W('，', ', '));
   return `<ol class="ot-day" style="--n:${stops.length}" aria-label="${e(say)}">${stops
     .map(
-      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 20 }) : s.icon && !s.wet ? glyph(s.icon, { size: 15 }) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 11 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
+      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 20 }) : s.icon && !s.wet ? (s.sun ? sunArt(s.icon, { size: 20 }) : glyph(s.icon, { size: 15 })) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 11 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
     )
     .join('')}</ol>`;
 }
@@ -187,7 +187,7 @@ function hourTrack(f, { now, key, page }) {
   const cells = cols
     .map(c => {
       if (c.s)
-        return `<span class="ot-hr is-sun" style="width:${SUN_COL}px"><span class="ot-ht">${clock(c.s.t, f.tz)}</span><span class="ot-hi">${glyph(c.s.kind, { size: 24 })}</span><span class="ot-hp">${c.s.kind === 'sunrise' ? W('日出', 'Rise') : W('日落', 'Set')}</span></span>`;
+        return `<span class="ot-hr is-sun" style="width:${SUN_COL}px"><span class="ot-ht">${clock(c.s.t, f.tz)}</span><span class="ot-hi">${sunArt(c.s.kind, { size: 26 })}</span><span class="ot-hp">${c.s.kind === 'sunrise' ? W('日出', 'Rise') : W('日落', 'Set')}</span></span>`;
       const { h, i } = c;
       const date = dateOf(h.t, f.tz);
       const hr = hourOf(h.t, f.tz);

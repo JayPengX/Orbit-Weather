@@ -10,7 +10,7 @@ import { adviceEn } from './advice-en.mjs';
 import { rainSoon } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
-import { conditionArt, glyph, ADVICE_GLYPH } from './icons.mjs';
+import { conditionArt, glyph, sunArt, ADVICE_GLYPH } from './icons.mjs';
 import { segHtml, escHtml as e } from '#kit/ui.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, mmKey } from './graph.mjs';
 import { sunTimes, goldenHours } from './sun.mjs';
@@ -509,7 +509,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     <div class="wx-grid q-even">
       ${d?.day ? `<div class="wx-half">${conditionArt(d.day.condition?.code, d.day.condition?.text, true, { size: 40 })}<span>${W('白天', 'Day')}</span><b>${e(conditionText(d.day.condition?.code, d.day.condition?.text))}</b><small>${W('降雨', 'Rain')} ${pct(d.day.pop)}</small></div>` : ''}
       ${d?.night ? `<div class="wx-half">${conditionArt(d.night.condition?.code, d.night.condition?.text, false, { size: 40 })}<span>${W('晚上', 'Night')}</span><b>${e(conditionText(d.night.condition?.code, d.night.condition?.text))}</b><small>${W('降雨', 'Rain')} ${pct(d.night.pop)}</small></div>` : ''}
-      ${s ? `<div class="wx-half">${glyph('sunrise', { size: 22 })}<span>${W('日出 / 日落', 'Sunrise / sunset')}</span><b>${clock(s.sunrise, f.tz)} / ${clock(s.sunset, f.tz)}</b></div>` : ''}
+      ${s ? `<div class="wx-half">${sunArt('sunrise', { size: 40 })}<span>${W('日出 / 日落', 'Sunrise / sunset')}</span><b>${clock(s.sunrise, f.tz)} / ${clock(s.sunset, f.tz)}</b></div>` : ''}
     </div>`;
 }
 
