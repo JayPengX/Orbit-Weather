@@ -1,0 +1,24 @@
+// How the app opens, read from its source (boot() needs a phone, a pass and a
+// fix to run): guards for what was fixed, so it can't come back.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const app = readFileSync(join(root, 'public/app.mjs'), 'utf8');
+const page = readFileSync(join(root, 'public/index.html'), 'utf8');
+
+test("a first opening asks the pass's pins at once (they waited up to a minute for the tick)", () => {
+  const end = app.slice(app.indexOf('async function boot('));
+  assert.match(end, /if \(used\) loadShown\(\);\s*else for \(const p of state\.pages\) if \(p\.pin && !p\.plan/);
+});
+
+test('this device keeps its choices through the kit (never a bare localStorage call)', () => {
+  assert.ok(!/\blocalStorage\b/.test(app.replace(/\/\/.*$/gm, '')), 'app.mjs: use kitCore.readJson / writeJson');
+});
+
+test('no second connection to the proxy: the page calls its own /api', () => {
+  assert.ok(!page.includes('workers.dev'), 'index.html: no preconnect to workers.dev (kit.API is the same origin)');
+});

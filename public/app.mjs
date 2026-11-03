@@ -6,6 +6,8 @@
 import { orbitSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/orbit.mjs';
 import { settleSegs, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
+// (The kit's storage, read through the namespace: a phone on an older kit opens without it.)
+import * as kitCore from '#kit/orbit.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
@@ -33,6 +35,8 @@ const VERSION = document.querySelector('meta[name="build-version"]')?.content ||
 document.documentElement.lang = en ? 'en' : 'zh-Hant';
 const q = orbitSession('weather', { lang });
 
+// The graphs' ranges, this device's own (not the pass's).
+const RANGES = 'orbit-weather.ranges';
 const state = {
   local: loadLocal(),
   data: emptyData(),
@@ -46,13 +50,7 @@ const state = {
   // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
   cols: {},
   // The graphs' ranges (the cards' tabs), this device's choice.
-  ranges: (() => {
-    try {
-      return JSON.parse(localStorage.getItem('orbit-weather.ranges') || '{}') || {};
-    } catch {
-      return {};
-    }
-  })()
+  ranges: kitCore.readJson?.(RANGES, {}) || {}
 };
 
 // ---- Pages: 我的行程, here, then each pin; one shown at a time ---------------------------
@@ -750,9 +748,7 @@ document.addEventListener('click', ev => {
   if (tab) {
     const [kind, k] = tab.dataset.range.split(':');
     state.ranges[kind] = k;
-    try {
-      localStorage.setItem('orbit-weather.ranges', JSON.stringify(state.ranges));
-    } catch {}
+    kitCore.writeJson?.(RANGES, state.ranges);
     return document.querySelectorAll('dialog[open]').forEach(d => d.redraw?.());
   }
   // 定位: where the phone is, asked now (it was left on the last place).
@@ -949,8 +945,11 @@ async function boot() {
   show();
   pass.watch();
   pass.sync();
-  // (Already on its way when it was asked beside the sign-in.)
+  // (Already on its way when it was asked beside the sign-in. A first
+  // opening asked only where the phone is: the pass's pins it shows are asked
+  // now, not a minute later on the tick.)
   if (used) loadShown();
+  else for (const p of state.pages) if (p.pin && !p.plan && (state.tab === 'places' || current().plan || p === current())) loadPage(p);
   sendNotices();
 }
 if (!gated) boot();
