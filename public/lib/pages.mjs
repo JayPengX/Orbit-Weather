@@ -446,7 +446,7 @@ export function placesHtml(rows, { brief, editing = false, now = Date.now() } = 
     return `<div class="q-ritem wx-place-row${r.on ? ' is-on' : ''}${editing ? ' is-still' : ''}"${editing ? '' : ` role="button" tabindex="0" data-go-key="${e(r.key)}"`} aria-current="${r.on ? 'true' : 'false'}">${tile}${text}${nowCell}</div>`;
   };
   const pins = rows.some(r => r.pin);
-  const add = `<button class="q-ritem chevron wx-add" type="button" data-act="add-pin"><span class="wx-quiet-tile q-tile">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>`;
+  const add = `<button class="q-ritem q-add wx-add" type="button" data-act="add-pin"><span class="q-add-i">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>`;
   const settings = `<div class="q-rowcard">
       <label class="q-ritem wx-brief"><span class="wx-quiet-tile q-tile">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="wx-quiet-tile q-tile">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
