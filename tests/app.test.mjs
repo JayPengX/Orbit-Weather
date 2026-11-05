@@ -280,6 +280,27 @@ test('a forecast request that stalls is dropped: the first answer within firstMs
   assert.equal(await rest, null);
 });
 
+test('a forecast still coming on a slow link is read to its end: each piece gives it its time again', async () => {
+  const enc = new TextEncoder();
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  let push;
+  const res = new Response(new ReadableStream({ start: c => (push = c) }));
+  const asked = fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => res, { firstMs: 300, restMs: 300 });
+  // The first line in pieces, 60 ms apart: 480 ms in all, past firstMs, never quiet for it.
+  for (const piece of ['{"at":1,', '"more":true,', '"pad":"', 'x', 'x', 'x', 'x', '"}\n']) {
+    await wait(60);
+    push.enqueue(enc.encode(piece));
+  }
+  const { f, rest } = await asked;
+  assert.equal(f.at, 1);
+  for (const piece of ['{"at":2,', '"hours":', '[1,', '2]', '}\n', '']) {
+    await wait(60);
+    if (piece) push.enqueue(enc.encode(piece));
+  }
+  push.close();
+  assert.deepEqual(await rest, { at: 2, hours: [1, 2] });
+});
+
 test('proxy calls carry the session; the device keeps a few places', async () => {
   const urls = [];
   const f = async u => (urls.push(u), { ok: true, json: async () => ({}) });

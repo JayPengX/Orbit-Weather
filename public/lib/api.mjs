@@ -98,7 +98,10 @@ async function get(path, token, fetchFn) {
 // A request that stalls (a dropped connection, an upstream that never
 // answers) never holds the page on 更新中: the first answer gets FIRST_MS,
 // the whole one REST_MS after it, then the request is dropped (the page
-// asks once more; the copy it has stays up meanwhile).
+// asks once more; the copy it has stays up meanwhile). Each piece that comes
+// gives it that time again: an answer still coming on a slow link is read to
+// its end (cut at 8 s on a busy 3G link, each place's forecast was read twice,
+// 2026-11-05); only one that has gone quiet is dropped.
 export const FIRST_MS = 8000;
 export const REST_MS = 30_000;
 // The forecast for a point, or where the network says (`auto`): → { f, rest }.
@@ -113,7 +116,8 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
   gone.catch(() => {});
   const within = p => Promise.race([p, gone]);
   const after = ms => setTimeout(() => stop.abort(Object.assign(new Error('/weather timeout'), { status: 0, timeout: true })), ms);
-  let timer = after(firstMs);
+  let limit = firstMs;
+  let timer = after(limit);
   let reader = null;
   try {
     const res = await within(fetchFn(`${PROXY}${path}&lines=1&qt=${encodeURIComponent(token)}`, { signal: stop.signal }));
@@ -136,6 +140,8 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
           continue;
         }
         const { done, value } = await within(reader.read());
+        clearTimeout(timer);
+        timer = after(limit);
         if (done) {
           const last = buf.trim();
           buf = '';
@@ -147,7 +153,7 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
     const f = await line();
     if (!f) throw Object.assign(new Error('/weather empty'), { status: 0 });
     clearTimeout(timer);
-    timer = after(restMs);
+    timer = after((limit = restMs));
     const rest = line()
       .catch(() => (reader.cancel().catch(() => {}), null))
       .finally(() => clearTimeout(timer));
