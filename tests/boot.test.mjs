@@ -22,3 +22,10 @@ test('this device keeps its choices through the kit (never a bare localStorage c
 test('no second connection to the proxy: the page calls its own /api', () => {
   assert.ok(!page.includes('workers.dev'), 'index.html: no preconnect to workers.dev (kit.API is the same origin)');
 });
+
+test("搜尋地點: a place looked up is kept in memory only, and its rows never use data-look (the page's own <html data-look>)", () => {
+  assert.ok(!/data-look=/.test(app), 'a [data-look] row: closest() reaches <html data-look="native">, so any tap in the sheet opened "native"');
+  assert.match(app, /const cell = page\.lat != null && !page\.look \?/, "a looked-up place's forecast isn't kept on the device until 加入");
+  // A place only added (no hours, not home) brings no 我的行程.
+  assert.match(app, /state\.data\.pins\.some\(p => p\.days\.length \|\| p\.home\) \? \[\{ key: 'plan'/);
+});

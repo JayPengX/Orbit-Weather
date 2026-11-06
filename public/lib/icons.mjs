@@ -156,4 +156,4 @@ export const ADVICE_GLYPH = {
   move: 'train', diff: 'arrows', weekend: 'tent', humid: 'drop', temp: 'thermo', wind: 'wind', thunder: 'bolt', fog: 'fog'
 };
 // Where a page is: the route, home, a pin, or here.
-export const placeGlyph = (page, opts) => glyph(page?.plan ? 'route' : page?.pin?.home ? 'home' : page?.pin ? 'pin' : 'locate', opts);
+export const placeGlyph = (page, opts) => glyph(page?.plan ? 'route' : page?.pin?.home ? 'home' : page?.pin || page?.look ? 'pin' : 'locate', opts);

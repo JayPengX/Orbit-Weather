@@ -79,10 +79,14 @@ export function placeName(page) {
   const place = placeLines(page.place);
   const title = page.plan ? W('我的行程', 'My day') : page.pin ? page.pin.name : place.main || W('目前位置', 'Current location');
   // (Here with no township's name yet: the title already says 目前位置, so not again under it.)
+  // (A place looked up: its town is the title, its county under it. A pin
+  // named after its town doesn't say the town twice.)
   const sub = page.plan
     ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}`
+    : page.look
+      ? place.sub
     : page.pin
-      ? [place.main, place.sub].filter(Boolean).join(' · ')
+      ? [place.main, place.sub].filter(x => x && x !== title).join(' · ')
       : [place.sub, page.note || (place.main ? W('目前位置', 'Current location') : '')].filter(Boolean).join(' · ');
   return { title, sub };
 }

@@ -43,8 +43,8 @@ Live: https://orbit.jaypengx.com/weather/
   cards in 版面's order: 今日數據 (降雨 / 紫外線 / 空氣 each opening its sheet of
   day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
   建議 four and 全部; the ten days side by side, the highs as one warm line and the lows as
-  one cool line on one scale (最高 / 最低 named in the head in their colours), the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`), from its top, the kit's one slide every time; the temperature's pop (`data-q-live`) is keyed by the place and its visit, so it pops only when it changes while that place is on screen, never on arriving (Jay 2026-11-05: it felt random). 地點: each
-  place with its now and its day, 新增地點, 早晨天氣, 版面 (天氣's three cards put in order by their grips, kit `reorder`; each shown or not). `#tab=places`,
+  one cool line on one scale (最高 / 最低 named in the head in their colours), the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`), from its top, the kit's one slide every time; the temperature's pop (`data-q-live`) is keyed by the place and its visit, so it pops only when it changes while that place is on screen, never on arriving (Jay 2026-11-05: it felt random). 地點: 搜尋地點, each
+  place with its now and its day, 早晨天氣, 版面 (天氣's three cards put in order by their grips, kit `reorder`; each shown or not). `#tab=places`,
   `#pin=<id>` (an old `#tab=week` opens 天氣).
 - **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
   reading's hourly track shows only when a chance of 30%+ comes in the next
@@ -53,6 +53,14 @@ Live: https://orbit.jaypengx.com/weather/
   `nextRain`). The sun's reading is the strongest UV still to come today, after
   dark tomorrow's peak with its day (never a 0 on an empty bar). 地點 draws a
   place's twelve-hour rain track only where rain comes.
+- **搜尋地點** (Jay 2026-11-06: going somewhere tomorrow, he could only add it):
+  地點's search field opens a sheet of Taiwan's townships (the phone's own place
+  first); a result opens that place's whole 天氣 in a wide sheet (`lookAt`: a page
+  `look: true`, its forecast in memory only, its day and metric sheets as any
+  page's), ✕ back to the search, 加入 keeps it in one tap, named after its town
+  with no hours (`addLook`). A place with no hours and not home is only a place:
+  no 我的行程 for it, its row says where it is. 編輯 sets a name, 這是我的家 and,
+  only with 固定時間在這裡 on, the days and hours.
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
   on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
   newest). The Pass's copy is read again before a write whenever another

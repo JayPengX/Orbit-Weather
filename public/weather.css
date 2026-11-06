@@ -1976,3 +1976,42 @@ button.ot-g {
     display: none;
   }
 }
+
+/* ==== 搜尋地點: a place looked up (Jay 2026-11-06) ====
+   地點's search field opens the search sheet; a result opens the place's
+   天氣 in a wide sheet (✕ back to the search, 加入 keeps it). */
+.wx-find {
+  width: 100%;
+  margin: 0 0 16px;
+  border: 0;
+  color: var(--q-label-2);
+  font: 400 17px/1 var(--q-font);
+  text-align: start;
+  cursor: pointer;
+}
+.wx-find-field {
+  margin: 4px 0 12px;
+}
+.wx-find-list:empty {
+  display: none;
+}
+.wx-find-list .q-cell-value {
+  flex: none;
+}
+.wx-look-body {
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom, 0px));
+}
+.wx-look-body .ot > .q-flow > .ot-hero:first-child,
+.wx-look-body .ot > .ot-hero:first-child {
+  margin-top: 0;
+}
+.wx-look .q-sheet-head .wx-look-add {
+  min-width: 64px;
+}
+/* 編輯: the hours only when 固定時間在這裡 is on. */
+.wx-times {
+  margin-top: 12px;
+}
+.wx-pin-q {
+  margin-top: 12px;
+}

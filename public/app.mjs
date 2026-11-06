@@ -65,12 +65,14 @@ function buildPages() {
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
   state.pages = [
     // 我的行程 first, once there's a pin: the weather where you'll be.
-    ...(state.data.pins.length ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
+    // (A place only added, no hours and not home, is never where the plan has you.)
+    ...(state.data.pins.some(p => p.days.length || p.home) ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
     { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
     ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town } }))
   ];
 }
-const pageOf = key => state.pages.find(p => p.key === key);
+// (A place looked up is a page too while its sheet is open: its day and metric sheets open as any page's.)
+const pageOf = key => state.pages.find(p => p.key === key) || (state.look?.key === key ? state.look : null);
 // A page's forecast: its cell's; 我的行程's, the places' made one.
 // The device off the plan: its place is fresh (half an hour) and over 2 km
 // from the pin the plan has you at now. Then the plan takes here for this
@@ -92,7 +94,7 @@ function liveRoute(now = Date.now()) {
 // as today's. Kept for when the read fails, marked old.)
 const forecastOf = page => {
   if (page.plan) return routeForecast(state.data.pins, forecastFor, Date.now(), liveRoute());
-  const f = page.lat != null ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null;
+  const f = page.lat != null && !page.look ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null;
   return f && !page.error && Date.now() - (Number(f.at) || 0) > HIDE_MS ? null : f;
 };
 const forecastFor = key => {
@@ -167,6 +169,7 @@ onDayOff(() => {
 let shownKey = null;
 let visit = 0;
 function render() {
+  drawLook();
   const page = current();
   if (!page) return;
   const now = Date.now();
@@ -183,7 +186,10 @@ function render() {
   // (The owner's cards in columns on a wide screen, in the phone's order.)
   kitUI.flowColumns?.(panel);
 }
-kitCore.onScreen?.(() => state.tab === 'now' && kitUI.flowColumns?.($('panel-now')));
+kitCore.onScreen?.(() => {
+  if (state.tab === 'now') kitUI.flowColumns?.($('panel-now'));
+  if (state.look?.box?.isConnected) kitUI.flowColumns?.(state.look.box);
+});
 
 // A swipe across 天氣 goes to the place beside, from its top (the title says which).
 kitUI.daySwipe?.($('panel-now'), dir => {
@@ -207,7 +213,8 @@ function placeRows(shown) {
       key: p.key,
       title: name.title,
       // (A pin's township is on its sky; here, its hours.)
-      sub: p.pin && !p.plan ? scheduleText(p.pin) : name.sub,
+      // (A place only added: where it is.)
+      sub: p.pin && !p.plan && (p.pin.days.length || p.pin.home) ? scheduleText(p.pin) : name.sub,
       temp: n?.temp ?? null,
       art: n ? conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 28 }) : '',
       on: p === shown,
@@ -231,7 +238,8 @@ async function loadPage(page, { force = false, naming = null } = {}) {
     await Promise.all(state.pages.filter(x => !x.plan).map(p => loadPage(p, { force })));
     return render();
   }
-  const cell = page.lat != null ? cellOf(page.lat, page.lon) : null;
+  // (A place looked up is kept in memory only: nothing of it stays on the device unless it's added.)
+  const cell = page.lat != null && !page.look ? cellOf(page.lat, page.lon) : null;
   if (!force && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return render();
   page.loading = true;
   render();
@@ -288,7 +296,7 @@ function take(page, cell, f) {
     page.ipForecast = f;
     page.ipAt = Date.now();
     // (Only until a fix: once the phone has said where it is, that name stands.)
-    if (page.lat == null) page.place = f.place || page.place;
+    if (page.lat == null && !page.look) page.place = f.place || page.place;
   }
   page.error = '';
   saveLocal(state.local);
@@ -302,7 +310,7 @@ function follow(page, cell, rest) {
     if (g && !g.more && !g.refreshing) {
       page.mores = 0;
       const had = cell ? cachedForecast(state.local, cell)?.f : page.ipForecast;
-      if ((Number(g.at) || 0) < (Number(had?.at) || 0) || (!cell && page.lat != null)) return;
+      if ((Number(g.at) || 0) < (Number(had?.at) || 0) || (!cell && page.lat != null && !page.look)) return;
       take(page, cell, g);
       render();
       return;
@@ -479,44 +487,168 @@ function sheet(html, cls = '') {
 }
 // Down to the foot as every sheet in the family goes (the kit's; dragged down, its sheetSwipe).
 const shut = d => closeSheet(d);
-const WEEK = en ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['日', '一', '二', '三', '四', '五', '六'];
-async function pinSheet(pin = null) {
-  if (!pin && state.data.pins.length >= MAX_PINS) return tell({ title: W(`最多 ${MAX_PINS} 個釘選地點`, `Up to ${MAX_PINS} pinned places`), body: W('先刪掉一個再新增。', 'Delete one first.') });
+// ---- 搜尋地點: a place's weather once, kept only with 加入 ----------------------------------
+// (Jay 2026-11-06: going somewhere tomorrow, he could only add it. Like the
+// phone's own weather app: a result shows its whole 天氣 in a sheet; 加入 keeps
+// it as a place, nothing more to fill in; its name, home and hours are 編輯's.)
+
+// Taiwan's townships matching what's typed (臺 or 台; English names on an English phone).
+let townships = null;
+async function findPlaces(text) {
+  townships ||= await fetchPlaces().catch(() => null);
+  const t = text.trim().replace(/台/g, '臺');
+  if (!t || !townships) return [];
+  const low = t.toLowerCase();
+  return townships.filter(([c, tw]) => (c + tw).includes(t) || (en && `${placeIn(c)} ${placeIn(tw)}`.toLowerCase().includes(low))).slice(0, 30);
+}
+const placeRowHtml = ([c, t, la, lo], value = placeIn(c)) => `<button class="q-cell wx-find-row" type="button" data-find-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(placeIn(t) || placeIn(c))}</span><span class="q-cell-value">${e(value)}</span></button>`;
+const pinnedAt = (county, town) => state.data.pins.find(p => p.county === county && p.town === town) || null;
+
+function findSheet() {
   const here = state.local.here;
-  const draft = pin ? { ...pin } : { id: newPinId(), name: '', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00', lat: here?.lat, lon: here?.lon, ...(here?.place || {}) };
+  const d = sheet(`
+    <div class="q-sheet-head"><h2>${W('搜尋地點', 'Search a place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
+    <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，例如：大安區', 'A district, e.g. Da’an')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <div id="find-list" class="q-list wx-find-list"></div>`, 'wx-find-sheet');
+  // (The screen's height from the start, as a search is: it doesn't grow under the finger as results come.)
+  kitUI.setSheetDetent?.(d, 'large');
+  const input = d.querySelector('#find-q');
+  const list = d.querySelector('#find-list');
+  // Nothing typed: where the phone is, to add as a place (what 用目前位置 did).
+  const start = () => (here?.lat != null && here.place?.town ? `${placeRowHtml([here.place.county || '', here.place.town, here.lat, here.lon], W('目前位置', 'Current location'))}` : '');
+  let asked = 0;
+  const fill = async () => {
+    const text = input.value;
+    const n = ++asked;
+    if (!text.trim()) return void (list.innerHTML = start());
+    const rows = await findPlaces(text);
+    if (n !== asked) return;
+    list.innerHTML = rows.map(r => placeRowHtml(r)).join('') || kitUI.emptyHtml({ title: townships ? W('找不到這個地區', 'No district found') : W('暫時無法搜尋，請稍後再試。', 'Can’t search right now. Try again shortly.') });
+  };
+  fill();
+  input.addEventListener('input', fill);
+  // (Focused in the tap that opened it: the phone's keyboard comes up with the sheet.)
+  input.focus();
+  d.addEventListener('click', ev => {
+    if (ev.target.closest('[data-find="clear"]')) return void ((input.value = ''), fill(), input.focus());
+    const row = ev.target.closest('[data-find-place]');
+    if (!row) return;
+    const [county, town, la, lo] = row.dataset.findPlace.split('|');
+    input.blur();
+    lookAt({ county, town, lat: Number(la), lon: Number(lo) }, d);
+  });
+}
+
+// The place's 天氣 in a sheet over the search: ✕ goes back to it, 加入 keeps the place.
+function lookAt({ county, town, lat, lon }, finder) {
+  // (Its forecast in memory: one this device already has for that cell paints at once.)
+  const kept = cachedForecast(state.local, cellOf(lat, lon));
+  const page = { key: `look:${county}|${town}`, look: true, pin: null, lat, lon, place: { county, town }, ipForecast: kept?.f || null, ipAt: kept?.at || 0 };
+  state.look = page;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  const close = document.createElement('button');
+  Object.assign(close, { className: 'q-close', type: 'button', textContent: '✕' });
+  close.setAttribute('data-q-close', '');
+  close.setAttribute('aria-label', W('關閉', 'Close'));
+  page.box = document.createElement('div');
+  page.box.className = 'wx-panel wx-look-body';
+  const k = kitUI.sheet({ title: placeIn(town) || placeIn(county), lead: close, trailing: btn, cls: 'wx-sheet wx-look q-sheet-wide', detent: 'large', body: [page.box], closeLabel: W('關閉', 'Close'), onClose: () => state.look === page && (state.look = null) });
+  page.sheet = k.el;
+  page.addBtn = btn;
+  page.finder = finder;
+  btn.addEventListener('click', () => addLook(page));
+  drawLook();
+  loadPage(page);
+}
+// The sheet drawn again only when what it shows changed (as 天氣 is).
+function drawLook() {
+  const page = state.look;
+  if (!page?.box?.isConnected) return;
+  const had = pinnedAt(page.place.county, page.place.town);
+  page.addBtn.className = `q-btn ${had ? 'plain' : 'primary'} small wx-look-add`;
+  page.addBtn.textContent = had ? W('已加入', 'Added') : W('加入', 'Add');
+  page.box.classList.toggle('is-loading', Boolean(page.loading));
+  const now = Date.now();
+  const sig = `${pageSig(page)}|${Math.floor(now / 3_600_000)}|${state.data.t}`;
+  if (page.box.dataset.sig === sig) return;
+  page.box.dataset.sig = sig;
+  page.box.innerHTML = skyPage(forecastOf(page), page, { now, cards: state.data.cards, hidden: state.data.hidden, bare: true });
+  kitUI.flowColumns?.(page.box);
+}
+// 加入: the place kept under its own name, no hours (編輯 sets them, and a home).
+// Already one of the places: 已加入 opens it.
+async function addLook(page) {
+  const { county, town } = page.place;
+  const had = pinnedAt(county, town);
+  const leave = () => {
+    shut(page.sheet);
+    if (page.finder?.isConnected) shut(page.finder);
+  };
+  if (had) return void (leave(), choose(had.id));
+  if (state.data.pins.length >= MAX_PINS) return tell({ title: W(`最多 ${MAX_PINS} 個地點`, `Up to ${MAX_PINS} places`), body: W('先刪掉一個再加入。', 'Delete one first.') });
+  const pin = cleanPin({ id: newPinId(), name: placeIn(town) || placeIn(county), lat: page.lat, lon: page.lon, county, town, days: [], home: false, t: Date.now() });
+  if (!pin) return;
+  // (Its forecast kept as any place's: 天氣 opens on it.)
+  if (page.ipForecast) {
+    state.local.forecasts[cellOf(pin.lat, pin.lon)] = { at: page.ipAt || Date.now(), f: page.ipForecast };
+    saveLocal(state.local);
+  }
+  state.data.pins.push(pin);
+  leave();
+  kitUI.tick?.();
+  kitUI.toast?.(W(`已加入「${pin.name}」`, `Added ${pin.name}`), { ms: 1600 });
+  await saveData();
+}
+
+// 編輯: a place's name, where it is, home or not, and (only if wanted) the hours you're there.
+const WEEK = en ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['日', '一', '二', '三', '四', '五', '六'];
+function pinSheet(pin) {
+  if (!pin) return;
+  const here = state.local.here;
+  const draft = { ...pin, days: pin.days.length ? [...pin.days] : [1, 2, 3, 4, 5] };
+  let timed = pin.days.length > 0;
   const where = () => [draft.county, draft.town].filter(Boolean).map(placeIn).join(' ') || W('尚未選擇', 'Not chosen');
   const d = sheet(`
-    <div class="q-sheet-head"><h2>${pin ? W('編輯釘選地點', 'Edit pinned place') : W('釘選地點', 'Pinned place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
+    <div class="q-sheet-head"><h2>${W('編輯地點', 'Edit place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
     <div class="q-list">
-      <label class="q-cell"><span class="q-cell-text">${W('名稱', 'Name')}</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="${W('例如：學校、家', 'e.g. School, Home')}" value="${e(draft.name)}"></label>
+      <label class="q-cell"><span class="q-cell-text">${W('名稱', 'Name')}</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="${e(placeIn(draft.town) || W('例如：學校、家', 'e.g. School, Home'))}" value="${e(draft.name)}"></label>
       <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
       <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
+      <div class="q-cell"><span class="q-cell-text">${W('固定時間在這裡', 'I’m here at set times')}</span><button class="q-switch" type="button" role="switch" data-pin-act="timed" aria-checked="${timed}" aria-label="${W('固定時間在這裡', 'I’m here at set times')}"></button></div>
     </div>
-    ${here ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(placeIn(here.place.town))})`) : ''}</button>` : ''}
-    <h3 class="q-list-head">${W('或搜尋鄉鎮市區', 'Or search a district')}</h3>
-    <label class="q-search"><input id="pin-q" type="search" placeholder="${W('例如：大安區', 'e.g. Da’an')}" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <div id="pin-times"${timed ? '' : ' hidden'}>
+      <div class="q-list wx-times">
+        <div class="q-cell"><div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div></div>
+        <div class="q-cell"><span class="q-cell-text">${W('從', 'From')}</span><input id="pin-from" class="wx-time" type="time" value="${draft.from}"></div>
+        <div class="q-cell"><span class="q-cell-text">${W('到', 'To')}</span><input id="pin-to" class="wx-time" type="time" value="${draft.to}"></div>
+      </div>
+      <p class="q-list-foot">${W('這段時間打開，會先看到這裡。', 'At these times the app opens here.')}</p>
+    </div>
+    <h3 class="q-list-head">${W('換地點', 'Change place')}</h3>
+    ${here?.lat != null ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(placeIn(here.place.town))})`) : ''}</button>` : ''}
+    <label class="q-search wx-pin-q"><input id="pin-q" type="search" placeholder="${W('搜尋鄉鎮市區', 'Search a district')}" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="${W('清除', 'Clear')}">✕</button></label>
     <div id="pin-list" class="q-list wx-list"></div>
-    <h3 class="q-list-head">${W('我在這裡的時間', 'When I’m here')}</h3>
-    <div class="q-list">
-      <div class="q-cell"><div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div></div>
-      <div class="q-cell"><span class="q-cell-text">${W('從', 'From')}</span><input id="pin-from" class="wx-time" type="time" value="${draft.from}"></div>
-      <div class="q-cell"><span class="q-cell-text">${W('到', 'To')}</span><input id="pin-to" class="wx-time" type="time" value="${draft.to}"></div>
-    </div>
     <div class="wx-actions">
-      ${pin ? `<button class="q-btn danger tinted large" type="button" data-pin-act="delete">${W('刪除', 'Delete')}</button>` : ''}
+      <button class="q-btn danger tinted large" type="button" data-pin-act="delete">${W('刪除', 'Delete')}</button>
       <button class="q-btn primary large" type="button" data-pin-act="save">${W('儲存', 'Save')}</button>
     </div>`);
   const list = d.querySelector('#pin-list');
   const qInput = d.querySelector('#pin-q');
-  let places = null;
+  let asked = 0;
   qInput.addEventListener('input', async () => {
-    const text = qInput.value.trim().replace(/台/g, '臺');
-    if (!text) return (list.innerHTML = '');
-    places ||= await fetchPlaces().catch(() => []);
-    const low = text.toLowerCase();
-    const rows = places.filter(([c, t]) => (c + t).includes(text) || (en && `${placeIn(c)} ${placeIn(t)}`.toLowerCase().includes(low))).slice(0, 30);
+    const n = ++asked;
+    if (!qInput.value.trim()) return void (list.innerHTML = '');
+    const rows = await findPlaces(qInput.value);
+    if (n !== asked) return;
     list.innerHTML = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(placeIn(t))}</span><span class="q-cell-value">${e(placeIn(c))}</span></button>`).join('') || kitUI.emptyHtml({ title: W('找不到這個地區', 'No district found') });
   });
+  // (Named after its town: a new town renames it, a name of its own stays.)
+  const renamed = () => {
+    const box = d.querySelector('#pin-name');
+    if (box.value === pin.name && pin.name === (placeIn(pin.town) || placeIn(pin.county))) box.value = placeIn(draft.town) || placeIn(draft.county);
+    box.placeholder = placeIn(draft.town) || box.placeholder;
+  };
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');
     if (day) {
@@ -530,6 +662,7 @@ async function pinSheet(pin = null) {
       const [c, t, la, lo] = place.dataset.place.split('|');
       Object.assign(draft, { county: c, town: t, lat: Number(la), lon: Number(lo) });
       d.querySelector('#pin-where').textContent = where();
+      renamed();
       list.innerHTML = '';
       qInput.value = '';
       return;
@@ -545,9 +678,16 @@ async function pinSheet(pin = null) {
       ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.home));
       return;
     }
+    if (act === 'timed') {
+      timed = !timed;
+      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(timed));
+      d.querySelector('#pin-times').hidden = !timed;
+      return;
+    }
     if (act === 'here' && here) {
       Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '' });
       d.querySelector('#pin-where').textContent = where();
+      renamed();
     }
     if (act === 'delete') {
       if (!(await ask({ title: W(`刪除「${pin.name}」？`, `Delete “${pin.name}”?`), ok: W('刪除', 'Delete'), cancel: W('取消', 'Cancel'), danger: true }))) return;
@@ -557,10 +697,10 @@ async function pinSheet(pin = null) {
       await saveData();
     }
     if (act === 'save') {
-      draft.name = d.querySelector('#pin-name').value;
+      draft.name = d.querySelector('#pin-name').value.trim() || placeIn(draft.town) || placeIn(draft.county);
       draft.from = d.querySelector('#pin-from').value || '07:00';
       draft.to = d.querySelector('#pin-to').value || '17:00';
-      const clean = cleanPin({ ...draft, t: Date.now() });
+      const clean = cleanPin({ ...draft, days: timed ? draft.days : [], t: Date.now() });
       if (!clean) return tell({ title: W('請選擇臺灣的地點', 'Pick a place in Taiwan'), body: W('用目前位置，或搜尋鄉鎮市區。', 'Use your location, or search a district.') });
       // One home at most.
       if (clean.home) state.data.pins = state.data.pins.map(p => (p.id !== clean.id && p.home ? { ...p, home: false, t: Date.now() } : p));
@@ -569,8 +709,6 @@ async function pinSheet(pin = null) {
       else state.data.pins.push(clean);
       d.close();
       await saveData();
-      // A new place: its weather.
-      if (at < 0) choose(clean.id);
     }
   });
 }
@@ -792,7 +930,7 @@ document.addEventListener('click', ev => {
   const stale = ev.target.closest('.wx-stale');
   if (stale) return void (ev.stopPropagation(), loadPage(pageOf(stale.dataset.page), { force: true }));
   const act = ev.target.closest('[data-act]')?.dataset.act;
-  if (act === 'add-pin') return pinSheet();
+  if (act === 'find') return findSheet();
   if (act === 'edit-pin') return pinSheet(state.data.pins.find(p => p.id === ev.target.closest('[data-pin]').dataset.pin));
   if (act === 'retry') return loadPage(pageOf(ev.target.closest('[data-page]').dataset.page), { force: true });
   if (act === 'places') return showTab('places');

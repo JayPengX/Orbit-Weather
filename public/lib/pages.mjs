@@ -418,8 +418,9 @@ const WAIT_PART = body => `<div class="ot-part" aria-hidden="true"><i class="q-s
 const WAIT_CARDS = WAIT_PART('<i class="q-skel ot-wait-line"></i>') + WAIT_PART(WAIT_ROW.repeat(5));
 const CARD = { metrics: readings, advice, days: skyline };
 const shownCards = (page, cards = ['metrics', 'advice', 'days', 'info'], hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
-export function nowHtml(f, page, { now, cards, hidden, home = '', visit = 0 } = {}) {
-  const top = head(page);
+// (`bare`: no head, for a place looked up, whose name is its sheet's title.)
+export function nowHtml(f, page, { now, cards, hidden, home = '', visit = 0, bare = false } = {}) {
+  const top = bare ? '' : head(page);
   // Before the forecast: the cards' shapes, shimmering; a failure says so, with 再試一次.
   if (!f)
     return `<div class="ot">${top}${hero(null, page, { now })}${page.error ? kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } }) : `<div class="ot-waiting" role="status" aria-label="${W('正在取得天氣', 'Getting the weather')}">${WAIT_CARDS}</div>`}</div>`;
@@ -447,11 +448,13 @@ export function placesHtml(rows, { brief, editing = false, now = Date.now() } = 
     return `<div class="q-ritem wx-place-row${r.on ? ' is-on' : ''}${editing ? ' is-still' : ''}"${editing ? '' : ` role="button" tabindex="0" data-go-key="${e(r.key)}"`} aria-current="${r.on ? 'true' : 'false'}">${tile}${text}${nowCell}</div>`;
   };
   const pins = rows.some(r => r.pin);
-  const add = `<button class="q-ritem q-add wx-add" type="button" data-act="add-pin"><span class="q-add-i">${glyph('plus')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('新增地點', 'Add a place')}</span></span></button>`;
+  // A place looked up (Jay 2026-11-06: tomorrow somewhere, one look, nothing saved):
+  // the search field opens 搜尋地點; a result shows its weather, 加入 keeps it.
+  const find = `<button class="q-search wx-find" type="button" data-act="find"><span>${W('搜尋地點', 'Search a place')}</span></button>`;
   const settings = `<div class="q-rowcard">
       <label class="q-ritem wx-brief"><span class="wx-quiet-tile q-tile">${glyph('bell')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('早晨天氣', 'Morning weather')}</span></span><input id="brief-time" class="wx-time" type="time" value="${e(brief)}"></label>
       <button class="q-ritem chevron" type="button" data-act="layout"><span class="wx-quiet-tile q-tile">${glyph('layout')}</span><span class="q-ritem-text"><span class="q-ritem-title">${W('版面', 'Layout')}</span></span></button>
     </div>`;
   const headRow = `<header class="q-page-head wx-head wx-head-row">${kitUI.navTitleHtml(W('地點', 'Places'))}${pins ? `<button class="wx-head-btn" type="button" data-act="edit-places" aria-pressed="${editing}">${editing ? W('完成', 'Done') : W('編輯', 'Edit')}</button>` : ''}</header>`;
-  return `${headRow}<div class="q-cols wx-cols"><div class="wx-col"><div class="q-rowcard wx-places">${rows.map(row).join('')}${add}</div></div><div class="wx-col"><section class="q-section wx-section wx-settings"><div class="q-section-head q-shd"><h2>${W('設定', 'Settings')}</h2></div>${settings}</section></div></div>`;
+  return `${headRow}<div class="q-cols wx-cols"><div class="wx-col">${find}<div class="q-rowcard wx-places">${rows.map(row).join('')}</div></div><div class="wx-col"><section class="q-section wx-section wx-settings"><div class="q-section-head q-shd"><h2>${W('設定', 'Settings')}</h2></div>${settings}</section></div></div>`;
 }
