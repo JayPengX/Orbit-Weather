@@ -15,7 +15,7 @@ body {
    地點 in two columns, each a phone's, their tops in line; 天氣's cards in
    the kit's flow columns (pages.mjs). */
 :root.q-wide {
-  --q-page-max: 1180px;
+  --q-page-max: var(--q-wide-max, 1180px);
 }
 :root.q-wide .wx-col > :first-child {
   margin-top: 0;
