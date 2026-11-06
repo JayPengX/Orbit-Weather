@@ -109,7 +109,9 @@ export const REST_MS = 30_000;
 // whole answer on the same request the moment it's in: `rest`, a promise of
 // it (null when the request ends without it; then it's asked again).
 export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = FIRST_MS, restMs = REST_MS } = {}) {
-  const path = where.auto ? '/weather?auto=1' : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`;
+  // (`tz`: a phone on Taiwan's clock behind a VPN abroad gets Taipei, not the VPN's city.)
+  const tz = kit.phoneZone?.() === 'Asia/Taipei' ? '&tz=Asia%2FTaipei' : '';
+  const path = where.auto ? `/weather?auto=1${tz}` : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`;
   const stop = new AbortController();
   // (Raced as well as passed on: a read the signal doesn't reach ends too.)
   const gone = new Promise((_, no) => stop.signal.addEventListener('abort', () => no(stop.signal.reason), { once: true }));
