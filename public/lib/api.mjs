@@ -166,7 +166,8 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
   }
 }
 // The place: { county, town }.
-export const fetchWhere = (lat, lon, token, fetchFn = fetch) => get(`/weather/where?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}`, token, fetchFn);
+// (Abroad the name is OpenStreetMap's, in the page's language: `lang`.)
+export const fetchWhere = (lat, lon, token, fetchFn = fetch) => get(`/weather/where?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}${kitLang.en ? '&lang=en' : ''}`, token, fetchFn);
 // Taiwan's townships [[county, town, lat, lon]…] for the pin picker.
 export async function fetchPlaces(fetchFn = fetch) {
   const res = await fetchFn(`${PROXY}/weather/places`);

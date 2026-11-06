@@ -33,8 +33,9 @@ export function cleanPin(p) {
     name: String(p.name || '').trim().slice(0, 20) || W('釘選地點', 'Pinned place'),
     lat: Math.round(lat * 1e5) / 1e5,
     lon: Math.round(lon * 1e5) / 1e5,
-    county: String(p.county || '').slice(0, 10),
-    town: String(p.town || '').slice(0, 10),
+    // (A place abroad is a country and a city: longer than Taiwan's names.)
+    county: String(p.county || '').slice(0, 40),
+    town: String(p.town || '').slice(0, 40),
     days,
     from: clockOk(p.from) ? p.from : '07:00',
     to: clockOk(p.to) ? p.to : '17:00',

@@ -70,6 +70,8 @@ Live: https://orbit.jaypengx.com/weather/
 
 ## Decisions in force
 
+- **Abroad** (2026-11-06): Google alone in the place's own time zone (the proxy); the name is OpenStreetMap's city and country in the page's language (`/weather/where&lang=`, `weather.js whereIs`). Still metric only; the pin picker lists Taiwan's townships.
+
 - The line, the graph and the 10-day row read the same hours: one number
   means one thing everywhere. Today's rain chance and advice count only
   the hours still ahead (`dayPop`).
