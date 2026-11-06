@@ -527,7 +527,11 @@ function findSheet() {
   };
   fill();
   input.addEventListener('input', fill);
-  // (Focused in the tap that opened it: the phone's keyboard comes up with the sheet.)
+  // (Focused in the tap that opened it: the phone's keyboard comes up with the sheet.
+  // At once, not slid up (.q-risen), as Transit's search: focused while still
+  // below the screen, iPhone's keys came up over the dimmed page with no sheet,
+  // Jay 2026-11-06. In place, the kit's keyboard state sits it on the keys.)
+  d.classList.add('q-risen');
   input.focus();
   d.addEventListener('click', ev => {
     if (ev.target.closest('[data-find="clear"]')) return void ((input.value = ''), fill(), input.focus());
