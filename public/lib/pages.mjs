@@ -100,7 +100,7 @@ function dayTrack(f, page, now) {
 
 // ---- Now: the place's sky, in its card ----------------------------------------------------------
 
-function hero(f, page, { now }) {
+function hero(f, page, { now, visit = 0 }) {
   const n = f?.now || {};
   const d = f ? todayOf(f, now) : null;
   const { sub } = placeName(page);
@@ -123,7 +123,7 @@ function hero(f, page, { now }) {
     ${fxHtml(sky)}
     ${eyebrow}
     <div class="ot-now">
-      <div class="ot-temp" data-q-live="wx:temp">${n.temp == null ? '–' : Math.round(n.temp)}<i>°</i></div>
+      <div class="ot-temp" data-q-live="wx:temp:${e(page.key)}:${visit}">${n.temp == null ? '–' : Math.round(n.temp)}<i>°</i></div>
       <div class="ot-sky">
         <span class="ot-icon">${conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 56 })}</span>
         <p class="ot-cond">${e(conditionText(n.condition?.code, n.condition?.text))}</p>
@@ -418,12 +418,12 @@ const WAIT_PART = body => `<div class="ot-part" aria-hidden="true"><i class="q-s
 const WAIT_CARDS = WAIT_PART('<i class="q-skel ot-wait-line"></i>') + WAIT_PART(WAIT_ROW.repeat(5));
 const CARD = { metrics: readings, advice, days: skyline };
 const shownCards = (page, cards = ['metrics', 'advice', 'days', 'info'], hidden = []) => (page.plan ? ['metrics', 'advice', 'days'] : cards.filter(k => !hidden.includes(k)));
-export function nowHtml(f, page, { now, cards, hidden, home = '' } = {}) {
+export function nowHtml(f, page, { now, cards, hidden, home = '', visit = 0 } = {}) {
   const top = head(page);
   // Before the forecast: the cards' shapes, shimmering; a failure says so, with 再試一次.
   if (!f)
     return `<div class="ot">${top}${hero(null, page, { now })}${page.error ? kitUI.emptyHtml({ icon: 'cloud', title: page.error, action: { label: W('再試一次', 'Try again'), data: { act: 'retry', page: page.key } } }) : `<div class="ot-waiting" role="status" aria-label="${W('正在取得天氣', 'Getting the weather')}">${WAIT_CARDS}</div>`}</div>`;
-  const opts = { now, key: page.key, page, home };
+  const opts = { now, key: page.key, page, home, visit };
   const off = dayOffSec(f, now);
   // (The cards in columns on a wide screen, read in the phone's order: kit flowColumns.)
   const parts = [hero(f, page, opts), off ? `<div class="ot-card ot-off">${off}</div>` : '', hourTrack(f, opts), ...shownCards(page, cards, hidden).filter(k => CARD[k]).map(k => CARD[k](f, opts))].filter(Boolean);

@@ -160,6 +160,12 @@ onDayOff(() => {
   for (const p of document.querySelectorAll('[id^="panel-"]')) delete p.dataset.sig;
   render();
 });
+// Each time another place is put on 天氣 (a swipe, 地點, a notice): a new
+// visit, so its temperature comes in still and pops only when it changes while
+// it's on screen (Jay 2026-11-05: the pop after a swipe came only when two
+// places' numbers differed, so it felt random).
+let shownKey = null;
+let visit = 0;
 function render() {
   const page = current();
   if (!page) return;
@@ -172,7 +178,8 @@ function render() {
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
   if (state.tab === 'places') return void ((panel.innerHTML = placesPage(placeRows(page).map((r, i) => ({ ...r, page: state.pages[i], f: forecastOf(state.pages[i]) })), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0, now })), kitUI.wireNavTitles(panel));
-  panel.innerHTML = skyPage(forecastOf(page), page, { now, cards: state.data.cards, hidden: state.data.hidden, home: state.data.pins.find(p => p.home)?.name || '' });
+  if (page.key !== shownKey) ((shownKey = page.key), visit++);
+  panel.innerHTML = skyPage(forecastOf(page), page, { now, visit, cards: state.data.cards, hidden: state.data.hidden, home: state.data.pins.find(p => p.home)?.name || '' });
   // (The owner's cards in columns on a wide screen, in the phone's order.)
   kitUI.flowColumns?.(panel);
 }
@@ -184,6 +191,9 @@ kitUI.daySwipe?.($('panel-now'), dir => {
   if (!next) return false;
   state.key = next.key;
   showTab('now', { top: true });
+  // (From its top every time, as 地點's choice does: the tab doesn't change,
+  // so the bar's own top doesn't come into it; never where the last place was read.)
+  if ((globalThis.scrollY || 0) > 0) globalThis.scrollTo(0, 0);
   return true;
 });
 
