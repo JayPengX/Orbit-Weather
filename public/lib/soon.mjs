@@ -62,3 +62,29 @@ export function radarHours(f, now) {
   }
   return out;
 }
+
+// Where rain is due in the next 12 hours, as stretches of time ([from, to],
+// ms; merged): the radar's shower for the two hours it sees, then each hour
+// at RAIN_YES. Told to the family's notebook (weather.rain) for Orbit
+// Transit's 下雨改搭車: its trips favour a bus or the metro over a YouBike
+// and a long walk while it rains on them (Jay 11-10, the family's links).
+export function wetSpans(f, now, { span = 12 * HOUR } = {}) {
+  if (!f?.hours?.length || (f.at && now - f.at > 3 * HOUR)) return [];
+  const out = [];
+  let seen = now;
+  const r = f.radar?.rate && !(f.at && now - f.at > FRESH_FOR) ? radarOf(f, now) : null;
+  if (r) {
+    if (r.kind !== 'dry') out.push([r.from ?? now, r.to ?? r.until]);
+    // (What the radar sees, it says: the hours only past it, as rainSoon.)
+    seen = Math.min(r.until, now + HOUR);
+  }
+  for (const h of f.hours) if (h.pop != null && h.pop >= RAIN_YES && h.t + HOUR > seen && h.t < now + span) out.push([Math.max(h.t, seen), h.t + HOUR]);
+  out.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [a, b] of out) {
+    const last = merged.at(-1);
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else merged.push([a, b]);
+  }
+  return merged;
+}

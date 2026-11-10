@@ -118,7 +118,7 @@ Live: https://orbit.jaypengx.com/weather/
 | `public/lib/pages.mjs` | 天氣 (the sky card and its track, the hours, the readings, the advice, the ten days) and 地點 (each place, its rain track where rain comes, the settings) |
 | `public/lib/cards.mjs` | The sheets 天氣 opens (a day, a metric, the advice, 更多資訊), the day off, and the rules the pages share (the sky, a place's name, a day's rain chance, the advice in order) |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
-| `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
+| `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up, and where rain is due (`wetSpans`, the family's `weather.rain` for Transit's 下雨改搭車) |
 | `public/lib/ask.mjs` | 問天氣: a question read into a day, a place and what's asked, answered from the forecast |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
 | `public/lib/advice-en.mjs` | English (words from the kit's `lang.mjs`); the proxy's advice turned over |

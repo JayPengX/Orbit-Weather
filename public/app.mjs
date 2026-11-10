@@ -27,6 +27,7 @@ import { placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsF
 import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { readAsk, answerOf } from './lib/ask.mjs';
+import { wetSpans } from './lib/soon.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast, useClasses, planTips } from './lib/plan.mjs';
@@ -102,6 +103,30 @@ function tellToday(now) {
     if (key === toldToday) return;
     toldToday = key;
     family.tell('weather', 'today', fact);
+  } catch {}
+}
+
+// Where rain is due in the next 12 hours at each place with a forecast (the
+// radar's shower, then hours at 50%+), for Orbit Transit's 下雨改搭車: only
+// places and stretches of time, once they change.
+let toldRain = '';
+function tellRain(now) {
+  if (!family?.tell) return;
+  const places = [];
+  for (const p of state.pages) {
+    const f = p.plan ? null : forecastOf(p);
+    if (!f || p.lat == null || p.lon == null) continue;
+    const at = Math.round(p.lat * 1000) / 1000;
+    const on = Math.round(p.lon * 1000) / 1000;
+    if (places.some(x => x.lat === at && x.lon === on)) continue;
+    places.push({ lat: at, lon: on, wet: wetSpans(f, now).map(([a, b]) => [Math.round(a / 60_000) * 60_000, Math.round(b / 60_000) * 60_000]) });
+  }
+  if (!places.length) return;
+  const key = JSON.stringify(places);
+  if (key === toldRain) return;
+  toldRain = key;
+  try {
+    family.tell('weather', 'rain', { places });
   } catch {}
 }
 
@@ -225,6 +250,7 @@ function render() {
   const now = Date.now();
   notePlan(now);
   tellToday(now);
+  tellRain(now);
   const panel = $(`panel-${state.tab}`);
   // (更新中 on the sky while the place's forecast is asked.)
   panel.classList.toggle('is-loading', Boolean(page.loading));

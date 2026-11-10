@@ -13,6 +13,7 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - Places and 行程: 地點, each place with its now and its day, its next hours of rain where rain comes, 我的行程 first — `public/lib/pages.mjs`, `public/lib/cards.mjs`: `placesHtml`, `wx-place-row`, `ot-pr`, `我的行程`
 - 搜尋地點: a place's whole 天氣 once in a sheet, nothing kept unless 加入 (one tap, named after its town); its name, home and hours are 編輯's, the hours only if wanted (Jay 2026-11-06) — `public/app.mjs`, `public/lib/pages.mjs`: `findSheet`, `lookAt`, `addLook`, `data-act="find"`, `固定時間在這裡`, `bare`
 - 問天氣: a question in 搜尋地點 (明天竹北會下雨嗎) answered in one row from Orbit's forecast by code; a place not among the townships found by AI on a tap (Jay 2026-11-10) — `public/lib/ask.mjs`: `readAsk`, `answerOf`; `public/app.mjs`: `answerAsk`, `askAi`, `data-ask-ai`; Orbit-Core `weather-ask`
+- 下雨改搭車's half: where rain is due in the next 12 hours at each place (the radar's shower, then hours at 50%+), told to the family's notebook for Transit's trips (Jay 2026-11-10) — `public/lib/soon.mjs`, `public/app.mjs`: `wetSpans`, `tellRain`, `weather.rain`
 - 版面 (what shows, in its order on 天氣) — `public/app.mjs`, `public/lib/pages.mjs`: `版面`, `shownCards`
 - 天氣: today and the days ahead on one page (the hours, the readings, the advice, the ten days) — `public/lib/pages.mjs`: `nowHtml`, `readings`, `advice`, `days`
 - The sky in its card at the top: now, the high and low, the day's stops or turns on one track — `public/lib/pages.mjs`, `public/weather.css`: `ot-hero`, `skyClass`, `ot-day`
