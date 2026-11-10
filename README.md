@@ -49,7 +49,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 - **One answer:** Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings blended into one value per thing; the app never names a source.
 - **Today:** the sky now, the next 24 hours and what to wear or bring.
 - **Forecast:** rain, UV and air quality, each with day tabs and graphs, humidity, wind, and 10 days ahead.
-- **Rain soon:** one line when rain starts or eases within two hours.
+- **Rain soon:** one line when rain starts or eases, the next hour read from CWA's radar; the first hours start from the nearest station's real reading.
 - **Your day (我的行程):** each hour shows the forecast for where you'll be then, from your pinned places.
 - **Typhoon days:** while a warning is out, the county's 停班停課 decision, or the chance of a day off fitted to past decisions.
 - **Notices:** the morning brief at your time, and a rain watch from 07:00 to 21:00.
