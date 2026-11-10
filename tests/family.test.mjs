@@ -36,3 +36,18 @@ test('體育課 meets rain or heat in 我的行程’s advice; a dry, mild one s
   useClasses(null);
   useClassHours(null);
 });
+
+test('跟著課表 in the notices: the morning brief is the school’s before school, rain notices in Class’s hours', async () => {
+  const { planNotices } = await import('../public/lib/pins.mjs');
+  const home = cleanPin({ id: 'phome', name: '家', lat: 24.7, lon: 121, days: [], home: true });
+  useClassHours(date => ({ '2026-11-11': { from: '08:10', to: '15:00' }, '2026-11-12': null })[date]);
+  const items = planNotices({ pins: [home, school], brief: '06:30', now: at('2026-11-10', '22:00'), days: 3 });
+  const brief = d => items.find(x => x.tag === `brief:${d}`);
+  assert.equal(brief('2026-11-11').hash, 'pin=pschool', 'a school day: the school’s weather in the morning');
+  assert.equal(brief('2026-11-12').hash, 'pin=phome', 'no classes: home’s');
+  const rain = items.find(x => x.tag === 'rain:2026-11-11:pschool');
+  assert.equal(rain.at, at('2026-11-11', '07:30'));
+  assert.equal(rain.until, at('2026-11-11', '15:20'));
+  assert.equal(items.some(x => x.tag === 'rain:2026-11-12:pschool'), false, 'a day without classes: no school window');
+  useClassHours(null);
+});

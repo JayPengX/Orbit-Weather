@@ -180,7 +180,9 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
     const date = taipeiClock(now + i * DAY_MS).date;
     if (briefOn && clockOk(brief)) {
       const t = at(date, brief);
-      const pin = activePin(pins, t) || homePin;
+      // (帶傘提醒: on a school day, before school, the morning's brief is the school's, where the day is spent.)
+      const school = pins.find(p => p.cls && classHours(date)?.from && t < at(date, classHours(date).from.padStart(5, '0')));
+      const pin = school || activePin(pins, t) || homePin;
       const p = pin || here;
       if (p && t > now && items.filter(x => x.kind === 'brief').length < days) {
         items.push({ at: t, kind: 'brief', title: pin ? W(`${pin.name} 今天天氣`, `${pin.name} today`) : W('{place}今天天氣', '{place} today'), tag: `brief:${date}`, hash: pin ? `pin=${pin.id}` : '', check: { weather: { ...where(p), kind: 'brief' } } });
@@ -194,6 +196,12 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       const prev = dayBefore(date);
       const segs = pins
         .flatMap(p => {
+          // (跟著課表: a school day's window is Class's, a day without classes none, a day it hasn't told the pin's own.)
+          if (p.cls) {
+            const h = classHours(date);
+            if (h === null) return [];
+            if (h?.from && clockOk(h.from.padStart(5, '0')) && clockOk(h.to.padStart(5, '0'))) return [{ pin: p, from: at(date, h.from.padStart(5, '0')) - CLASS_EARLY * 60_000, to: at(date, h.to.padStart(5, '0')) + CLASS_LATE * 60_000, sfx: '' }];
+          }
           const from = minutes(p.from);
           const to = minutes(p.to);
           if (from < to) return pinDay(p, day, date) ? [{ pin: p, from: at(date, p.from), to: at(date, p.to), sfx: '' }] : [];
