@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { realpathSync, existsSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
-import { daysCols, dayPop, dayTips, daySheet, infoCard } from '../public/lib/cards.mjs';
+import { daysCols, dayPop, dayTips, daySheet, infoCard, soonLine } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
 // 天氣: one page (the old 今天 and 預報 in one, Native).
 const pageHtml = (f, page, opts) => skyPage(f, page, opts);
@@ -227,7 +227,7 @@ test('under 目前位置: a rough fix, and a name that could not be read, kept t
   assert.equal(hereNote(2000, true), '大約位置 · 地名暫時讀不到');
 });
 
-import { rainSoon } from '../public/lib/soon.mjs';
+import { rainSoon, radarHours, rainWord } from '../public/lib/soon.mjs';
 test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh numbers only', () => {
   const now = tpe('2026-10-02T14:20:00');
   const f = pops => ({ at: now - 60_000, hours: pops.map((pop, i) => ({ t: tpe('2026-10-02T14:00:00') + i * H, pop })) });
@@ -241,17 +241,38 @@ test('rain starting soon: a wet hour within 2 hours of a dry one, from fresh num
   assert.equal(rainSoon(f([10, 70]), tpe('2026-10-02T13:20:00')), null, 'hours that begin after now, with a gap before them: not read as dry now');
 });
 
-test('rain in the next hour: the radar’s, then the hours', () => {
+test('rain in the next two hours: the radar’s tracked shower, then the hours', () => {
   const now = tpe('2026-10-02T14:20:00');
   const f = (pops, radar, rain1h = null) => ({ at: now - 60_000, now: { rain1h }, radar, hours: pops.map((pop, i) => ({ t: tpe('2026-10-02T14:00:00') + i * H, pop })) });
   const at = now - 15 * 60_000;
-  assert.deepEqual(rainSoon(f([10, 10, 10], { at, mm: 3.2, near: 4 }), now), { kind: 'start', radar: true, at: at + H, mm: 3.2 }, 'dry now, the radar sees rain coming');
-  assert.deepEqual(rainSoon(f([70, 70, 70], { at, mm: 0, near: 0 }), now), { kind: 'stop', radar: true, at: at + H }, 'raining, the radar sees none near');
-  assert.equal(rainSoon(f([10, 70, 20], { at, mm: 0, near: 0 }), now), null, "15:00's wet hour, the radar sees nothing before 15:05: not said");
-  assert.equal(rainSoon(f([10, 10, 70], { at, mm: 0, near: 0 }), now)?.kind, 'start', '16:00 is past the radar: the hours say it');
-  assert.equal(rainSoon(f([10, 70], { at, mm: 0, near: 0.4 }), now)?.kind, 'start', 'rain within ~2 km: the hours still speak');
-  assert.equal(rainSoon(f([10, 70], { at: now - 50 * 60_000, mm: 0, near: 0 }), now)?.kind, 'start', 'an old radar hour is not read');
-  assert.equal(rainSoon(f([10, 10], { at, mm: 2, near: 2 }, 1.5), now), null, 'raining by the gauge: not "rain coming"');
+  const rates = wet => Array.from({ length: 25 }, (_, i) => wet[i] ?? 0);
+  // 14:05 frame: from 14:35 (step 6) to 15:00 (step 11), 2.5 mm an hour at most.
+  const shower = { at, step: 5, rate: rates({ 6: 1.2, 7: 2.5, 8: 2.5, 9: 1.5, 10: 0.8 }) };
+  const r = rainSoon(f([10, 10, 10], shower), now);
+  assert.equal(r.kind, 'start');
+  assert.equal(r.radar, true);
+  assert.equal(r.at, tpe('2026-10-02T14:35:00'));
+  assert.equal(r.mins, 15);
+  assert.equal(r.to, tpe('2026-10-02T15:00:00'));
+  assert.equal(r.peak, 2.5);
+  assert.equal(rainWord(r.peak).zh, '小雨');
+  const html = soonLine(f([10, 10, 10], shower), now, 'Asia/Taipei');
+  assert.match(html, /class="wx-rain wx-rain-start lv-2"/);
+  assert.match(html, /約 15 分鐘後下小雨/);
+  assert.match(html, /14:35–15:00 · 記得帶傘/);
+  assert.match(html, /約 1\.5 公里內/);
+  assert.doesNotMatch(html, /毫米|mm/, 'no millimetres (Jay 2026-11-10)');
+  assert.equal(rainSoon(f([10, 10, 10], { at, step: 5, rate: rates({ 0: 6, 1: 6, 2: 6, 3: 6, 4: 6 }) }), now).kind, 'now');
+  const dry = { at, step: 5, rate: rates({}) };
+  assert.deepEqual(rainSoon(f([70, 70, 70], dry), now), { kind: 'stop', radar: true, at: now }, 'raining by the hours, nothing on the radar');
+  assert.equal(rainSoon(f([10, 70, 20], dry), now), null, "15:00's wet hour, the radar sees nothing within the hour: not said");
+  assert.equal(rainSoon(f([10, 10, 70], dry), now)?.kind, 'start', '16:00 is past the radar’s hour: the hours say it');
+  assert.equal(rainSoon(f([10, 70], { ...shower, at: now - 50 * 60_000 }), now)?.kind, 'start', 'an old frame is not read');
+  assert.equal(rainSoon(f([10, 70], { at, mm: 3, near: 3 }), now)?.kind, 'start', 'an answer from before the tracked radar: only the hours');
+  // The hours say the same: 14:00 and 15:00 hold the shower.
+  const hrs = radarHours(f([10, 10, 10], shower), now);
+  assert.deepEqual([...hrs.keys()], [tpe('2026-10-02T14:00:00')]);
+  assert.equal(hrs.get(tpe('2026-10-02T14:00:00')), 2.5);
 });
 
 test('the 位置 tile names the place the header shows, and the Today sheet labels the day\'s highs', () => {

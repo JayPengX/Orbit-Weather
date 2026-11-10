@@ -17,8 +17,8 @@ import { escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, uvLevel, aqiLevel, windDir, beaufort, conditionText, staleText, RAIN_YES, RAIN_MAYBE } from './format.mjs';
 import { conditionArt, glyph, placeGlyph, sunArt, ADVICE_GLYPH } from './icons.mjs';
-import { placeName, skyOf, fxHtml, soonLine, dayOffSec, hoursFrom, dayPop, rainSummary, uvDays, adviceList, LIFE, KIND_COLOR, LEVEL_TAG, todayOf } from './cards.mjs';
-import { rainSoon } from './soon.mjs';
+import { placeName, skyOf, fxHtml, soonLine, radarSay, dayOffSec, hoursFrom, dayPop, rainSummary, uvDays, adviceList, LIFE, KIND_COLOR, LEVEL_TAG, todayOf } from './cards.mjs';
+import { rainSoon, radarHours, rainWord } from './soon.mjs';
 import { OLD_MS } from './api.mjs';
 
 const HOUR = 3_600_000;
@@ -176,6 +176,8 @@ function hourTrack(f, { now, key, page }) {
   const top = (hi + lo) / 2 + span / 2;
   const yOf = t => Y0 + ((top - t) / span) * YH;
   const sun = sunEvents(f, hs[0].t, hs[hs.length - 1].t + HOUR);
+  // (The hours the radar sees a shower in say it: its picture and its word, Jay 2026-11-10.)
+  const radar = radarHours(f, now);
   const cols = [];
   const pts = [];
   let x = 0;
@@ -200,10 +202,14 @@ function hourTrack(f, { now, key, page }) {
       const date = dateOf(h.t, f.tz);
       const hr = hourOf(h.t, f.tz);
       const label = i === 0 ? W('現在', 'Now') : hr === 0 ? (en ? weekday(date) : dayLabel(date, now, f.tz)) : hh(hr);
-      return `<button class="ot-hr q-press${i === 0 ? ' is-now' : ''}" type="button" style="width:${COL}px" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}${h.pop >= 20 ? ` ${W('降雨', 'rain')} ${h.pop}%` : ''}`)}">
+      const rr = radar.get(h.t);
+      const word = rr == null ? null : rainWord(rr);
+      const pop = word ? W(word.zh, word.short || word.en) : h.pop >= 20 ? `${h.pop}%` : '';
+      const art = word ? conditionArt(word.level >= 2 ? 'SHOWERS' : 'DRIZZLE', '', h.day ?? true, { size: 28 }) : conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 28 });
+      return `<button class="ot-hr q-press${i === 0 ? ' is-now' : ''}${word ? ' is-radar' : ''}" type="button" style="width:${COL}px" data-day="${e(date)}" data-page="${e(key)}" aria-label="${e(`${dayLabel(date, now, f.tz)} ${hh(hr)} ${deg(h.temp)}${pop ? ` ${W('降雨', 'rain')} ${pop}` : ''}`)}">
         <span class="ot-ht">${e(label)}</span>
-        <span class="ot-hi">${conditionArt(h.condition?.code, h.condition?.text, h.day ?? true, { size: 28 })}</span>
-        <span class="ot-hp">${h.pop >= 20 ? `${h.pop}%` : ''}</span>
+        <span class="ot-hi">${art}</span>
+        <span class="ot-hp">${e(pop)}</span>
         ${c.y == null ? '' : `<b class="ot-hv" style="top:${r1(c.y - (i === 0 ? 28 : 23))}px">${deg(h.temp)}</b>`}
       </button>`;
     })
@@ -353,7 +359,13 @@ function readings(f, { now, key }) {
   const n = f.now || {};
   const list = hoursFrom(f, now);
   const out = [];
-  if (list.length) {
+  // The radar's shower coming or here: the reading says it as the sky card does (cards.mjs radarSay).
+  const soon = rainSoon(f, now);
+  if (list.length && soon?.radar && soon.kind !== 'stop') {
+    const s = radarSay(soon, now, f.tz);
+    const wetDay = list.slice(0, 24).some(h => (h.pop ?? 0) >= RAIN_MAYBE);
+    out.push(gauge({ kind: 'rain', metric: 'rain', key, icon: 'umbrella', name: W('降雨', 'Rain'), sub: e(`${W('雷達', 'Radar')} · ${s.lasts}`), v: soon.kind === 'now' ? W('正在下', 'Now') : W(`${clock(soon.at, f.tz)} 起`, clock(soon.at, f.tz)), unit: W(s.word.zh, ` ${s.word.en.toLowerCase()}`), track: wetDay ? rainTrack(list) : '' }));
+  } else if (list.length) {
     // Rain in the track's day: its hours lit. A dry day (most days) is one line
     // saying when rain comes next, never an empty track (Jay 2026-11-03).
     if (list.slice(0, 24).some(h => (h.pop ?? 0) >= RAIN_MAYBE)) out.push(gauge({ kind: 'rain', metric: 'rain', key, icon: 'umbrella', name: W('降雨', 'Rain'), sub: e(rainSummary(list, f.tz, now, { short: true })), v: `${list[0].pop ?? '–'}`, unit: '%', track: rainTrack(list) }));
