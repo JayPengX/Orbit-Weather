@@ -44,6 +44,7 @@ import('#kit/family.mjs')
       return days && date in days ? f.schoolHours(date) : undefined;
     });
     useClasses(date => (classDays() ? f.classesOn(date) : []));
+    tellPlaces();
     if (state.data?.pins?.some(p => p.cls)) render();
   })
   .catch(() => {});
@@ -74,12 +75,24 @@ const state = {
 
 // ---- Pages: 我的行程, here, then each pin; one shown at a time ---------------------------
 
+// Where home, school and work are, in the family's notebook (the other apps'
+// trips start or end there: Class's 怎麼去學校). Only places, never the weather.
+function tellPlaces() {
+  if (!family?.setPlace) return;
+  for (const pin of state.data?.pins || []) {
+    const weekday = pin.days.some(d => d > 0 && d < 6);
+    const role = pin.home ? 'home' : pin.cls || (weekday && pinNeed(pin) === 'class') ? 'school' : weekday ? 'work' : null;
+    if (role) family.setPlace(role, { lat: pin.lat, lon: pin.lon, name: pin.name }, 'weather');
+  }
+}
+
 function buildPages() {
   const here = state.local.here;
   // (The person's school and work, where the other apps can read them: Class's 停課 is the school's.)
   for (const pin of state.data.pins) if (pin.county && !pin.home && pin.days.some(d => d > 0 && d < 6)) setPlace(pinNeed(pin) === 'class' ? 'school' : 'work', pinPlace(pin));
   const homePin = state.data.pins.find(p => p.home && p.county);
   if (homePin) setPlace('home', pinPlace(homePin));
+  tellPlaces();
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
   state.pages = [
     // 我的行程 first, once there's a pin: the weather where you'll be.
