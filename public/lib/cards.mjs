@@ -7,7 +7,7 @@
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, pct, uvLevel, uvColor, aqiColor, moonName, conditionText, aqiLevel, rainLevel, wearFor, outFeel, updatedText } from './format.mjs';
 import { W, en } from '#kit/lang.mjs';
 import { adviceEn } from './advice-en.mjs';
-import { rainSoon } from './soon.mjs';
+import { rainSoon, rainWord } from './soon.mjs';
 // An hour, as each language says it: 15時, 15:00.
 const hh = n => W(`${n}時`, `${n}:00`);
 import { conditionArt, glyph, sunArt, ADVICE_GLYPH } from './icons.mjs';
@@ -55,19 +55,55 @@ const fxHtml = sky => {
 };
 
 // The heads-up under the numbers: rain starting (or easing) within 2 hours.
+// The radar's shower is its own panel (Jay 2026-11-10: a small pill was easy
+// to miss, and "3 毫米" told him nothing): what's coming in plain words and
+// when, from when to when with what to do, every 5 minutes as bars, and what
+// it rests on; the hours' heads-up stays one line.
 export function soonLine(f, now, tz) {
   const r = rainSoon(f, now);
   if (!r) return '';
-  if (r.radar) {
-    // (The radar's hour: what it sees, in millimetres when they matter.)
-    const mm = r.mm >= 1 ? Math.round(r.mm) : 0;
-    const said = r.kind === 'stop' ? W('雷達：一小時內雨停', 'Radar: rain ending within the hour') : mm ? W(`雷達：一小時內下雨 · 約 ${mm} 毫米`, `Radar: rain within the hour · ~${mm} mm`) : W('雷達：一小時內有小雨', 'Radar: light rain within the hour');
-    return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(said)}</span></p>`;
-  }
+  if (r.radar && r.kind !== 'stop') return radarPanel(r, now, tz);
+  if (r.radar) return `<p class="wx-soon wx-soon-stop">${glyph('umbrella', { size: 15 })}<span>${e(W('雨快停了 · 雷達看附近已沒有雨雲', 'Rain ending · no rain clouds near on the radar'))}</span></p>`;
   const near = r.mins <= 60;
   const at = hh(hourOf(r.at, tz));
   const text = r.kind === 'start' ? (near ? W(`約 ${r.mins} 分鐘後下雨 · ${r.pop}%`, `Rain in ~${r.mins} min · ${r.pop}%`) : W(`${at}起下雨 · ${r.pop}%`, `Rain from ${at} · ${r.pop}%`)) : near ? W(`雨約 ${r.mins} 分鐘後減弱`, `Easing in ~${r.mins} min`) : W(`${at}後雨勢減弱`, `Easing by ${at}`);
   return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(text)}</span></p>`;
+}
+
+// What the radar's shower is called and said under it: one rule for the
+// panel, the 降雨 reading and the hours (and the rain notice says the same,
+// Orbit-Core weather.js radarNotice).
+export function radarSay(r, now, tz) {
+  const word = rainWord(r.peak);
+  const w = W(word.zh, word.en.toLowerCase());
+  const tip = W(word.tipZh, word.tipEn);
+  const from = clock(r.at, tz);
+  const head = r.kind === 'now' ? W(`正在下${word.zh}`, `${word.en} now`) : r.mins <= 60 ? W(`約 ${r.mins} 分鐘後下${word.zh}`, `${word.en} in ~${r.mins} min`) : W(`${from} 起下${word.zh}`, `${word.en} from ${from}`);
+  const mins = r.to ? Math.max(5, Math.round((r.to - r.at) / 300_000) * 5) : null;
+  const span = r.kind === 'now'
+    ? r.to ? W(`約 ${clock(r.to, tz)} 停`, `stops ~${clock(r.to, tz)}`) : W(`${clock(r.until, tz)} 前不會停`, `on past ${clock(r.until, tz)}`)
+    : r.to ? `${from}–${clock(r.to, tz)}` : W(`${from} 起，${clock(r.until, tz)} 前不會停`, `from ${from}, on past ${clock(r.until, tz)}`);
+  const lasts = r.kind === 'now' ? span : mins ? W(`下約 ${mins} 分鐘`, `about ${mins} min`) : W(`${clock(r.until, tz)} 前不會停`, `on past ${clock(r.until, tz)}`);
+  return { word, w, tip, head, span, lasts };
+}
+
+// Bars a step each (5 minutes) from now, as tall as the rain is hard, in its level's colour.
+const barH = v => (v < 0.5 ? 0 : Math.round((0.28 + 0.72 * Math.min(1, Math.log1p(v) / Math.log1p(40))) * 100) / 100);
+function radarPanel(r, now, tz) {
+  const s = radarSay(r, now, tz);
+  const n = r.bars.length;
+  const bars = r.bars.map(b => `<i${b.v >= 0.5 ? ` class="lv-${rainWord(b.v).level}" style="--h:${barH(b.v)}"` : ''}></i>`).join('');
+  // (Now at the left; the clock every half hour from now where it fits.)
+  const ticks = [`<span style="left:0">${W('現在', 'Now')}</span>`];
+  for (const k of [6, 12, 18]) if (k < n - 2) ticks.push(`<span style="left:${Math.round((k / n) * 1000) / 10}%">${clock(r.bars[k].t, tz)}</span>`);
+  const said = [s.head, s.span, s.tip].join(W('，', ', '));
+  return `<div class="wx-rain wx-rain-${r.kind} lv-${s.word.level}" role="note" aria-label="${e(said)}">
+    <p class="wx-rain-head">${glyph('umbrella', { size: 18 })}<b>${e(s.head)}</b></p>
+    <p class="wx-rain-sub">${e(`${s.span} · ${s.tip}`)}</p>
+    <div class="wx-rain-bars" style="--n:${n}" aria-hidden="true">${bars}</div>
+    <p class="wx-rain-axis" aria-hidden="true">${ticks.join('')}</p>
+    <p class="wx-rain-note">${e(W('雷達追蹤雨雲 · 約 1.5 公里內 · 時間為估計', 'Radar-tracked · within ~1.5 km · times are estimates'))}</p>
+  </div>`;
 }
 
 // A station by its township's English name in English (信義 → Xinyi), else left out:

@@ -1229,6 +1229,88 @@ svg.ch {
 .ot-hero .wx-soon {
   margin-top: 16px;
 }
+/* The radar's shower (cards.mjs radarPanel): a panel of its own on the sky,
+   the words first, then the next two hours as bars, a bar 5 minutes, as tall
+   as the rain is hard, in its level's colour (毛毛雨 pale … 豪大雨 red). */
+.wx-rain {
+  --lv1: rgba(160, 205, 255, 0.75);
+  --lv2: #5ab0ff;
+  --lv3: #2f86ff;
+  --lv4: #ff9f43;
+  --lv5: #ff5d6c;
+  --lv: var(--lv2);
+  position: relative;
+  z-index: 1;
+  margin: 16px 0 0;
+  padding: 12px 14px 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.wx-rain.lv-1 { --lv: var(--lv1); }
+.wx-rain.lv-3 { --lv: var(--lv3); }
+.wx-rain.lv-4 { --lv: var(--lv4); }
+.wx-rain.lv-5 { --lv: var(--lv5); }
+.wx-rain-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 700 18px/24px var(--q-font);
+}
+.wx-rain-head svg {
+  flex: none;
+  color: var(--lv);
+}
+.wx-rain-sub {
+  margin: 2px 0 0 26px;
+  color: rgba(255, 255, 255, 0.86);
+  font: 500 14px/20px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.wx-rain-bars {
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  align-items: end;
+  gap: 2px;
+  height: 36px;
+  margin: 10px 0 0;
+}
+.wx-rain-bars i {
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.wx-rain-bars i[class] {
+  height: calc(var(--h) * 100%);
+}
+.wx-rain-bars .lv-1 { background: var(--lv1); }
+.wx-rain-bars .lv-2 { background: var(--lv2); }
+.wx-rain-bars .lv-3 { background: var(--lv3); }
+.wx-rain-bars .lv-4 { background: var(--lv4); }
+.wx-rain-bars .lv-5 { background: var(--lv5); }
+.wx-rain-axis {
+  position: relative;
+  height: 16px;
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font: 500 11.5px/16px var(--q-font);
+  font-variant-numeric: tabular-nums;
+}
+.wx-rain-axis span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+.wx-rain-axis span + span {
+  transform: translateX(-50%);
+}
+.wx-rain-note {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font: 12px/16px var(--q-font);
+}
 .ot-foot {
   margin-top: 12px;
 }
