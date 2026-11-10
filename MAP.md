@@ -62,6 +62,13 @@ Live: https://orbit.jaypengx.com/weather/
   with no hours (`addLook`). A place with no hours and not home is only a place:
   no 我的行程 for it, its row says where it is. 編輯 sets a name, 這是我的家 and,
   only with 固定時間在這裡 on, the days and hours.
+- **問天氣** (the family's AI plan, Jay 2026-11-10; code first): a question typed in
+  搜尋地點 (明天竹北會下雨嗎, 週六合歡山會下雪嗎) is read by code (`lib/ask.mjs`
+  `readAsk`: the day, the place among the townships or 這裡, what's asked: rain,
+  snow, cold, hot, the day) and answered by code from the place's forecast
+  (`answerOf`), one row that opens the place's 天氣. Only a place the townships
+  don't have (a mountain, a school) is asked of the AI door on a tap
+  (Orbit-Core `weather-ask`: where it is, nothing more).
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
   on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
   newest). The Pass's copy is read again before a write whenever another
@@ -112,6 +119,7 @@ Live: https://orbit.jaypengx.com/weather/
 | `public/lib/cards.mjs` | The sheets 天氣 opens (a day, a metric, the advice, 更多資訊), the day off, and the rules the pages share (the sky, a place's name, a day's rain chance, the advice in order) |
 | `public/lib/graph.mjs` | Every graph (one frame: `chart`) |
 | `public/lib/pins.mjs`, `plan.mjs`, `soon.mjs` | Pins; 我的行程; the rain-soon heads-up |
+| `public/lib/ask.mjs` | 問天氣: a question read into a day, a place and what's asked, answered from the forecast |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
 | `public/lib/advice-en.mjs` | English (words from the kit's `lang.mjs`); the proxy's advice turned over |
 | `public/sw.js` | Offline and notices |

@@ -2098,3 +2098,11 @@ button.ot-g {
 .wx-pin-q {
   margin-top: 12px;
 }
+
+/* 問天氣: the answer to a question typed in the search, on top (lib/ask.mjs). */
+.wx-ask-row .q-cell-text { gap: 3px; }
+.wx-ask-row .q-cell-text > small { color: var(--q-label-2); font: var(--q-t-footnote); }
+.wx-ask-row .q-cell-text > span { font: var(--q-t-body); white-space: normal; text-wrap: pretty; }
+.wx-ask-row .wx-ask-note { color: var(--q-label-2); }
+.wx-ask-spark { color: var(--q-accent); }
+.wx-ask-spark svg { width: 18px; height: 18px; fill: currentColor; }

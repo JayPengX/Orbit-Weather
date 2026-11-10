@@ -26,6 +26,7 @@ useHolidays((date, pin) => Boolean(twHoliday(date)) || Boolean(pin && offAllDay(
 import { placeName, daySheet, sheetHours, keepPast, infoCard, adviceSheet, colsFor, rangeOf, metricSheet } from './lib/cards.mjs';
 import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './lib/graph.mjs';
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
+import { readAsk, answerOf } from './lib/ask.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast, useClasses, planTips } from './lib/plan.mjs';
@@ -554,11 +555,34 @@ async function findPlaces(text) {
 const placeRowHtml = ([c, t, la, lo], value = placeIn(c)) => `<button class="q-cell wx-find-row" type="button" data-find-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(placeIn(t) || placeIn(c))}</span><span class="q-cell-value">${e(value)}</span></button>`;
 const pinnedAt = (county, town) => state.data.pins.find(p => p.county === county && p.town === town) || null;
 
+// 問天氣 (Jay 11-10, code first): a question typed in the search (明天竹北會下雨嗎,
+// 週六合歡山會下雪嗎) read by code (lib/ask.mjs) and answered from the forecast
+// by code; a place it can't find is asked of the AI door on a tap (weather-ask:
+// where it is, nothing more). The answer opens the place's 天氣.
+async function forecastAt(lat, lon, day) {
+  const kept = cachedForecast(state.local, cellOf(lat, lon));
+  if (kept && isFresh(kept) && kept.f?.days?.some(d => d.date === day)) return kept.f;
+  const token = await q.ensureToken({ read: true });
+  if (!token) return kept?.f || null;
+  const { f, rest } = await fetchForecast({ lat, lon }, token);
+  // (The quick answer carries the week; a day past it waits for the rest.)
+  if (f?.days?.some(d => d.date === day)) return f;
+  return (await rest.catch(() => null)) || f;
+}
+const askPlaceAttr = p => `${e(p.county || '')}|${e(p.town || '')}|${p.lat}|${p.lon}`;
+const askRowHtml = (place, a) => `<button class="q-cell wx-ask-row" type="button" data-find-place="${askPlaceAttr(place)}"><span class="q-cell-text"><small>${e(a.head)}</small><span>${e(a.line)}</span></span></button>`;
+const askNoteHtml = (text, attr = '') => `<div class="q-cell wx-ask-row"${attr}><span class="q-cell-text"><span class="wx-ask-note">${e(text)}</span></span></div>`;
+async function answerAsk(ask, place, name) {
+  const f = await forecastAt(place.lat, place.lon, ask.day).catch(() => null);
+  const a = answerOf(ask, f, { now: Date.now(), name });
+  return a ? askRowHtml(place, a) : askNoteHtml(W('暫時讀不到這裡的預報，請稍後再試。', 'Can’t read the forecast there right now. Try again shortly.'));
+}
+
 function findSheet() {
   const here = state.local.here;
   const d = sheet(`
     <div class="q-sheet-head"><h2>${W('搜尋地點', 'Search a place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
-    <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，例如：大安區', 'A district, e.g. Da’an')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，或問：明天竹北會下雨嗎', 'A district, or ask: 明天竹北會下雨嗎')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
     <div id="find-list" class="q-list wx-find-list"></div>`, 'wx-find-sheet');
   // (The screen's height from the start, as a search is: it doesn't grow under the finger as results come.)
   kitUI.setSheetDetent?.(d, 'large');
@@ -567,10 +591,30 @@ function findSheet() {
   // Nothing typed: where the phone is, to add as a place (what 用目前位置 did).
   const start = () => (here?.lat != null && here.place?.town ? `${placeRowHtml([here.place.county || '', here.place.town, here.lat, here.lon], W('目前位置', 'Current location'))}` : '');
   let asked = 0;
+  let lastAsk = null;
   const fill = async () => {
     const text = input.value;
     const n = ++asked;
     if (!text.trim()) return void (list.innerHTML = start());
+    townships ||= await fetchPlaces().catch(() => null);
+    const ask = readAsk(text, townships, { today: dateOf(Date.now()), here });
+    if (n !== asked) return;
+    if (ask) {
+      lastAsk = { ask, text };
+      const place = ask.place || (ask.here && here?.lat != null ? { county: here.place?.county || '', town: here.place?.town || '', lat: here.lat, lon: here.lon } : null);
+      if (!place) {
+        // (A place code can't find: asked of the AI only on a tap.)
+        list.innerHTML = ask.unknown
+          ? `<button class="q-cell wx-ask-row" type="button" data-ask-ai><span class="q-cell-icon wx-ask-spark" aria-hidden="true">${kitUI.icons?.spark || ''}</span><span class="q-cell-text"><span>${e(W(`問問「${ask.unknown}」的天氣`, `Ask about ${ask.unknown}`))}</span><small>${e(W('用 AI 找出這個地方在哪，天氣照 Orbit 的預報', 'AI finds where it is; the weather is Orbit’s forecast'))}</small></span></button>`
+          : askNoteHtml(W('說個地方，例如：明天竹北會下雨嗎', 'Name a place, e.g. 明天竹北會下雨嗎'));
+        return;
+      }
+      list.innerHTML = askNoteHtml(W('看一下預報…', 'Checking the forecast…'), ' aria-busy="true"');
+      const name = ask.place ? placeIn(ask.place.town) || placeIn(ask.place.county) : placeIn(here?.place?.town || '') || W('目前位置', 'Here');
+      const html = await answerAsk(ask, place, name);
+      if (n === asked) list.innerHTML = html;
+      return;
+    }
     const rows = await findPlaces(text);
     if (n !== asked) return;
     list.innerHTML = rows.map(r => placeRowHtml(r)).join('') || kitUI.emptyHtml({ title: townships ? W('找不到這個地區', 'No district found') : W('暫時無法搜尋，請稍後再試。', 'Can’t search right now. Try again shortly.') });
@@ -585,12 +629,27 @@ function findSheet() {
   input.focus();
   d.addEventListener('click', ev => {
     if (ev.target.closest('[data-find="clear"]')) return void ((input.value = ''), fill(), input.focus());
+    if (ev.target.closest('[data-ask-ai]') && lastAsk) return void askAi(lastAsk, list, () => asked, ++asked);
     const row = ev.target.closest('[data-find-place]');
     if (!row) return;
     const [county, town, la, lo] = row.dataset.findPlace.split('|');
     input.blur();
     lookAt({ county, town, lat: Number(la), lon: Number(lo) }, d);
   });
+}
+
+// The AI's part of 問天氣: where a place is (weather-ask), then code's answer.
+async function askAi({ ask, text }, list, now, n) {
+  const ai = await import('#kit/ai.mjs').catch(() => null);
+  if (!ai?.aiCall) return void (list.innerHTML = askNoteHtml(W('這個版本還不能問，請重新打開 App。', 'Not available in this version. Reopen the app.')));
+  list.innerHTML = askNoteHtml(W(`找「${ask.unknown}」在哪…`, `Finding ${ask.unknown}…`), ' aria-busy="true"');
+  const r = await ai.aiCall('weather-ask', { question: text, place: ask.unknown });
+  if (now() !== n) return;
+  if (r.error || !r.out) return void (list.innerHTML = askNoteHtml(ai.aiSays?.(r.error, r.left) || W('暫時問不了，請稍後再試。', 'Can’t ask right now. Try again shortly.')));
+  if (!r.out.name) return void (list.innerHTML = askNoteHtml(W(`找不到「${ask.unknown}」，換個說法或說它在哪個鄉鎮。`, `Couldn’t find ${ask.unknown}. Try its district.`)));
+  const place = { county: r.out.county || '', town: r.out.name, lat: r.out.lat, lon: r.out.lon };
+  const html = await answerAsk(ask, place, r.out.name);
+  if (now() === n) list.innerHTML = html;
 }
 
 // The place's 天氣 in a sheet over the search: ✕ goes back to it, 加入 keeps the place.
