@@ -58,6 +58,12 @@ const fxHtml = sky => {
 export function soonLine(f, now, tz) {
   const r = rainSoon(f, now);
   if (!r) return '';
+  if (r.radar) {
+    // (The radar's hour: what it sees, in millimetres when they matter.)
+    const mm = r.mm >= 1 ? Math.round(r.mm) : 0;
+    const said = r.kind === 'stop' ? W('雷達：一小時內雨停', 'Radar: rain ending within the hour') : mm ? W(`雷達：一小時內下雨 · 約 ${mm} 毫米`, `Radar: rain within the hour · ~${mm} mm`) : W('雷達：一小時內有小雨', 'Radar: light rain within the hour');
+    return `<p class="wx-soon wx-soon-${r.kind}">${glyph('umbrella', { size: 15 })}<span>${e(said)}</span></p>`;
+  }
   const near = r.mins <= 60;
   const at = hh(hourOf(r.at, tz));
   const text = r.kind === 'start' ? (near ? W(`約 ${r.mins} 分鐘後下雨 · ${r.pop}%`, `Rain in ~${r.mins} min · ${r.pop}%`) : W(`${at}起下雨 · ${r.pop}%`, `Rain from ${at} · ${r.pop}%`)) : near ? W(`雨約 ${r.mins} 分鐘後減弱`, `Easing in ~${r.mins} min`) : W(`${at}後雨勢減弱`, `Easing by ${at}`);
