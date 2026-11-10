@@ -28,7 +28,7 @@ import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './l
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
-import { routeForecast, useClasses } from './lib/plan.mjs';
+import { routeForecast, useClasses, planTips } from './lib/plan.mjs';
 // The family's notebook (the kit's family.mjs; Jay 11-10: Class and Weather
 // together): Orbit Class's school days as held, on this phone. A place set
 // to 跟著課表 is where you are from just before the first class to just after
@@ -84,6 +84,24 @@ function tellPlaces() {
     const role = pin.home ? 'home' : pin.cls || (weekday && pinNeed(pin) === 'class') ? 'school' : weekday ? 'work' : null;
     if (role) family.setPlace(role, { lat: pin.lat, lon: pin.lon, name: pin.name }, 'weather');
   }
+}
+
+// The day's advice for where you'll be (我的行程's own: umbrella, 體育課,
+// clothes), in the family's notebook for the Orbit Pass's 今天. Only the
+// lines, once they change; nothing before the places have their forecasts.
+let toldToday = '';
+function tellToday(now) {
+  if (!family?.tell || !state.data?.pins?.some(p => p.days.length || p.home)) return;
+  try {
+    const { span, tips } = planTips(state.data.pins, forecastFor, now, liveRoute(now));
+    const lines = tips.filter(t => ['umbrella', 'pe', 'wear'].includes(t.kind)).map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}` }));
+    if (!lines.length) return;
+    const fact = { day: dateOf(span.from), word: span.word, lines };
+    const key = JSON.stringify(fact);
+    if (key === toldToday) return;
+    toldToday = key;
+    family.tell('weather', 'today', fact);
+  } catch {}
 }
 
 function buildPages() {
@@ -205,6 +223,7 @@ function render() {
   if (!page) return;
   const now = Date.now();
   notePlan(now);
+  tellToday(now);
   const panel = $(`panel-${state.tab}`);
   // (更新中 on the sky while the place's forecast is asked.)
   panel.classList.toggle('is-loading', Boolean(page.loading));
