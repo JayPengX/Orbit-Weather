@@ -596,7 +596,11 @@ async function forecastAt(lat, lon, day) {
   return (await rest.catch(() => null)) || f;
 }
 const askPlaceAttr = p => `${e(p.county || '')}|${e(p.town || '')}|${p.lat}|${p.lon}`;
-const askRowHtml = (place, a) => `<button class="q-cell wx-ask-row" type="button" data-find-place="${askPlaceAttr(place)}"><span class="q-cell-text"><small>${e(a.head)}</small><span>${e(a.line)}</span></span></button>`;
+// (The answer drawn: the day's sky, the verdict, its temperatures and chips; a past or far day a note.)
+const askRowHtml = (place, a) =>
+  a.verdict == null
+    ? `<button class="q-cell wx-ask-row" type="button" data-find-place="${askPlaceAttr(place)}"><span class="q-cell-text"><small>${e(a.head)}</small><span>${e(a.line)}</span></span></button>`
+    : `<button class="q-cell wx-ask-row wx-ask-a" type="button" data-find-place="${askPlaceAttr(place)}" aria-label="${e(`${a.head}：${a.line}`)}"><span class="wx-ask-art" aria-hidden="true">${conditionArt(a.code, a.codeText, true, { size: 44 })}</span><span class="q-cell-text" aria-hidden="true"><small>${e(a.head)}</small><b class="wx-ask-verdict">${e(a.verdict)}</b><span class="wx-ask-facts">${a.hi != null ? `<span class="wx-ask-temp num">${a.lo}°<i>–</i>${a.hi}°</span>` : ''}${a.chips.map(c => `<span class="wx-ask-chip">${e(c)}</span>`).join('')}</span></span></button>`;
 const askNoteHtml = (text, attr = '') => `<div class="q-cell wx-ask-row"${attr}><span class="q-cell-text"><span class="wx-ask-note">${e(text)}</span></span></div>`;
 async function answerAsk(ask, place, name) {
   const f = await forecastAt(place.lat, place.lon, ask.day).catch(() => null);

@@ -130,18 +130,29 @@ export function answerOf(ask, f, { now = Date.now(), name = '' } = {}) {
   const sky = conditionText(d.day?.condition?.code, d.day?.condition?.text);
   const kinds = [d.day, d.night].filter(Boolean).map((h, i) => conditionKind(h.condition?.code, h.condition?.text, i === 0));
   const say = (...parts) => parts.filter(Boolean).join(W('，', ', '));
-  let line;
+  // The answer as it's drawn (Jay 11-10: never a plain text): the verdict, the
+  // day's sky, its temperatures and the facts that back it as chips; `line`
+  // the same in words, for a screen reader.
+  let verdict = '';
+  const facts = [];
   if (ask.what === 'snow') {
     const yes = kinds.includes('snow');
     const maybe = !yes && lo != null && lo <= 2 && (pop ?? 0) >= 30;
-    line = say(yes ? W('預報會下雪', 'Snow is forecast') : maybe ? W('冷又可能有雨，有機會下雪', 'Cold and wet: snow is possible') : W('不太會下雪', 'Snow is unlikely'), lo != null ? W(`最低 ${lo}°`, `low ${lo}°`) : '', rainPct);
+    verdict = yes ? W('預報會下雪', 'Snow is forecast') : maybe ? W('冷又可能有雨，有機會下雪', 'Cold and wet: snow is possible') : W('不太會下雪', 'Snow is unlikely');
+    facts.push(rainPct);
   } else if (ask.what === 'rain') {
     const lv = rainLevel(pop ?? 0);
-    line = say(lv === 'yes' ? W('會下雨，記得帶傘', 'Rain likely: take an umbrella') : lv === 'maybe' ? W('可能下雨，帶把折傘', 'Rain possible: a folding umbrella') : W('不太會下雨', 'Rain unlikely'), rainPct);
+    verdict = lv === 'yes' ? W('會下雨，記得帶傘', 'Rain likely: take an umbrella') : lv === 'maybe' ? W('可能下雨，帶把折傘', 'Rain possible: a folding umbrella') : W('不太會下雨', 'Rain unlikely');
+    facts.push(rainPct);
   } else if (ask.what === 'cold' || ask.what === 'hot') {
     const wear = hi != null && lo != null ? wearFor(outFeel(d.feelsLo ?? lo, d.feelsHi ?? hi)) : null;
-    const uv = ask.what === 'hot' && d.uvMax != null ? W(`紫外線最高 ${Math.round(d.uvMax)}`, `UV up to ${Math.round(d.uvMax)}`) : '';
-    line = say(hi != null ? W(`最高 ${hi}°、最低 ${lo}°`, `High ${hi}°, low ${lo}°`) : '', wear ? W(`穿${wear.text}`, wear.text) : '', uv);
-  } else line = say(sky, temps, rainPct);
-  return { day: ask.day, head, line: `${line}${W('。', '.')}` };
+    verdict = wear ? W(`穿${wear.text}`, wear.text) : sky;
+    facts.push(ask.what === 'hot' && d.uvMax != null ? W(`紫外線 ${Math.round(d.uvMax)}`, `UV ${Math.round(d.uvMax)}`) : '', rainPct);
+  } else {
+    verdict = sky;
+    facts.push(rainPct);
+  }
+  const chips = facts.filter(Boolean);
+  const line = say(verdict, ask.what === 'snow' && lo != null ? W(`最低 ${lo}°`, `low ${lo}°`) : hi != null ? W(`最高 ${hi}°、最低 ${lo}°`, `High ${hi}°, low ${lo}°`) : '', ...chips);
+  return { day: ask.day, head, line: `${line}${W('。', '.')}`, verdict, sky, code: d.day?.condition?.code ?? null, codeText: d.day?.condition?.text || '', hi, lo, chips };
 }

@@ -66,7 +66,8 @@ Live: https://orbit.jaypengx.com/weather/
   搜尋地點 (明天竹北會下雨嗎, 週六合歡山會下雪嗎) is read by code (`lib/ask.mjs`
   `readAsk`: the day, the place among the townships or 這裡, what's asked: rain,
   snow, cold, hot, the day) and answered by code from the place's forecast
-  (`answerOf`), one row that opens the place's 天氣. Only a place the townships
+  (`answerOf`), one row that opens the place's 天氣, drawn, never a sentence (Jay
+  11-10): the day's sky, the verdict, low–high and chips (降雨, 紫外線). Only a place the townships
   don't have (a mountain, a school) is asked of the AI door on a tap
   (Orbit-Core `weather-ask`: where it is, nothing more).
 - **Pins:** a name, a place and days/hours; inside its hours the app opens
