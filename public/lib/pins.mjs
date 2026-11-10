@@ -41,6 +41,9 @@ export function cleanPin(p) {
     to: clockOk(p.to) ? p.to : '17:00',
     // Home: where you are when no other pin's hours hold (one at most).
     home: p.home === true,
+    // 跟著課表 (the family's notebook, Jay 11-10): its hours each school day
+    // are Orbit Class's, first class to last (pinActiveAt), its own the rest.
+    ...(p.cls === true ? { cls: true } : {}),
     t: Number(p.t) || 0
   };
 }
@@ -55,9 +58,24 @@ const workPin = pin => !pin.days.includes(0) && !pin.days.includes(6);
 const pinDay = (pin, day, date) => pin.days.includes(day) && !(workPin(pin) && holidayOn(date, pin));
 const dayBefore = date => new Date(Date.parse(`${date}T00:00:00Z`) - DAY_MS).toISOString().slice(0, 10);
 
+// A school day's hours from Orbit Class (the kit's family.mjs, set by the
+// app once loaded): date → { from, to } (no class that day: null; a day Class
+// hasn't told: undefined). A pin 跟著課表 is there from a little before the
+// first class to a little after the last; any day Class hasn't told, by its own hours.
+let classHours = () => undefined;
+export const useClassHours = fn => (classHours = typeof fn === 'function' ? fn : () => undefined);
+export const CLASS_EARLY = 40;
+export const CLASS_LATE = 20;
+
 // Inside its hours now? (A window past midnight, 22:00–06:00, counts the
 // morning after as the same day's.)
 export function pinActiveAt(pin, t) {
+  if (pin?.cls) {
+    const { min, date } = taipeiClock(t);
+    const h = classHours(date);
+    if (h === null) return false;
+    if (h?.from && clockOk(h.from.padStart(5, '0')) && clockOk(h.to.padStart(5, '0'))) return min >= minutes(h.from.padStart(5, '0')) - CLASS_EARLY && min < minutes(h.to.padStart(5, '0')) + CLASS_LATE;
+  }
   if (!pin?.days?.length) return false;
   const { day, min, date } = taipeiClock(t);
   const from = minutes(pin.from);
@@ -76,6 +94,7 @@ export const placeAt = (pins, t) => activePin(pins, t) || (pins || []).find(p =>
 const WEEK = '日一二三四五六';
 const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export function scheduleText(pin) {
+  if (pin?.cls) return W('跟著課表', 'By your timetable');
   if (pin?.home && !pin.days?.length) return W('其他時間', 'Other times');
   if (!pin?.days?.length) return W('不自動開啟', 'Not automatic');
   const d = pin.days;

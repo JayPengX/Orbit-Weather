@@ -12,6 +12,10 @@ const HOUR = 3_600_000;
 const TZ = 'Asia/Taipei';
 
 const placeKey = pin => (pin ? pin.id : 'here');
+// Orbit Class's periods on a date (the kit's family.mjs, set by the app once
+// loaded): [{ n, name, from, to, out }], out an outdoor class (體育).
+let classesFor = () => [];
+export const useClasses = fn => (classesFor = typeof fn === 'function' ? fn : () => []);
 // Where you are at `t`: the pins' plan, except while the device says you're
 // somewhere else (`live.until`: the hours it's taken as true), then here.
 // A plan says where you usually are; the phone says where you are.
@@ -90,6 +94,22 @@ export function planTips(pins, forecastFor, now, live = null) {
   const wetAt = `${W(`${hourOf(wet.t, TZ)}時`, `${hourOf(wet.t, TZ)}:00`)} ${wet.h.pop}%`;
   const rain = rainLevel(wet.h.pop);
   tips.push({ kind: 'umbrella', title: umbrella, text: rain === 'yes' ? `${W('要帶，', 'Bring one, ')}${wetAt}` : rain === 'maybe' ? `${W('摺疊傘，', 'Folding, ')}${wetAt}` : W('不用帶', 'Not needed'), level: rain });
+  // 體育課 (Orbit Class, the family's notebook; Jay 11-10: Class and Weather
+  // together): an outdoor class in the span, with rain or heat where you'll
+  // be at its hour; nothing on a dry, mild one.
+  const day = dateOf(span.from, TZ);
+  for (const c of (classesFor(day) || []).filter(c => c?.out).slice(0, 2)) {
+    const t0 = Date.parse(`${day}T${String(c.from).padStart(5, '0')}:00+08:00`);
+    if (!Number.isFinite(t0) || t0 + HOUR / 2 < span.from || t0 > span.to) continue;
+    const x = list.find(y => y.t <= t0 && t0 < y.t + HOUR);
+    if (!x?.h) continue;
+    const pop = x.h.pop ?? 0;
+    const hot = feel(x.h);
+    const lv = rainLevel(pop);
+    const name = `${c.from} ${c.name}`;
+    if (lv !== 'none') tips.push({ kind: 'pe', title: W('體育課', 'PE'), text: `${name}${W('，雨 ', ', rain ')}${pop}%${lv === 'yes' ? W('，可能改室內', ', may move indoors') : ''}`, level: lv });
+    else if (hot != null && hot >= 33) tips.push({ kind: 'pe', title: W('體育課', 'PE'), text: `${name}${W('，體感 ', ', feels ')}${Math.round(hot)}°${W('，多喝水', ', drink water')}`, level: 'maybe' });
+  }
   // Clothes for the coolest and warmest place-hours.
   const fs = withH.filter(x => feel(x.h) != null);
   if (fs.length) {

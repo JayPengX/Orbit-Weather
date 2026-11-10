@@ -399,15 +399,15 @@ export function airCard(f, { now, ranges }) {
 
 const LIFE = {
   umbrella: W('雨傘', 'Umbrella'), commute: W('通勤', 'Commute'), wear: W('穿著', 'Clothes'), sun: W('防曬', 'Sun'), run: W('跑步', 'Running'), laundry: W('曬衣', 'Laundry'), sleep: W('睡覺', 'Sleep'), window: W('開窗', 'Windows'), mask: W('口罩', 'Mask'), heat: W('炎熱', 'Heat'), carwash: W('洗車', 'Car wash'),
-  move: W('移動', 'On the move'), diff: W('兩地溫差', 'Between places'), weekend: W('週末', 'Weekend'), humid: W('除濕', 'Damp'), temp: W('氣溫', 'Temperature'), wind: W('強風', 'Wind'), thunder: W('雷雨', 'Storms'), fog: W('起霧', 'Fog')
+  move: W('移動', 'On the move'), pe: W('體育課', 'PE'), diff: W('兩地溫差', 'Between places'), weekend: W('週末', 'Weekend'), humid: W('除濕', 'Damp'), temp: W('氣溫', 'Temperature'), wind: W('強風', 'Wind'), thunder: W('雷雨', 'Storms'), fog: W('起霧', 'Fog')
 };
-const ORDER = ['thunder', 'umbrella', 'move', 'commute', 'wear', 'temp', 'sun', 'wind', 'fog', 'diff', 'run', 'laundry', 'weekend', 'sleep', 'humid', 'window', 'mask', 'heat', 'carwash'];
+const ORDER = ['thunder', 'umbrella', 'pe', 'move', 'commute', 'wear', 'temp', 'sun', 'wind', 'fog', 'diff', 'run', 'laundry', 'weekend', 'sleep', 'humid', 'window', 'mask', 'heat', 'carwash'];
 // What needs doing first (a warning), then the usual order.
 const URGENT = { yes: 0, bad: 0, hot: 0, maybe: 1, good: 2, none: 3 };
 
 // One piece of advice, a row: its glyph on a colour tile, the name, what to
 // do, and a tag when the level asks for attention (or says go).
-const KIND_COLOR = { umbrella: 'blue', commute: 'indigo', move: 'indigo', wear: 'orange', temp: 'orange', sun: 'orange', run: 'green', laundry: 'teal', sleep: 'indigo', window: 'mint', mask: 'red', heat: 'red', wind: 'teal', thunder: 'purple', fog: 'cyan', diff: 'purple', weekend: 'pink', humid: 'cyan', carwash: 'blue' };
+const KIND_COLOR = { umbrella: 'blue', commute: 'indigo', move: 'indigo', pe: 'green', wear: 'orange', temp: 'orange', sun: 'orange', run: 'green', laundry: 'teal', sleep: 'indigo', window: 'mint', mask: 'red', heat: 'red', wind: 'teal', thunder: 'purple', fog: 'cyan', diff: 'purple', weekend: 'pink', humid: 'cyan', carwash: 'blue' };
 const LEVEL_TAG = { yes: ['orange', W('留意', 'Heads up')], hot: ['orange', W('留意', 'Heads up')], bad: ['orange', W('留意', 'Heads up')] };
 const lifeTile = ({ kind, level, title, text }) => {
   const tag = LEVEL_TAG[level];

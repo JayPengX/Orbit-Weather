@@ -153,7 +153,7 @@ export function moonArt(phase, { size = 20 } = {}) {
 // Each kind of advice's glyph.
 export const ADVICE_GLYPH = {
   umbrella: 'umbrella', commute: 'train', wear: 'shirt', sun: 'sun', run: 'run', laundry: 'laundry', sleep: 'bed', window: 'window', mask: 'mask', heat: 'heat', carwash: 'car',
-  move: 'train', diff: 'arrows', weekend: 'tent', humid: 'drop', temp: 'thermo', wind: 'wind', thunder: 'bolt', fog: 'fog'
+  move: 'train', pe: 'run', diff: 'arrows', weekend: 'tent', humid: 'drop', temp: 'thermo', wind: 'wind', thunder: 'bolt', fog: 'fog'
 };
 // Where a page is: the route, home, a pin, or here.
 export const placeGlyph = (page, opts) => glyph(page?.plan ? 'route' : page?.pin?.home ? 'home' : page?.pin || page?.look ? 'pin' : 'locate', opts);

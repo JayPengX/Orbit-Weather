@@ -12,7 +12,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
@@ -28,7 +28,25 @@ import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './l
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
-import { routeForecast } from './lib/plan.mjs';
+import { routeForecast, useClasses } from './lib/plan.mjs';
+// The family's notebook (the kit's family.mjs; Jay 11-10: Class and Weather
+// together): Orbit Class's school days as held, on this phone. A place set
+// to 跟著課表 is where you are from just before the first class to just after
+// the last (pins.mjs), and 我的行程's advice says when an outdoor class (體育)
+// meets rain or heat (plan.mjs). A kit without it, or no Class: nothing changes.
+let family = null;
+const classDays = () => family?.heard?.('class', 'days', { maxAge: 21 * 86_400_000 }) || null;
+import('#kit/family.mjs')
+  .then(f => {
+    family = f;
+    useClassHours(date => {
+      const days = classDays();
+      return days && date in days ? f.schoolHours(date) : undefined;
+    });
+    useClasses(date => (classDays() ? f.classesOn(date) : []));
+    if (state.data?.pins?.some(p => p.cls)) render();
+  })
+  .catch(() => {});
 import { nowHtml as skyPage, placesHtml as placesPage } from './lib/pages.mjs';
 
 const $ = id => document.getElementById(id);
@@ -620,7 +638,9 @@ function pinSheet(pin) {
       <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
       <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
       <div class="q-cell"><span class="q-cell-text">${W('固定時間在這裡', 'I’m here at set times')}</span><button class="q-switch" type="button" role="switch" data-pin-act="timed" aria-checked="${timed}" aria-label="${W('固定時間在這裡', 'I’m here at set times')}"></button></div>
+      ${classDays() || pin.cls ? `<div class="q-cell"><span class="q-cell-text">${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}</span><button class="q-switch" type="button" role="switch" data-pin-act="cls" aria-checked="${draft.cls === true}" aria-label="${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}"></button></div>` : ''}
     </div>
+    <p class="q-list-foot" id="pin-cls-foot"${draft.cls ? '' : ' hidden'}>${W('上學日從第一節前 40 分鐘到最後一節後 20 分鐘在這裡；放假、停課的日子不算。體育課碰到雨或炎熱，我的行程會提醒。', 'On school days you’re here from 40 minutes before the first class to 20 after the last; days off don’t count. 我的行程 warns when PE meets rain or heat.')}</p>
     <div id="pin-times"${timed ? '' : ' hidden'}>
       <div class="q-list wx-times">
         <div class="q-cell"><div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div></div>
@@ -680,6 +700,12 @@ function pinSheet(pin) {
     if (act === 'home') {
       draft.home = !draft.home;
       ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.home));
+      return;
+    }
+    if (act === 'cls') {
+      draft.cls = !draft.cls;
+      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.cls));
+      d.querySelector('#pin-cls-foot').hidden = !draft.cls;
       return;
     }
     if (act === 'timed') {
