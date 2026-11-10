@@ -1323,7 +1323,8 @@ svg.ch {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.ot-stop.is-wet > span {
+.ot-stop.is-wet > span:not(:has(+ .ot-wet)),
+.ot-stop > .ot-wet {
   color: #a9ddff;
 }
 .ot-stop > span .wx-g {

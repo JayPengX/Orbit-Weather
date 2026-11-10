@@ -93,7 +93,12 @@ function dayTrack(f, page, now) {
   const say = stops.map(s => [s.label, s.name, s.v, s.wet ? W(`雨 ${s.wet}%`, `rain ${s.wet}%`) : ''].filter(Boolean).join(' ')).join(W('，', ', '));
   return `<ol class="ot-day" style="--n:${stops.length}" aria-label="${e(say)}">${stops
     .map(
-      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 22 }) : s.icon && !s.wet ? (s.sun ? sunArt(s.icon, { size: 22 }) : glyph(s.icon, { size: 17 })) : ''}${e(s.v)}</b><span>${s.wet ? `${glyph('umbrella', { size: 13 })}${e(`${s.wet}%`)}${s.name && s.place ? ' · ' : ''}` : ''}${s.place || !s.wet ? e(s.name) : ''}</span></li>`
+      s => `<li class="ot-stop${s.now ? ' is-now' : ''}${s.wet ? ' is-wet' : ''}"><i class="ot-dot" aria-hidden="true"></i><small>${e(s.label)}</small><b>${s.sky ? conditionArt(s.sky.condition?.code, s.sky.condition?.text, s.sky.day ?? true, { size: 22 }) : s.icon && !s.wet ? (s.sun ? sunArt(s.icon, { size: 22 }) : glyph(s.icon, { size: 17 })) : ''}${e(s.v)}</b>${
+        // A place with rain coming: its name, then the chance on a line of its own (Jay 2026-11-10: 「☂30% · 學校」 cut in a quarter of a phone's card).
+        s.place && s.wet
+          ? `<span>${e(s.name)}</span><span class="ot-wet">${glyph('umbrella', { size: 13 })}${e(`${s.wet}%`)}</span>`
+          : `<span>${s.wet ? `${glyph('umbrella', { size: 13 })}${e(`${s.wet}%`)}` : ''}${!s.wet ? e(s.name) : ''}</span>`
+      }</li>`
     )
     .join('')}</ol>`;
 }
