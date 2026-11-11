@@ -458,7 +458,10 @@ async function locateNow(here) {
       if (here.note !== note) ((here.note = note), render());
     } else await placeHere(here, pos);
   } else if (quick.error) {
-    here.note = state.local.here ? W('無法定位，顯示上次的位置', 'Can’t locate · last location') : W('無法定位，顯示大約位置', 'Can’t locate · approximate');
+    // (Refused at the phone's own prompt: said as location off, as when it was off before.)
+    here.note = quick.error === 'denied'
+      ? state.local.here ? W('定位已關閉，顯示上次的位置', 'Location off · last location') : W('定位已關閉，顯示大約位置', 'Location off · approximate')
+      : state.local.here ? W('無法定位，顯示上次的位置', 'Can’t locate · last location') : W('無法定位，顯示大約位置', 'Can’t locate · approximate');
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
   }
