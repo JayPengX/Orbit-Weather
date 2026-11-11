@@ -30,7 +30,6 @@ const part = (cls, title, body, end = '') => `<section class="ot-part ${cls}"><d
 
 // The sky's classes for a forecast (a cloudy day while there's none yet).
 export const skyClass = f => (f?.now ? skyOf(f.now) : 'sky-cloud sky-day');
-export { fxHtml };
 
 // ---- The head: the place's name, which opens 地點 -----------------------------------------------
 

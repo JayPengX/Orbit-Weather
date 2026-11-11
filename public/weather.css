@@ -852,8 +852,7 @@ svg.ch {
 
 /* ==== Pictures and glyphs (lib/icons.mjs) ==== */
 .wx-g,
-.wx-art-i,
-.wx-moon {
+.wx-art-i {
   display: inline-block;
   flex: none;
   vertical-align: middle;

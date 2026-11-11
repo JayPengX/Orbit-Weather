@@ -132,24 +132,6 @@ export function glyph(name, { size = 20, cls = '' } = {}) {
   return `<svg class="wx-g${cls ? ` ${cls}` : ''}" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${P[name] || P.cloud}</svg>`;
 }
 
-// The moon as it looks tonight (a phase name), lit part drawn.
-const PHASES = ['NEW_MOON', 'WAXING_CRESCENT', 'FIRST_QUARTER', 'WAXING_GIBBOUS', 'FULL_MOON', 'WANING_GIBBOUS', 'LAST_QUARTER', 'WANING_CRESCENT'];
-export function moonArt(phase, { size = 20 } = {}) {
-  const k = PHASES.indexOf(phase);
-  const f = k < 0 ? 0.5 : k / 8;
-  const r = 9;
-  const rx = Math.round(Math.abs(Math.cos(2 * Math.PI * f)) * r * 100) / 100;
-  let lit = '';
-  if (k === 4) lit = `<circle cx="12" cy="12" r="${r}" fill="#f6e3a8"/>`;
-  else if (k > 0) {
-    const waxing = f < 0.5;
-    const thin = waxing ? f < 0.25 : f > 0.75;
-    const d = waxing ? `M12 3A9 9 0 0 1 12 21A${rx} 9 0 0 ${thin ? 0 : 1} 12 3Z` : `M12 3A9 9 0 0 0 12 21A${rx} 9 0 0 ${thin ? 1 : 0} 12 3Z`;
-    lit = `<path d="${d}" fill="#f6e3a8"/>`;
-  }
-  return `<svg class="wx-moon" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="${r}" fill="#3a3f57" stroke="#6b7192" stroke-width=".8"/>${lit}</svg>`;
-}
-
 // Each kind of advice's glyph.
 export const ADVICE_GLYPH = {
   umbrella: 'umbrella', commute: 'train', wear: 'shirt', sun: 'sun', run: 'run', laundry: 'laundry', sleep: 'bed', window: 'window', mask: 'mask', heat: 'heat', carwash: 'car',

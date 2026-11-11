@@ -47,6 +47,7 @@ Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RUL
 | `public/lib/ask.mjs` | 問天氣: a question read into a day, a place and what's asked, answered from the forecast |
 | `public/lib/format.mjs`, `sun.mjs`, `icons.mjs` | Labels and colours (rain levels, what to wear, AQI names, stale text: one rule each); sunrise/sunset; the app's own pictures |
 | `public/lib/advice-en.mjs` | English (words from the kit's `lang.mjs`); the proxy's advice turned over |
+| `public/lib/testing.mjs` | The 測試工具's Weather switches (kit `testtools.mjs`, unlocked on the Pass): `typhoon` (official/chance), `radar` (soon/now), `airBad`, `extreme` (heat/cold), `forecastFail`; applied in `forecastOf`/`loadPage` to what's drawn only |
 | `public/sw.js` | Offline and notices |
 
 The proxy's reads: `GET /weather?lat=&lon=` (the blend for a ~1 km cell,

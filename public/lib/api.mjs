@@ -64,14 +64,6 @@ export const cachedForecast = (local, cell) => local.forecasts?.[cell] || null;
 export const dataAge = (entry, now = Date.now()) => (entry ? now - Math.min(entry.at, entry.f?.at || entry.at) : Infinity);
 export const isFresh = (entry, now = Date.now()) => !!(entry && (dataAge(entry, now) < FRESH_MS || now - entry.at < RECHECK_MS));
 
-// 'granted' | 'prompt' | 'denied' | 'unknown'.
-export async function permissionState(nav = globalThis.navigator) {
-  try {
-    return (await nav?.permissions?.query({ name: 'geolocation' }))?.state || 'unknown';
-  } catch {
-    return 'unknown';
-  }
-}
 
 // The device's position, as precise as it gives within the time (to the
 // township is enough, but Wi-Fi or GPS tells the cell). { lat, lon, acc } or { error }.

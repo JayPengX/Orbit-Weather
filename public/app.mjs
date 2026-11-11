@@ -11,7 +11,7 @@ import * as kitCore from '#kit/orbit.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
-import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, permissionState, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
+import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
 import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
@@ -28,6 +28,7 @@ import { readout, scrubHtml, colAt, colSpot, chartWidth, PLOT_BOTTOM } from './l
 import { dateOf, staleText, hereNote } from './lib/format.mjs';
 import { readAsk, answerOf } from './lib/ask.mjs';
 import { wetSpans } from './lib/soon.mjs';
+import { testForecast } from './lib/testing.mjs';
 import { W, en, lang } from '#kit/lang.mjs';
 import { ICON_DEFS, glyph, placeGlyph, conditionArt } from './lib/icons.mjs';
 import { routeForecast, useClasses, planTips } from './lib/plan.mjs';
@@ -63,12 +64,11 @@ const state = {
   local: loadLocal(),
   data: emptyData(),
   pages: [],
-  // The place shown (a page's key) and the tab: 今天, 預報, 地點.
+  // The place shown (a page's key) and the tab: 天氣, 地點.
   key: null,
   tab: 'now',
   // 地點 in 編輯: the pins' rows open their sheets.
   editing: false,
-  permission: 'unknown',
   // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
   cols: {},
   // The graphs' ranges (the cards' tabs), this device's choice.
@@ -93,7 +93,7 @@ function tellPlaces() {
 // lines, once they change; nothing before the places have their forecasts.
 let toldToday = '';
 function tellToday(now) {
-  if (!family?.tell || !state.data?.pins?.some(p => p.days.length || p.home)) return;
+  if (!family?.tell || !state.data?.pins?.some(p => p.days.length || p.home || p.cls)) return;
   try {
     const { span, tips } = planTips(state.data.pins, forecastFor, now, liveRoute(now));
     const lines = tips.filter(t => ['umbrella', 'pe', 'wear'].includes(t.kind)).map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}` }));
@@ -140,8 +140,8 @@ function buildPages() {
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
   state.pages = [
     // 我的行程 first, once there's a pin: the weather where you'll be.
-    // (A place only added, no hours and not home, is never where the plan has you.)
-    ...(state.data.pins.some(p => p.days.length || p.home) ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
+    // (A place only added, no hours, not home and not 跟著課表, is never where the plan has you.)
+    ...(state.data.pins.some(p => p.days.length || p.home || p.cls) ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
     { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
     ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town } }))
   ];
@@ -170,7 +170,9 @@ function liveRoute(now = Date.now()) {
 const forecastOf = page => {
   if (page.plan) return routeForecast(state.data.pins, forecastFor, Date.now(), liveRoute());
   const f = page.lat != null && !page.look ? cachedForecast(state.local, cellOf(page.lat, page.lon))?.f || null : page.ipForecast || null;
-  return f && !page.error && Date.now() - (Number(f.at) || 0) > HIDE_MS ? null : f;
+  const shown = f && !page.error && Date.now() - (Number(f.at) || 0) > HIDE_MS ? null : f;
+  // (The 測試工具's switches: only what's drawn, never what's kept.)
+  return shown && globalThis.ORBIT_TEST?.flags ? testForecast(shown, page) : shown;
 };
 const forecastFor = key => {
   const page = pageOf(key);
@@ -291,7 +293,7 @@ function placeRows(shown) {
       title: name.title,
       // (A pin's township is on its sky; here, its hours.)
       // (A place only added: where it is.)
-      sub: p.pin && !p.plan && (p.pin.days.length || p.pin.home) ? scheduleText(p.pin) : name.sub,
+      sub: p.pin && !p.plan && (p.pin.days.length || p.pin.home || p.pin.cls) ? scheduleText(p.pin) : name.sub,
       temp: n?.temp ?? null,
       art: n ? conditionArt(n.condition?.code, n.condition?.text, n.day ?? true, { size: 28 }) : '',
       on: p === shown,
@@ -317,12 +319,14 @@ async function loadPage(page, { force = false, naming = null } = {}) {
   }
   // (A place looked up is kept in memory only: nothing of it stays on the device unless it's added.)
   const cell = page.lat != null && !page.look ? cellOf(page.lat, page.lon) : null;
-  if (!force && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return render();
+  const testFail = Boolean(globalThis.ORBIT_TEST?.flags?.forecastFail);
+  if (!force && !testFail && (cell ? isFresh(cachedForecast(state.local, cell)) : page.ipForecast && isFresh({ at: page.ipAt, f: page.ipForecast }))) return render();
   page.loading = true;
   render();
   try {
     // (The token kept, up to 6 hours old, goes at once: no sign-in round trip
     // before the forecast on reopening; turned away, once more with a new one.)
+    if (testFail) throw Object.assign(new Error('test: forecast failing'), { status: 503 });
     const where = page.lat != null ? { lat: page.lat, lon: page.lon } : { auto: true };
     const token = await q.ensureToken({ read: true });
     if (!token) throw Object.assign(new Error('signed out'), { status: 401 });
@@ -406,7 +410,8 @@ const ASKED_KEY = 'orbit-weather.geo.asked';
 async function locate({ force = false } = {}) {
   // (The kit's rule, Transit's too.)
   const may = await mayLocate(ASKED_KEY, { force });
-  state.permission = may === 'denied' ? 'denied' : await permissionState();
+  // (Asked now, whatever the answer: the minute's tick asks again in 10 minutes, not every minute.)
+  state.locatedAt = Date.now();
   const here = pageOf('here');
   here.askable = false;
   if (may === 'no') {
@@ -421,7 +426,6 @@ async function locate({ force = false } = {}) {
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
   }
-  state.locatedAt = Date.now();
   // One at a time (an open, a return and the tick can ask together).
   if (state.locating) return state.locating;
   state.locating = locateNow(here).finally(() => (state.locating = null));
@@ -440,7 +444,6 @@ async function locateNow(here) {
   const early = setTimeout(() => here.lat != null && loadPage(here), EARLY_MS);
   const quick = await getPosition(navigator, { high: false, timeout: 3000, maximumAge: 2 * 60_000 });
   clearTimeout(early);
-  if (quick.error === 'denied') state.permission = 'denied';
   const fine = quick.error === 'denied' ? null : getPosition(navigator, { high: true, timeout: quick.error ? 10_000 : 15_000, maximumAge: 30_000 });
   if (!quick.error) await placeHere(here, quick);
   const pos = fine ? await fine : quick;
@@ -455,7 +458,6 @@ async function locateNow(here) {
       if (here.note !== note) ((here.note = note), render());
     } else await placeHere(here, pos);
   } else if (quick.error) {
-    if (pos.error === 'denied') state.permission = 'denied';
     here.note = state.local.here ? W('無法定位，顯示上次的位置', 'Can’t locate · last location') : W('無法定位，顯示大約位置', 'Can’t locate · approximate');
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
@@ -663,6 +665,8 @@ function findSheet() {
   d.addEventListener('click', ev => {
     if (ev.target.closest('[data-find="clear"]')) return void ((input.value = ''), fill(), input.focus());
     if (ev.target.closest('[data-ask-ai]') && lastAsk) return void askAi(lastAsk, list, () => asked, ++asked);
+    const option = ev.target.closest('[data-ask-option]')?.dataset.askOption;
+    if (option && lastAsk) return void askAi({ ...lastAsk, ask: { ...lastAsk.ask, unknown: option } }, list, () => asked, ++asked);
     const row = ev.target.closest('[data-find-place]');
     if (!row) return;
     const [county, town, la, lo] = row.dataset.findPlace.split('|');
@@ -680,6 +684,9 @@ async function askAi({ ask, text }, list, now, n) {
   const r = await ai.aiCall('weather-ask', { question: text, place: ask.unknown });
   if (now() !== n) return;
   if (r.error || !r.out) return void (list.innerHTML = askNoteHtml(ai.aiSays?.(r.error, r.left) || W('暫時問不了，請稍後再試。', 'Can’t ask right now. Try again shortly.')));
+  // (A name several places share: the AI's choices, each asked on a tap.)
+  const options = !r.out.name && Array.isArray(r.out.options) ? r.out.options.filter(o => typeof o === 'string' && o.trim()).slice(0, 4) : [];
+  if (options.length) return void (list.innerHTML = askNoteHtml(W('是哪一個？', 'Which one?')) + options.map(o => `<button class="q-cell wx-ask-row" type="button" data-ask-option="${e(o)}"><span class="q-cell-text"><span>${e(o)}</span></span></button>`).join(''));
   if (!r.out.name) return void (list.innerHTML = askNoteHtml(W(`找不到「${ask.unknown}」，換個說法或說它在哪個鄉鎮。`, `Couldn’t find ${ask.unknown}. Try its district.`)));
   const place = { county: r.out.county || '', town: r.out.name, lat: r.out.lat, lon: r.out.lon };
   const html = await answerAsk(ask, place, r.out.name);
@@ -735,7 +742,8 @@ async function addLook(page) {
   if (had) return void (leave(), choose(had.id));
   if (state.data.pins.length >= MAX_PINS) return tell({ title: W(`最多 ${MAX_PINS} 個地點`, `Up to ${MAX_PINS} places`), body: W('先刪掉一個再加入。', 'Delete one first.') });
   const pin = cleanPin({ id: newPinId(), name: placeIn(town) || placeIn(county), lat: page.lat, lon: page.lon, county, town, days: [], home: false, t: Date.now() });
-  if (!pin) return;
+  // (A place abroad, as the AI can find: looked at, never kept.)
+  if (!pin) return tell({ title: W('只能加入臺灣的地點', 'Only places in Taiwan can be added'), body: W('國外的地點可以查看天氣，但不能加入。', 'You can look at a place abroad, but not add it.') });
   // (Its forecast kept as any place's: 天氣 opens on it.)
   if (page.ipForecast) {
     state.local.forecasts[cellOf(pin.lat, pin.lon)] = { at: page.ipAt || Date.now(), f: page.ipForecast };
@@ -855,6 +863,7 @@ function pinSheet(pin) {
       draft.name = d.querySelector('#pin-name').value.trim() || placeIn(draft.town) || placeIn(draft.county);
       draft.from = d.querySelector('#pin-from').value || '07:00';
       draft.to = d.querySelector('#pin-to').value || '17:00';
+      if (timed && draft.from === draft.to) return tell({ title: W('開始和結束不能是同一個時間', 'From and to can’t be the same time'), body: W('換一個結束時間。', 'Pick another end time.') });
       const clean = cleanPin({ ...draft, days: timed ? draft.days : [], t: Date.now() });
       if (!clean) return tell({ title: W('請選擇臺灣的地點', 'Pick a place in Taiwan'), body: W('用目前位置，或搜尋鄉鎮市區。', 'Use your location, or search a district.') });
       // One home at most.
@@ -1244,7 +1253,7 @@ window.addEventListener('hashchange', () => {
 
 window.__fxStarted = true;
 document.body.insertAdjacentHTML('afterbegin', ICON_DEFS);
-const gated = installGate('weather', 'zh');
+const gated = installGate('weather', lang);
 watchUpdates({ current: VERSION, key: 'orbitWeather', cachePrefix: 'orbit-weather-' });
 topActions(q, { refresh: () => (state.tab === 'places' ? state.pages.filter(p => !p.plan).forEach(p => loadPage(p, { force: true })) : loadPage(current(), { force: true })) });
 

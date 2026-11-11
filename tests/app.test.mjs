@@ -6,7 +6,7 @@ import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData,
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
-import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, permissionState, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
+import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
 
@@ -329,13 +329,11 @@ test('proxy calls carry the session; the device keeps a few places', async () =>
   assert.deepEqual(placeLines(null), { main: '', sub: '' });
 });
 
-test('position and permission, whatever the browser does', async () => {
+test('position, whatever the browser does', async () => {
   const ok = { geolocation: { getCurrentPosition: (yes, no, o) => (assert.equal(o.enableHighAccuracy, true), yes({ coords: { latitude: 25, longitude: 121.5, accuracy: 30 } })) } };
   assert.deepEqual(await getPosition(ok), { lat: 25, lon: 121.5, acc: 30 });
   assert.deepEqual(await getPosition({ geolocation: { getCurrentPosition: (y, n) => n({ code: 1 }) } }), { error: 'denied' });
   assert.deepEqual(await getPosition({}), { error: 'unsupported' });
-  assert.equal(await permissionState({ permissions: { query: async () => ({ state: 'granted' }) } }), 'granted');
-  assert.equal(await permissionState({}), 'unknown');
 });
 
 test('labels in Taipei time and Taiwan levels; the sun worked out', () => {
@@ -470,8 +468,8 @@ test('notices follow the route: home outside the pins\' hours', () => {
   assert.ok(!items.some(x => x.check.weather.lat === 22.6), 'never the device\'s place when there\'s a home');
 });
 
-test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon as it is', async () => {
-  const { wxArt, conditionArt, sunArt, glyph, moonArt, ICON_DEFS } = await import('../public/lib/icons.mjs');
+test('the app\'s own pictures: a weather picture for each kind, glyphs', async () => {
+  const { wxArt, conditionArt, sunArt, glyph, ICON_DEFS } = await import('../public/lib/icons.mjs');
   const { conditionKind } = await import('../public/lib/format.mjs');
   assert.equal(conditionKind('THUNDERSTORM'), 'storm');
   assert.equal(conditionKind('', '陣雨'), 'rain');
@@ -492,9 +490,6 @@ test('the app\'s own pictures: a weather picture for each kind, glyphs, the moon
   assert.match(conditionArt('THUNDERSTORM', ''), /wxi-bolt/);
   assert.match(glyph('umbrella'), /stroke="currentColor"/);
   assert.match(glyph('nope'), /<svg/, 'an unknown name still draws something');
-  assert.match(moonArt('FULL_MOON'), /<circle cx="12" cy="12" r="9" fill="#f6e3a8"/);
-  assert.ok(!/f6e3a8/.test(moonArt('NEW_MOON')), 'nothing lit at new moon');
-  assert.match(moonArt('FIRST_QUARTER'), /M12 3A9 9 0 0 1 12 21/, 'the right half lit, waxing');
 });
 
 test("a weekday pin (school) is off on a national holiday: no 到學校 hours or rain watch there; an every-day pin stays", async () => {
@@ -659,4 +654,25 @@ test("a dry day: the rain reading is one line saying when rain comes next, never
   const row = f => placesHtml([{ key: 'here', title: '家', color: 'blue', glyph: '', f, temp: 25 }], { brief: '06:30', now: NOW });
   assert.doesNotMatch(row(dry), /ot-pr/);
   assert.match(row(forecast), /ot-pr/);
+});
+
+test('測試工具: no switch draws the forecast as kept; each switch only a copy', async () => {
+  const { testForecast } = await import('../public/lib/testing.mjs');
+  const { forecast, NOW } = await import('./fixture.mjs');
+  const { dayOffSec } = await import('../public/lib/cards.mjs');
+  const { rainSoon } = await import('../public/lib/soon.mjs');
+  delete globalThis.ORBIT_TEST;
+  assert.equal(testForecast(forecast, {}, NOW), forecast, 'no switch: the same object');
+  const before = JSON.stringify(forecast);
+  try {
+    globalThis.ORBIT_TEST = { flags: { typhoon: 'official', radar: 'soon', airBad: true, extreme: 'heat' } };
+    const g = testForecast(forecast, {}, NOW);
+    assert.match(dayOffSec(g, NOW), /停班停課|Closed/);
+    assert.equal(rainSoon(g, NOW)?.kind, 'start');
+    assert.equal(g.air.aqi, 168);
+    assert.ok(g.advice.some(a => a.kind === 'heat') && g.advice.some(a => a.kind === 'mask'));
+    assert.equal(JSON.stringify(forecast), before, 'the kept forecast untouched');
+  } finally {
+    delete globalThis.ORBIT_TEST;
+  }
 });

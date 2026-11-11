@@ -4,8 +4,6 @@ import { W, en } from '#kit/lang.mjs';
 
 const TZ = 'Asia/Taipei';
 
-export const pad = n => String(n).padStart(2, '0');
-
 // "HH:MM" in the forecast's time zone.
 // (Each formatter made once per zone: making one costs more than a thousand uses, and a forecast asks thousands of times.)
 const FORMATS = new Map();
@@ -97,7 +95,7 @@ const MOON = {
   NEW_MOON: ['新月', 'New moon'], WAXING_CRESCENT: ['眉月', 'Waxing crescent'], FIRST_QUARTER: ['上弦月', 'First quarter'], WAXING_GIBBOUS: ['盈凸月', 'Waxing gibbous'],
   FULL_MOON: ['滿月', 'Full moon'], WANING_GIBBOUS: ['虧凸月', 'Waning gibbous'], LAST_QUARTER: ['下弦月', 'Last quarter'], WANING_CRESCENT: ['殘月', 'Waning crescent']
 };
-// The moon's phase in the reader's language (its picture is icons.mjs moonArt).
+// The moon's phase in the reader's language.
 export const moonName = p => (MOON[p] ? W(...MOON[p]) : null);
 
 // ---- One rule each, wherever the page says it ---------------------------------------

@@ -118,7 +118,8 @@ export function readAsk(text, towns, { today, here = null } = {}) {
   const raw = String(text || '').trim();
   const latin = /[a-z]{2}/i.test(raw);
   if (!raw || raw.length > (latin ? 90 : 40) || !asking(raw)) return null;
-  const s = raw.replace(/台/g, '臺');
+  // (周 as 週, as dayOf reads it: the day's words then come off the place.)
+  const s = raw.replace(/台/g, '臺').replace(/周(?=[一二三四五六日天末])/g, '週');
   const { day, word } = dayOf(s, today);
   const what = whatOf(s);
   let rest = word ? s.replace(word, ' ') : s;

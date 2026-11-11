@@ -27,6 +27,7 @@ test('問天氣: the place, the day and what is asked; a place code can’t find
   assert.equal(s.place, null);
   assert.equal(s.unknown, '合歡山');
   assert.equal(s.what, 'snow');
+  assert.equal(readAsk('周六合歡山會下雪嗎', towns, { today }).unknown, '合歡山', '周 as 週: the day comes off the place');
   assert.equal(readAsk('明天會下雨嗎', towns, { today }).here, true, 'no place said: where the phone is');
   assert.equal(readAsk('竹北', towns, { today }), null, 'a place alone is a search, not a question');
 });
