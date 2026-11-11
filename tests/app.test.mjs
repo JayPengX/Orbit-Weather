@@ -641,6 +641,8 @@ test("a dry day: the rain reading is one line saying when rain comes next, never
   // Rain the day after tomorrow, past the hours there are: that day named, with its chance.
   const later = { ...dry, hours: dry.hours.filter(h => h.t < NOW + 26 * H), days: dry.days.map((d, i) => (i === 2 ? { ...d, pop: 60 } : d)) };
   assert.match(reading(later, 'rain'), new RegExp(`${dayLabel(later.days[2].date, NOW)}可能下雨<small>60%</small>`));
+  // The same with every hour there: the hours end early on that day, its afternoon's rain still counts.
+  assert.match(reading({ ...dry, days: later.days }, 'rain'), new RegExp(`${dayLabel(later.days[2].date, NOW)}可能下雨<small>60%</small>`));
   // Rain further out isn't named on the reading (the ten days show its chance).
   const far = { ...later, days: dry.days.map((d, i) => (i === 5 ? { ...d, pop: 60 } : d)) };
   assert.match(reading(far, 'rain'), /class="ot-g-v">三天內不太會下雨</);

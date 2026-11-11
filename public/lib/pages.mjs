@@ -350,7 +350,10 @@ function nextRain(f, list, now) {
   if (h) return { v: W(`${dayLabel(dateOf(h.t, tz), now, tz)} ${hourOf(h.t, tz)}時起`, `${dayLabel(dateOf(h.t, tz), now, tz)} from ${hourOf(h.t, tz)}:00`), unit: `${h.pop}%` };
   const after = dateOf(list[Math.min(list.length, 48) - 1].t, tz);
   const days = (f.days || []).filter(d => d.date >= dateOf(now, tz)).slice(0, RAIN_DAYS);
-  const wet = days.find(d => d.date > after && (d.pop ?? 0) >= RAIN_MAYBE);
+  // (The hours' last day counts too: they end in its early morning, and its
+  // afternoon's rain is still to come. Checklist 2026-11-12: a full forecast
+  // said 三天內不太會下雨 over the day after tomorrow's 60%.)
+  const wet = days.find(d => d.date >= after && (d.pop ?? 0) >= RAIN_MAYBE);
   if (wet) return { v: W(`${dayLabel(wet.date, now, tz)}可能下雨`, `Rain likely ${dayLabel(wet.date, now, tz)}`), unit: `${wet.pop}%` };
   return { v: days.length >= RAIN_DAYS ? W('三天內不太會下雨', 'Dry for 3 days') : W('兩天內不太會下雨', 'Dry for 2 days') };
 }
