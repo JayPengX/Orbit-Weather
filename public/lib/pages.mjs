@@ -421,7 +421,9 @@ function advice(f, { now, key }) {
     })
     .join('');
   const more = list.length > SHOWN ? `<button class="ot-more" type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}${glyph('chevR', { size: 14 })}</button>` : '';
-  return part('ot-advice', tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'), rows, more);
+  // (Framed by the Orbit AI mark, as every smart thing is (Jay 11-11).)
+  const title = tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today');
+  return part('ot-advice', kitUI.aiMarkHtml ? `<span class="q-h-ai">${kitUI.aiMarkHtml()}<span>${title}</span></span>` : title, rows, more);
 }
 
 // ---- 天氣: the whole page --------------------------------------------------------------------
