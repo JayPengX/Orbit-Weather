@@ -27,7 +27,7 @@ const today = (f, now) => f.days?.find(d => d.date === dateOf(now, f.tz)) || f.d
 // A day's chance of rain, as every place shows it: today's is the highest of
 // the hours still ahead (where you'll be then: the hourly graph's), not the
 // forecast's whole day with its gone hours; the line, the graphs and the 10
-// days say the same (TRUTH §14).
+// days say the same (MAP.md Rules: one number, one meaning).
 export function dayPop(f, d, now) {
   if (!d || d.date !== dateOf(now, f.tz)) return d?.pop ?? null;
   const ahead = hoursFrom(f, now).filter(h => dateOf(h.t, f.tz) === d.date && h.pop != null);
