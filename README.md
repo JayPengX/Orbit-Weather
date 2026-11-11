@@ -17,14 +17,20 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today, in one look">
-  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Rain, ten days ahead">
-  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Every hour of the day">
+  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Just ask: will it rain tomorrow? (in Chinese)">
+  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Rain, ten days ahead">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.webp" width="30%" alt="The air around you">
-  <img src="docs/screenshots/weather-5.webp" width="30%" alt="Today's numbers, and advice">
-  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Every place you keep">
+  <img src="docs/screenshots/weather-4.webp" width="30%" alt="Every hour of the day">
+  <img src="docs/screenshots/weather-5.webp" width="30%" alt="The air around you">
+  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Today's numbers, and advice">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/weather-7.webp" width="30%" alt="Every place you keep">
+  <img src="docs/screenshots/weather-8.webp" width="30%" alt="Tomorrow, hour by hour">
+  <img src="docs/screenshots/weather-9.webp" width="30%" alt="Your home, in your order">
 </p>
 
 <details>
@@ -32,20 +38,28 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-1.zh.webp" width="30%" alt="今天天氣一眼看完">
-  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="未來十天降雨">
-  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="一天的每小時">
+  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="用問的：明天會下雨嗎？">
+  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="未來十天降雨">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="附近空氣品質">
-  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="今日數據與貼心建議">
-  <img src="docs/screenshots/weather-6.zh.webp" width="30%" alt="你的每個地點">
+  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="一天的每小時">
+  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="附近空氣品質">
+  <img src="docs/screenshots/weather-6.zh.webp" width="30%" alt="今日數據與貼心建議">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/weather-7.zh.webp" width="30%" alt="你的每個地點">
+  <img src="docs/screenshots/weather-8.zh.webp" width="30%" alt="明天每小時的天氣">
+  <img src="docs/screenshots/weather-9.zh.webp" width="30%" alt="首頁照你的習慣排">
 </p>
 
 </details>
 
 ## Features
 
+- **問天氣:** ask in the search (明天竹北會下雨嗎) and code answers from the forecast, drawn as the day's sky, the verdict, low–high and chips; only a place code can't find goes to AI. A shower the radar tracks is a panel on the sky card saying when and where.
+- **With the family:** rain due at your places is told to Orbit Transit (下雨改搭車); a place that follows your timetable times its umbrella notices by Orbit Class's hours, with 體育課 rain or heat in its advice.
 - **One answer:** Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings blended into one value per thing; the app never names a source.
 - **Today:** the sky now, the next 24 hours and what to wear or bring.
 - **Forecast:** rain, UV and air quality, each with day tabs and graphs, humidity, wind, and 10 days ahead.
