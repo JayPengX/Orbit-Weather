@@ -2108,6 +2108,11 @@ button.ot-g {
 .wx-ask-art { flex: none; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: var(--q-fill-4); }
 .wx-ask-row.wx-ask-a .q-cell-text > b.wx-ask-verdict { font: 600 var(--q-t-headline) / 1.3 var(--q-font); white-space: normal; text-wrap: pretty; }
 .wx-ask-facts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 2px; }
+.wx-ask-doing { display: flex; align-items: center; gap: 6px; }
+.wx-ask-doing .q-ai-mark svg { width: 15px; height: 15px; }
+.wx-ask-wait .q-cell-text { gap: 7px; }
+.wx-sk-verdict { display: block; height: 18px; width: 72%; border-radius: 6px; }
+.wx-sk-facts { display: block; height: 14px; width: 46%; border-radius: 6px; }
 .wx-ask-temp { margin-right: 4px; font: 600 var(--q-t-subhead) / 1.3 var(--q-font); }
 .wx-ask-temp i { font-style: normal; color: var(--q-label-3); margin: 0 1px; }
 .wx-ask-chip { padding: 2px 8px; border-radius: 999px; background: var(--q-fill-3); color: var(--q-label-2); font: 500 var(--q-t-footnote) / 1.4 var(--q-font); }

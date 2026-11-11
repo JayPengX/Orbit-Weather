@@ -601,6 +601,9 @@ const askRowHtml = (place, a) =>
   a.verdict == null
     ? `<button class="q-cell wx-ask-row" type="button" data-find-place="${askPlaceAttr(place)}"><span class="q-cell-text"><small>${e(a.head)}</small><span>${e(a.line)}</span></span></button>`
     : `<button class="q-cell wx-ask-row wx-ask-a" type="button" data-find-place="${askPlaceAttr(place)}" aria-label="${e(`${a.head}：${a.line}`)}"><span class="wx-ask-art" aria-hidden="true">${conditionArt(a.code, a.codeText, true, { size: 44 })}</span><span class="q-cell-text" aria-hidden="true"><small>${e(a.head)}</small><b class="wx-ask-verdict">${e(a.verdict)}</b><span class="wx-ask-facts">${a.hi != null ? `<span class="wx-ask-temp num">${a.lo}°<i>–</i>${a.hi}°</span>` : ''}${a.chips.map(c => `<span class="wx-ask-chip">${e(c)}</span>`).join('')}</span></span></button>`;
+// While the AI finds the place: the answer's own shape shimmering, under the Orbit AI mark (Jay 11-11).
+const askWaitHtml = text =>
+  `<div class="q-cell wx-ask-row wx-ask-a wx-ask-wait" aria-busy="true" role="status"><span class="wx-ask-art q-skel" aria-hidden="true"></span><span class="q-cell-text"><small class="wx-ask-doing"><span class="q-ai-mark" aria-hidden="true">${kitUI.icons?.ai || ''}</span>${e(text)}</small><i class="q-skel wx-sk-verdict" aria-hidden="true"></i><i class="q-skel wx-sk-facts" aria-hidden="true"></i></span></div>`;
 const askNoteHtml = (text, attr = '') => `<div class="q-cell wx-ask-row"${attr}><span class="q-cell-text"><span class="wx-ask-note">${e(text)}</span></span></div>`;
 async function answerAsk(ask, place, name) {
   const f = await forecastAt(place.lat, place.lon, ask.day).catch(() => null);
@@ -672,7 +675,8 @@ function findSheet() {
 async function askAi({ ask, text }, list, now, n) {
   const ai = await import('#kit/ai.mjs').catch(() => null);
   if (!ai?.aiCall) return void (list.innerHTML = askNoteHtml(W('這個版本還不能問，請重新打開 App。', 'Not available in this version. Reopen the app.')));
-  list.innerHTML = askNoteHtml(W(`找「${ask.unknown}」在哪…`, `Finding ${ask.unknown}…`), ' aria-busy="true"');
+  const finding = W(`找「${ask.unknown}」在哪…`, `Finding ${ask.unknown}…`);
+  list.innerHTML = askWaitHtml(finding);
   const r = await ai.aiCall('weather-ask', { question: text, place: ask.unknown });
   if (now() !== n) return;
   if (r.error || !r.out) return void (list.innerHTML = askNoteHtml(ai.aiSays?.(r.error, r.left) || W('暫時問不了，請稍後再試。', 'Can’t ask right now. Try again shortly.')));
