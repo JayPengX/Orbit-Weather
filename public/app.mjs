@@ -1217,7 +1217,24 @@ const hashPin = () => {
 };
 // (#tab=week, from before 天氣 was one page: 天氣.)
 const hashTab = () => ({ week: 'now', places: 'places' })[/tab=(week|places)/.exec(location.hash)?.[1]] || null;
+// 問 Orbit's question (the Pass sheet, kit ask-orbit.mjs: #ask=<words>): 問天氣 with it, in 搜尋地點.
+function askFromLink() {
+  if (!/(?:^#|&)ask=/.test(location.hash)) return;
+  import('#kit/ask-orbit.mjs')
+    .then(m => {
+      const text = m.takeAsk?.();
+      if (!text) return;
+      findSheet();
+      const input = document.getElementById('find-q');
+      if (!input) return;
+      input.value = text.slice(0, 80);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.blur();
+    })
+    .catch(() => {});
+}
 window.addEventListener('hashchange', () => {
+  if (state.started && /(?:^#|&)ask=/.test(location.hash)) return askFromLink();
   const key = hashPin();
   if (key) return choose(key);
   if (hashTab()) showTab(hashTab());
@@ -1250,6 +1267,7 @@ async function boot() {
     $('loading').hidden = true;
     state.started = true;
     showTab(state.tab, { load: false });
+    askFromLink();
   };
   if (used) {
     show();
