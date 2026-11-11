@@ -1,114 +1,38 @@
 # Orbit Weather: the map
 
-One forecast for where you are and the places you pin, to the township.
-Signs in with the Orbit Pass (which keeps the pins); the shared kit draws
-the frame and sends the notices.
+One forecast for where you are and the places you pin, to the township. Signs
+in with the Orbit Pass (which keeps the pins); the kit draws the frame and
+sends the notices. Live: https://orbit.jaypengx.com/weather/
 
-Live: https://orbit.jaypengx.com/weather/
+## Rules
+
+Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RULEBOOK.md`.
+
+- 10-22 Graphs: rain bars by amount, the readout in the title line, no hint boxes, a graph never drags the sheet.
+- 10-22 Typhoon day off: one number per county, the % the only indicator (no accuracy shown), the official word wins; hidden under 5%.
+- 11-01 A day's sheet always has its graph: today's is the whole day, the hours gone by kept and faded, now marked (`sheetHours`, `past`).
+- 11-03 Room to read: each part of 天氣 named in the kit's section head, 24 between parts, text at the family's sizes (a touch under Money's rows).
+- 11-03 Nothing empty on a dry day: the rain track only when 30%+ comes within 24 hours, else one line saying when rain comes next (never past three days: `nextRain`); the sun's reading is the strongest UV still to come.
+- 11-03 Weather draws its own flat pictures (`lib/icons.mjs`): no emoji, gradient, shadow or fixed colour in a drawing (tests check).
+- 11-05 The temperature's pop fires only when it changes while that place is on screen, never on arriving.
+- 11-06 搜尋地點 opens any township's whole 天氣 in a sheet, kept only on 加入 (one tap).
+- 11-10 Rain coming is said so anyone gets it: how hard in words (毛毛雨 … 豪大雨, kit `rain-now.mjs`), never millimetres; when it starts and stops as clock times; what to do; how far it reaches (~1.5 km). Only rain the radar really sees, tracked as it moves, never CWA's hour-sum alone. The sky card, the hours, 降雨 and the notice say the same (`radarSay`, `radarHours`).
+- 11-10 問天氣 is code first: a question is read and answered by code from the forecast as one drawn row; only a place the townships don't have goes to AI, on a tap.
+- 11-10 With Orbit Class: a place can follow Class's timetable (40 minutes before the first class to 20 after the last on school days); nothing is sent, the two apps share the phone's notebook.
+- One number means one thing everywhere: the line, the graph and the 10 days read the same hours; today's rain chance and advice count only the hours ahead (`dayPop`).
+- No source named on screen (a test checks); no sentence over the hours (a test checks); no warning banner. An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
+- Light and dark from the kit's tokens; the sky stays in its card at the top in both. English through `W(zh, en)`; place names stay Chinese. Abroad (11-06): Google alone in the place's time zone, OpenStreetMap's name; metric only.
 
 ## How it works
 
-- **One answer.** The proxy (`Orbit-Core/weather.js`, `/weather`) blends
-  Google Weather, CWA 中央氣象署, MOENV 環境部 and real station readings, and
-  learns which to trust (`weather-skill.js`). The app gets one value per
-  thing and never names a source.
-- **Opens at once** on the last forecast kept, then refreshes behind it.
-  Location: a quick Wi-Fi/cell fix first, GPS after; the forecast is asked
-  again only if GPS lands in another ~1 km cell. iOS is asked for the
-  position unprompted once, never at every opening.
-- **Orbit's own look** (Jay 2026-11-03; Orbit-Core DESIGN.md §11; `<html data-look="native">`):
-  today's dark page and graphite cards; the sky stays in its card at the top.
-  Its mark is the track: time, a scale or a day as one thin line, where you
-  are now a lit dot on it (`lib/pages.mjs`).
-- **Room to read** (Jay 2026-11-03: Weather looked dense and cheap beside the other apps): each part of 天氣 is named on the page in the kit's section head (每小時, 今日數據, 明天的建議 with a grey 全部, 10 天 with its 最高 / 最低 key), its card under it, 24 px between parts; text at the family's sizes, a touch under Money's rows (16 for names, 14 for the line under, the kit's section heads; Jay: the first step up felt too big); a reading is its name over its line, the value on the right, its track under; the hours 56 px a column; the ten days 52 px a day at least, scrolling sideways like the hours where they don't fit. A day sheet's read-out (the day's 全天 and an hour under the finger) is an even two-by-two: a label over its number over its line, every cell keeping its line so it holds its height; the air's level a small dot of its colour, the number in the text's colour.
-- **With Orbit Class** (the kit's `family.mjs`, Jay 2026-11-10: the apps working together): a place can be set to 跟著 Orbit Class 的課表 (its sheet shows the switch once Class has run on this phone). On each school day Class has told (單/雙週, holidays, typhoon days off and 調課 already applied there), it's where you are from 40 minutes before the first class to 20 after the last (`pins.mjs` `useClassHours`); any other day, its own hours. The notices follow it too (`planNotices`): 快下雨了 in those hours, and on a school day the morning brief is the school's (帶傘提醒). Its home, school and work pins are the family's places (`tellPlaces`: `setPlace`, only where they are), which Class's 怎麼去學校 and the other apps' trips use. 我的行程's advice adds 體育課 when an outdoor class meets rain (30%+) or a feel of 33° (`plan.mjs` `useClasses`). Nothing is sent: the two apps share the phone's notebook. The day's 雨傘, 體育課 and 穿著 lines go into the notebook too (`tellToday`, `weather.today`) for the Orbit Pass's 今天.
-- **Rain soon:** the radar first (the proxy's `radar`: CWA's echoes tracked as they move, the next two hours at the place every 5 minutes to ~1.5 km, Orbit-Core `weather-radar.js`, read by the kit's `rain-now.mjs`; Jay 2026-11-10: a small pill, "3 毫米" and no times told him little, and CWA's hour-sum forecast said rain over 竹北 with no echo near). A shower coming or here is a panel on the sky card (`cards.mjs radarPanel`): how hard in words (毛毛雨 … 豪大雨, never millimetres) and when (約 20 分鐘後下小雨), from when to when with what to do (19:40–20:10 · 記得帶傘), the two hours as bars a 5 minutes each in its level's colour, and what it rests on (雷達追蹤雨雲 · 約 1.5 公里內 · 時間為估計). The hours it falls in show its picture and word instead of a %, and 降雨 says it (19:40 起 小雨 · 雷達 · 下約 30 分鐘): one rule, `radarSay`, `radarHours`. Nothing on the radar while the hours say wet: 雨快停了; a wet hour within the hour the radar sees nothing of is not said. Without the radar, one line when a wet hour (50%+) starts within 2 hours of a dry one, or rain eases (`lib/soon.mjs`; only from numbers under 30 minutes old). The rain notice says the same (Orbit-Core `weather.js radarNotice`: 家 快下雨了 · 21:05 起小雨, 小雨 or more within the hour).
-- **颱風:** only while CWA has a typhoon warning out, a panel under the head: the county's 停班停課 once 人事行政總處 lists it, else the chance for today (until 10:00) or tomorrow (1–99%, fitted to past decisions; it moves with each forecast), with the wind, rain and warning it rests on (the proxy's `dayOff`, `Orbit-Core/typhoon.js`).
-- **地名暫時讀不到:** when the place name can't be read, the note sits under 目前位置 and goes once it comes in.
-- **Fresh:** asked again once the numbers are 15 minutes old (on opening,
-  coming back, a change of place or tab, and each minute while on screen).
-- **Never stuck on 更新中:** a stalled request is dropped and asked again; the
-  forecast is asked before the phone's fix and drawn before the place's name.
-- **Every screen** (Jay 2026-10-31; Orbit-Core DESIGN.md §10): on a phone on
-  its side, a tablet or a computer 天氣's head and hours run across and the
-  owner's cards go into the kit's flow columns (`.q-flow` + `flowColumns`,
-  the phone's order), 地點 two columns, a smaller head on a phone on its side;
-  the app turns with the phone.
-- **Two tabs, one place:** 天氣 (the place's name, which opens 地點; the sky
-  card: the temperature big and thin, the sky's word, the high and low, 體感,
-  the rain soon line, and the day's track: 我的行程's stops, each place with
-  its time and weather, else the day's turns, rain coming or easing, the high
-  or the night's low, the sun; the card opens today's sheet with 更多資訊;
-  then every hour of the next day as one track whose dots rise and fall with
-  the temperature, the sun's rising and setting among them, and the owner's
-  cards in 版面's order: 今日數據 (降雨 / 紫外線 / 空氣 each opening its sheet of
-  day tabs and graphs, 濕度, 風, 日出日落, 體感, 能見度, each on its own bar);
-  建議 four and 全部; the ten days side by side, the highs as one warm line and the lows as
-  one cool line on one scale (最高 / 最低 named in the head in their colours), the range shaded between, a day opening its sheet). A swipe goes to the place beside (`daySwipe`), from its top, the kit's one slide every time; the temperature's pop (`data-q-live`) is keyed by the place and its visit, so it pops only when it changes while that place is on screen, never on arriving (Jay 2026-11-05: it felt random). 地點: 搜尋地點, each
-  place with its now and its day, 早晨天氣, 版面 (天氣's three cards put in order by their grips, kit `reorder`; each shown or not). `#tab=places`,
-  `#pin=<id>` (an old `#tab=week` opens 天氣).
-- **Nothing empty on a dry day** (Jay 2026-11-03: most days are dry): the rain
-  reading's hourly track shows only when a chance of 30%+ comes in the next
-  24 hours; else it is one line saying when rain comes next (the second day's
-  hours, then the day after, never further (Jay 2026-11-03: past three days rain is a guess): 「週日可能下雨 40%」, 「三天內不太會下雨」,
-  `nextRain`). The sun's reading is the strongest UV still to come today, after
-  dark tomorrow's peak with its day (never a 0 on an empty bar). 地點 draws a
-  place's twelve-hour rain track only where rain comes.
-- **搜尋地點** (Jay 2026-11-06: going somewhere tomorrow, he could only add it):
-  地點's search field opens a sheet of Taiwan's townships (the phone's own place
-  first); a result opens that place's whole 天氣 in a wide sheet (`lookAt`: a page
-  `look: true`, its forecast in memory only, its day and metric sheets as any
-  page's), ✕ back to the search, 加入 keeps it in one tap, named after its town
-  with no hours (`addLook`). A place with no hours and not home is only a place:
-  no 我的行程 for it, its row says where it is. 編輯 sets a name, 這是我的家 and,
-  only with 固定時間在這裡 on, the days and hours.
-- **問天氣** (the family's AI plan, Jay 2026-11-10; code first): a question typed in
-  搜尋地點 (明天竹北會下雨嗎, 週六合歡山會下雪嗎) is read by code (`lib/ask.mjs`
-  `readAsk`: the day, the place among the townships or 這裡, what's asked: rain,
-  snow, cold, hot, the day) and answered by code from the place's forecast
-  (`answerOf`), one row that opens the place's 天氣, drawn, never a sentence (Jay
-  11-10): the day's sky, the verdict, low–high and chips (降雨, 紫外線). Only a place the townships
-  don't have (a mountain, a school) is asked of the AI door on a tap
-  (Orbit-Core `weather-ask`: where it is, nothing more).
-- **Pins:** a name, a place and days/hours; inside its hours the app opens
-  on that pin. Saved on the Pass (`lib/pins.mjs`, payload `w1:`; one home pin, the
-  newest). The Pass's copy is read again before a write whenever another
-  device may have written (the kit's `pass-sync.mjs`), and a copy that can't be
-  read is never written over.
-- **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll
-  be then (from the pins; the phone's real position wins). A school pin is
-  off on Taiwan's holidays. Under the hours and the ten days, one rail of
-  places (`.ot-where`): a stretch a place end to end (a sunrise or sunset
-  column belongs to its hour, so no gap), a ring where you move, each name
-  held at the left edge while its stretch is in view.
-- **Notices** (the kit's): the morning brief at the set time, and the rain
-  watch 07:00–21:00.
-- **Offline:** opens on the last forecast with the kit's 沒有網路連線 capsule.
-
-## Decisions in force
-
-- **Abroad** (2026-11-06): Google alone in the place's own time zone (the proxy); the name is OpenStreetMap's city and country in the page's language (`/weather/where&lang=`, `weather.js whereIs`). Still metric only; the pin picker lists Taiwan's townships.
-
-- The line, the graph and the 10-day row read the same hours: one number
-  means one thing everywhere. Today's rain chance and advice count only
-  the hours still ahead (`dayPop`).
-- A day's sheet always has its graph (Jay 2026-11-01): today's is the whole
-  day, the hours gone by kept (`past`: the proxy's from its last answer, the
-  device's from its last copy) and faded, now marked; with too few kept late
-  in the evening it runs on to 06:00 tomorrow (`sheetHours`). High and low
-  are marked only on most of a day.
-- No source named on screen; a test fails if one reaches it.
-- An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
-- Weather draws its own pictures; a test fails if an emoji reaches the page.
-  The pictures (`lib/icons.mjs`, Jay 2026-11-03: the glossy ones read as emoji) are
-  Orbit's own flat drawings: a cloud is a line in the text's colour, the sun a lit disc
-  ringed by dots, the moon a flat crescent, rain lines, drizzle dots; sunrise and sunset
-  (`sunArt`) a half sun on the horizon with an arrow. No gradient, shadow or fixed colour
-  in the drawing (a test checks): colours are `--wxi-*` in weather.css, deeper on a light
-  card, the dark set on the sky.
-- Light and dark (the kit's tokens); the sky stays a sky in both (sheets follow the theme). No warning banner.
-- No sentence over the hours: the sky card's track and the readings say it (a test fails on one).
-- English screens through `W(zh, en)`; place names stay Chinese.
+- **One answer.** The proxy (Orbit-Core `weather.js`, `/weather?lat=&lon=`) blends Google Weather, CWA, MOENV and real stations for a ~1 km cell, learning whom to trust (`weather-skill.js`); the app gets one value per thing. `/weather/where` names the township, `/weather/places` lists them all.
+- **Opens at once** on the last forecast kept and refreshes behind it, asked again once 15 minutes old (opening, coming back, a change of place or tab, each minute on screen). A stalled request is dropped and asked again; the forecast is drawn before the place's name. Location: a quick fix first, GPS after; asked again only if GPS lands in another cell.
+- **Rain soon:** the radar first (the proxy's `radar`, Orbit-Core `weather-radar.js`, read by the kit's `rain-now.mjs`) as a panel on the sky card (`cards.mjs radarPanel`); without it, `lib/soon.mjs` (a wet hour within 2 hours of a dry one). The notice is Orbit-Core `weather.js radarNotice`.
+- **颱風:** only while CWA has a warning out: the county's 停班停課 once listed, else a fitted chance (the proxy's `dayOff`, Orbit-Core `typhoon.js`).
+- **Two tabs:** 天氣 (the sky card and its day track, every hour of the next day, the owner's cards in 版面's order, ten days; a swipe goes to the next place, `daySwipe`) and 地點 (search, each place, 早晨天氣, 版面 put in order with the kit's `reorder`). `#tab=places`, `#pin=<id>`.
+- **Pins** (`lib/pins.mjs`, payload `w1:`, one home pin) are saved on the Pass through the kit's `pass-sync.mjs`. **我的行程** (`lib/plan.mjs`): each hour is the forecast of where you'll be (pins; the phone's real position wins); a place can follow Class's timetable (`useClassHours`, `useClasses`). The family's notebook gets the places (`tellPlaces`), the day's lines (`tellToday`) and where rain is due (`wetSpans`, `weather.rain`, for Transit's 下雨改搭車).
+- **Every screen:** on wide screens 天氣's head and hours run across and the cards go into the kit's flow columns; 地點 two columns.
+- **Notices** (the kit's): the morning brief at the set time (the school's on a school day, 帶傘提醒) and the rain watch 07:00–21:00. **Offline:** the last forecast with the kit's capsule.
 
 ## Files
 
