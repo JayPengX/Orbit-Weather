@@ -17,7 +17,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today, in one look">
-  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Just ask: will it rain tomorrow? (in Chinese)">
+  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Just ask: will it rain tomorrow?">
   <img src="docs/screenshots/weather-3.webp" width="30%" alt="Rain, ten days ahead">
 </p>
 
