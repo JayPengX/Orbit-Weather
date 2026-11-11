@@ -3,7 +3,7 @@
 // what's asked; the answer is code's, from Orbit's own forecast. Only a place
 // code can't find among Taiwan's townships (a mountain, a school) is asked of
 // the AI door (weather-ask), and only on a tap.
-import { W } from '#kit/lang.mjs';
+import { W, placeEn } from '#kit/lang.mjs';
 import { conditionKind, conditionText, rainLevel, wearFor, outFeel, shortDate, weekday, dateOf } from './format.mjs';
 import { dayPop } from './cards.mjs';
 
@@ -50,24 +50,43 @@ export function dayOf(text, today) {
     return { day: d, word: m[0] };
   }
   if ((m = /今[天日早晚]|現在|等一下|待會/.exec(s))) return { day: today, word: m[0] };
+  return dayOfEn(s, today);
+}
+
+// The same in English (Will it rain in Zhubei tomorrow?): a phone in English asks in English.
+const WD_EN = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+function dayOfEn(s, today) {
+  let m;
+  if ((m = /\b(?:the )?day after tomorrow\b/i.exec(s))) return { day: addDay(today, 2), word: m[0] };
+  if ((m = /\btomorrow(?: (?:morning|afternoon|evening|night))?\b/i.exec(s))) return { day: addDay(today, 1), word: m[0] };
+  if ((m = /\b(next |this )?(sun|mon|tue|wed|thu|fri|sat)[a-z]*\b/i.exec(s))) {
+    const d = addDay(mondayOf(today), (WD_EN.indexOf(m[2].toLowerCase()) + 6) % 7);
+    return { day: m[1]?.toLowerCase() === 'next ' ? addDay(d, 7) : d < today ? addDay(d, 7) : d, word: m[0] };
+  }
+  if ((m = /\b(this |next )?weekend\b/i.exec(s))) {
+    const sat = addDay(mondayOf(today), 5);
+    return { day: m[1]?.toLowerCase() === 'next ' ? addDay(sat, 7) : today > sat ? today : sat, word: m[0] };
+  }
+  if ((m = /\b(today|tonight|now|later|this (?:morning|afternoon|evening))\b/i.exec(s))) return { day: today, word: m[0] };
   return { day: today, word: '' };
 }
 
 // What's asked: snow, rain, cold, hot, or the day as a whole.
 const WHAT = [
-  ['snow', /雪|結冰/],
-  ['rain', /雨|傘|淋/],
-  ['hot', /熱|高溫|曬|紫外線|防曬/],
-  ['cold', /冷|凍|低溫|外套|穿什麼|穿多少|幾度|溫度|氣溫/]
+  ['snow', /雪|結冰|\b(?:snow|freez|ice|icy)/i],
+  ['rain', /雨|傘|淋|\b(?:rain|umbrella|shower|storm|wet)/i],
+  ['hot', /熱|高溫|曬|紫外線|防曬|\b(?:hot|heat|warm|sun ?screen|uv)\b/i],
+  ['cold', /冷|凍|低溫|外套|穿什麼|穿多少|幾度|溫度|氣溫|\b(?:cold|chilly|jacket|coat|wear|temperature|degrees)\b/i]
 ];
 export const whatOf = text => WHAT.find(([, re]) => re.test(text))?.[0] || 'day';
 
 // A question, not a place's name: a question word, a day word or a kind of weather.
-export const asking = text => /[嗎呢?？]|會不會|要不要|天氣|怎樣|如何|好不好|冷不冷|熱不熱|幾度|下雨|下雪|帶傘/.test(text) || /明[天日]|後天|週|周|星期|禮拜/.test(text);
+export const asking = text => /\b(?:will|is|does|should|do i|weather|forecast|rain\w*|snow\w*|umbrella|cold|hot|today|tonight|tomorrow|weekend)\b/i.test(text) || /[嗎呢?？]|會不會|要不要|天氣|怎樣|如何|好不好|冷不冷|熱不熱|幾度|下雨|下雪|帶傘/.test(text) || /明[天日]|後天|週|周|星期|禮拜/.test(text);
 
 // The words that are neither the place nor the day (what's left is the place's name).
 const FILLER = /請問|我想知道|想知道|會不會|會|要不要|要|嗎|呢|吧|天氣|怎樣|如何|好不好|冷不冷|熱不熱|幾度|溫度|氣溫|下雨|下雪|雨|雪|帶傘|帶|傘|冷|熱|穿什麼|穿|適合|出門|去|到|在|的|有沒有|有|可能|早上|中午|下午|晚上|白天|今晚|晚|早|會|和|跟|玩|爬|看|[\s?？!！。，、,.]/g;
-const HERE = /這裡|這邊|我這|附近|這附近|外面/;
+const HERE = /這裡|這邊|我這|附近|這附近|外面|\b(?:here|near me|nearby|outside)\b/i;
+const FILLER_EN = /\b(?:will|would|it|be|is|are|am|i|do|does|need|should|going|to|get|a|an|the|in|at|on|for|of|near|around|me|my|weather|forecast|like|how|what|whats|rain\w*|snow\w*|umbrella|take|bring|cold|chilly|hot|warm|wear|jacket|coat|temperature|degrees|uv|morning|afternoon|evening|night|day|this|next|go|out|there|any|chance|much)\b/gi;
 
 // Taiwan's townships ([[county, town, lat, lon]], 臺) by the names a person
 // says: 竹北市 or 竹北, 大安區 or 大安; a county (新竹縣, 新竹) at its towns' middle.
@@ -78,6 +97,8 @@ function placeNames(towns) {
     if (!t) continue;
     const place = { county: c, town: t, lat: la, lon: lo };
     names.push([t, place]);
+    const en = placeEn(t);
+    if (en) names.push([en.toLowerCase(), place]);
     if (t.length >= 3 && /[市鎮鄉區]$/.test(t)) names.push([t.slice(0, -1), place]);
     (counties.get(c) || counties.set(c, []).get(c)).push(place);
   }
@@ -85,6 +106,8 @@ function placeNames(towns) {
     const mid = { county: c, town: '', lat: ps.reduce((a, p) => a + p.lat, 0) / ps.length, lon: ps.reduce((a, p) => a + p.lon, 0) / ps.length };
     names.push([c, mid]);
     if (c.length >= 3) names.push([c.slice(0, -1), mid]);
+    const en = placeEn(c)?.toLowerCase();
+    if (en) names.push([en, mid], ...(/ (?:city|county)$/.test(en) ? [[en.replace(/ (?:city|county)$/, ''), mid]] : []));
   }
   return names.sort((a, b) => b[0].length - a[0].length);
 }
@@ -93,24 +116,30 @@ const near = (a, here) => (here?.lat != null ? (a.lat - here.lat) ** 2 + (a.lon 
 // → { day, dayWord, what, place | null, here, unknown } or null when it isn't a question.
 export function readAsk(text, towns, { today, here = null } = {}) {
   const raw = String(text || '').trim();
-  if (!raw || raw.length > 40 || !asking(raw)) return null;
+  const latin = /[a-z]{2}/i.test(raw);
+  if (!raw || raw.length > (latin ? 90 : 40) || !asking(raw)) return null;
   const s = raw.replace(/台/g, '臺');
   const { day, word } = dayOf(s, today);
   const what = whatOf(s);
   let rest = word ? s.replace(word, ' ') : s;
+  if (latin) rest = ` ${rest.toLowerCase().replace(/[’']/g, "'")} `;
   // The longest name said; a name several townships share (東區), the county said or the nearest.
   let place = null;
   const names = placeNames(towns);
   for (const [name, p] of names) {
-    if (name.length < 2 || !rest.includes(name)) continue;
+    if (name.length < 2 || !(/[a-z]/.test(name) ? new RegExp(`[^a-z]${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^a-z]`).test(rest) : rest.includes(name))) continue;
     const same = names.filter(([n]) => n === name).map(([, x]) => x);
-    const inCounty = same.filter(x => x.county && x.town && rest.includes(x.county.slice(0, 2)));
+    const inCounty = same.filter(x => x.county && x.town && (rest.includes(x.county.slice(0, 2)) || rest.includes(placeEn(x.county)?.toLowerCase().replace(/ (?:city|county)$/, '') || '\u0000')));
     place = (inCounty.length ? inCounty : same).sort((a, b) => near(a, here) - near(b, here))[0] || p;
     rest = rest.replace(name, ' ').replace(place.county, ' ').replace(place.county.slice(0, -1), ' ');
+    const cEn = placeEn(place.county)?.toLowerCase();
+    if (cEn) rest = rest.replace(cEn, ' ').replace(cEn.replace(/ (?:city|county)$/, ''), ' ');
     break;
   }
   const isHere = !place && HERE.test(rest);
-  const unknown = place || isHere ? '' : rest.replace(HERE, ' ').replace(FILLER, ' ').replace(/\s+/g, '').trim();
+  const unknown = place || isHere ? '' : latin
+    ? rest.replace(HERE, ' ').replace(FILLER_EN, ' ').replace(/[^a-z' -]/g, ' ').replace(/\s+/g, ' ').trim().replace(/(^|\s)\S/g, c => c.toUpperCase())
+    : rest.replace(HERE, ' ').replace(FILLER, ' ').replace(/\s+/g, '').trim();
   return { day, dayWord: word, what, place, here: !place && !unknown, unknown: unknown.length >= 2 ? unknown : '' };
 }
 
