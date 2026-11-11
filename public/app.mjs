@@ -615,7 +615,7 @@ function findSheet() {
   const here = state.local.here;
   const d = sheet(`
     <div class="q-sheet-head"><h2>${W('搜尋地點', 'Search a place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
-    <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，或問：明天竹北會下雨嗎', 'A district, or ask: 明天竹北會下雨嗎')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，或問天氣', 'A district, or ask the weather')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
     <div id="find-list" class="q-list wx-find-list"></div>`, 'wx-find-sheet');
   // (The screen's height from the start, as a search is: it doesn't grow under the finger as results come.)
   kitUI.setSheetDetent?.(d, 'large');
