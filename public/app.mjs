@@ -652,7 +652,7 @@ function findSheet() {
         // (A place code can't find: asked of the AI only on a tap.)
         list.innerHTML = ask.unknown
           ? `<button class="q-cell wx-ask-row" type="button" data-ask-ai><span class="q-cell-icon wx-ask-spark" aria-hidden="true">${kitUI.icons?.ai || kitUI.icons?.spark || ''}</span><span class="q-cell-text"><span>${e(W(`問問「${ask.unknown}」的天氣`, `Ask about ${ask.unknown}`))}</span><small>${e(W('用 AI 找出這個地方在哪，天氣照 Orbit 的預報', 'AI finds where it is; the weather is Orbit’s forecast'))}</small></span></button>`
-          : askNoteHtml(W('說個地方，例如：明天竹北會下雨嗎', 'Name a place, e.g. 明天竹北會下雨嗎'));
+          : askNoteHtml(W('說個地方，例如：明天竹北會下雨嗎', 'Name a place, e.g. Will it rain in Zhubei tomorrow?'));
         return;
       }
       list.innerHTML = askNoteHtml(W('看一下預報…', 'Checking the forecast…'), ' aria-busy="true"');
@@ -784,7 +784,7 @@ function pinSheet(pin) {
       <div class="q-cell"><span class="q-cell-text">${W('固定時間在這裡', 'I’m here at set times')}</span><button class="q-switch" type="button" role="switch" data-pin-act="timed" aria-checked="${timed}" aria-label="${W('固定時間在這裡', 'I’m here at set times')}"></button></div>
       ${classDays() || pin.cls ? `<div class="q-cell"><span class="q-cell-text">${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}</span><button class="q-switch" type="button" role="switch" data-pin-act="cls" aria-checked="${draft.cls === true}" aria-label="${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}"></button></div>` : ''}
     </div>
-    <p class="q-list-foot" id="pin-cls-foot"${draft.cls ? '' : ' hidden'}>${W('上學日從第一節前 40 分鐘到最後一節後 20 分鐘在這裡；放假、停課的日子不算。體育課碰到雨或炎熱，我的行程會提醒。', 'On school days you’re here from 40 minutes before the first class to 20 after the last; days off don’t count. 我的行程 warns when PE meets rain or heat.')}</p>
+    <p class="q-list-foot" id="pin-cls-foot"${draft.cls ? '' : ' hidden'}>${W('上學日從第一節前 40 分鐘到最後一節後 20 分鐘在這裡；放假、停課的日子不算。體育課碰到雨或炎熱，我的行程會提醒。', 'On school days you’re here from 40 minutes before the first class to 20 after the last; days off don’t count. My day warns when PE meets rain or heat.')}</p>
     <div id="pin-times"${timed ? '' : ' hidden'}>
       <div class="q-list wx-times">
         <div class="q-cell"><div class="q-chips wx-week">${WEEK.map((w, i) => `<button class="q-chip" type="button" data-day="${i}" aria-pressed="${draft.days.includes(i)}">${w}</button>`).join('')}</div></div>
@@ -892,10 +892,11 @@ function pinSheet(pin) {
 // and the days are 天氣's, under the hours, put in order by their grips (the
 // kit's reorder, as every list in the family); 更多資訊 is in today's
 // sheet, so it is only shown or not (where it sits in the order changes nothing).
+// (English short enough for a 390 phone's row: 「Umbrella, clothes, co…」 was cut, 11-12.)
 const CARD_ROWS = {
   metrics: ['chart', W('指標', 'Conditions'), W('降雨、紫外線、空氣', 'Rain, UV, air')],
-  advice: ['bulb', W('建議', 'Advice'), W('雨傘、穿著、通勤', 'Umbrella, clothes, commute')],
-  days: ['calendar', W('10 天預報', '10-day forecast'), W('每天的高低溫', 'Each day’s high and low')],
+  advice: ['bulb', W('建議', 'Advice'), W('雨傘、穿著、通勤', 'Umbrella, clothes')],
+  days: ['calendar', W('10 天預報', '10-day forecast'), W('每天的高低溫', 'Highs and lows')],
   info: ['list', W('更多資訊', 'Details'), W('氣壓、日出日落、月相', 'Pressure, sun, moon')]
 };
 const PAGE_CARDS = ['metrics', 'advice', 'days'];
@@ -911,7 +912,7 @@ function layoutSheet() {
     </div>`;
   };
   const body = () => `
-    <h3 class="q-list-head">${W('天氣頁', 'On 天氣')}</h3>
+    <h3 class="q-list-head">${W('天氣頁', 'On Weather')}</h3>
     <div class="q-list wx-order" id="card-order">${state.data.cards.filter(k => PAGE_CARDS.includes(k)).map(row).join('')}</div>
     <p class="q-list-foot">${W('按住 ≡ 拖曳，改變順序', 'Hold ≡ and drag to reorder')}</p>
     <h3 class="q-list-head">${W('今天的詳情', 'Today’s sheet')}</h3>
@@ -1154,6 +1155,8 @@ function pick(svg, i) {
   if (out) {
     out.dataset.sum ??= out.textContent;
     out.textContent = readout(kind, col, state.cols[key]?.tz);
+    // (Its own size again: the kit shrinks a long summary to fit, and a box that fits never says it could grow.)
+    out.style.fontSize = '';
     out.classList.add('is-on');
   }
   // The crosshair is HTML over the graph, moved by transform (the GPU's
@@ -1208,6 +1211,7 @@ const unpick = svg => {
   const out = svg.closest('[data-key]')?.querySelector(`[data-read="${svg.dataset.graph}"]`);
   if (out?.dataset.sum != null) {
     out.textContent = out.dataset.sum;
+    out.style.fontSize = '';
     delete out.dataset.sum;
     out.classList.remove('is-on');
   }

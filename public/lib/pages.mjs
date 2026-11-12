@@ -50,7 +50,8 @@ function stopsOf(f, page, now) {
   if (!list.length) return [];
   const n = f.now || {};
   const sameDay = t => dateOf(t, tz) === dateOf(now, tz);
-  const when = t => (sameDay(t) ? clock(t, tz) : `${dayLabel(dateOf(t, tz), now, tz)} ${clock(t, tz)}`);
+  // (English says another day by its weekday: 「Tomorrow 07:30」 was cut to 「Tomorrow…」 in a quarter of the card, 11-12.)
+  const when = t => (sameDay(t) ? clock(t, tz) : `${en ? weekday(dateOf(t, tz)) : dayLabel(dateOf(t, tz), now, tz)} ${clock(t, tz)}`);
   const out = [{ t: now, now: true, label: W('現在', 'Now'), v: deg(n.temp ?? list[0].temp), name: page.plan ? list[0].place || '' : conditionText(n.condition?.code, n.condition?.text) }];
   if (page.plan) {
     let cur = list[0].place;

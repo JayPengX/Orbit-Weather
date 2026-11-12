@@ -144,6 +144,7 @@ export function placeName(page) {
 // Only while CWA has a typhoon warning out (the proxy's `dayOff`): the
 // county's own word once 人事行政總處 lists it, else the chance for the day
 // in question (today until 10:00, then tomorrow) with what it rests on.
+// (A day-off line wraps when it must, its 「·」 kept at the end of the first line, never starting the second, 11-12.)
 const OFF_TAG = { all: ['red', W('停班停課', 'Closed')], class: ['red', W('停課', 'No school')], work: ['red', W('停班', 'No work')], wait: ['', W('未公布', 'Pending')] };
 const CLOSED = new Set(['all', 'class', 'work']);
 const chanceColor = p => (p >= 60 ? 'red' : p >= 30 ? 'orange' : 'green');
@@ -212,9 +213,9 @@ export function dayOffSec(f, now) {
         // (When the decision first showed on 人事行政總處's page, its day said when not today; unknown: left out.)
         const t0 = Math.min(...g.notes.map(x => x.at).filter(Boolean));
         const said = Number.isFinite(t0) ? announced(t0) : '';
-        const sub = [when.join(W('、', ', ')), said].filter(Boolean).join(' · ');
+        const sub = [when.join(W('、', ', ')), said].filter(Boolean).join('\u00a0· ');
         const title = placeIn(g.place || f.place?.county || '') || W('全縣市', 'Whole county');
-        return `<div class="q-ritem wx-life wx-dayoff wx-dayoff-note">${tile(CLOSED.has(g.off) ? 'red' : g.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small class="q-fit">${e(sub)}</small></span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
+        return `<div class="q-ritem wx-life wx-dayoff wx-dayoff-note">${tile(CLOSED.has(g.off) ? 'red' : g.off === 'wait' ? 'gray' : 'green')}<span class="q-ritem-text"><span class="q-ritem-title">${e(title)}</span><small class="q-fit-wrap">${e(sub)}</small></span><span class="q-tag ${tag[0]}">${tag[1]}</span></div>`;
       });
   };
   let rows;
@@ -232,7 +233,7 @@ export function dayOffSec(f, now) {
       .filter(Boolean)
       .slice(0, 2);
     // (The storm gone by then, the chance next to nothing: no row for it.)
-    rows = d.chance < 5 ? [] : [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day off`)}</span><small class="q-fit">${e(parts.join(' · '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
+    rows = d.chance < 5 ? [] : [`<div class="q-ritem wx-life wx-dayoff">${tile(chanceColor(d.chance))}<span class="q-ritem-text"><span class="q-ritem-title">${W(`${dayLabel(d.date, now, f.tz)}停班停課機率`, `${dayLabel(d.date, now, f.tz)}'s day off`)}</span><small class="q-fit-wrap">${e(parts.join('\u00a0· '))}</small></span><b class="wx-dayoff-p" style="--c:var(--q-${chanceColor(d.chance)})">${d.chance}<small>%</small></b></div>`];
   }
   // (Towns already decided, under the county's chance.)
   if (!d.official && d.local) rows.push(...said(d.local, 2));
@@ -270,11 +271,12 @@ function dayHours(list, range, tz, now) {
 }
 const dayTabs = (kind, now, tz) => RANGES[kind].map(([k, name]) => [k, name || tonightName(now, tz)]);
 
+// (Its line shrinks to fit, the kit's way, rather than cut: 「明天 14時起 60%・最高 80%」 was 「明天 14時起 60%・最…」 at 320, 11-12.)
 const card = ({ cls, icon, title, summary, big, graph, foot = '', tabs = '' }) => `
   <section class="wx-card wx-${cls}">
     <header class="wx-card-head">
       <span class="wx-ic">${icon}</span>
-      <div class="wx-card-title"><h3>${title}</h3><p data-read="${cls}" aria-live="polite">${summary}</p></div>
+      <div class="wx-card-title"><h3>${title}</h3><p class="q-fit-wrap" data-read="${cls}" aria-live="polite">${summary}</p></div>
       ${big}
     </header>
     ${tabs}
@@ -353,15 +355,16 @@ export function rainSummary(hours, tz, now, { short = false } = {}) {
   if (!next) {
     const top = list.reduce((a, h) => (h.pop > (a?.pop ?? -1) ? h : a), null);
     if (short) return top && top.pop >= 30 ? W(`${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% at ${hourOf(top.t, tz)}`) : W('兩天內不太會下雨', 'Dry for 2 days');
-    return top && top.pop >= 30 ? W(`${dayLabel(dateOf(top.t, tz), now, tz)} ${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% ${dayLabel(dateOf(top.t, tz), now, tz)} at ${hourOf(top.t, tz)}`) : W('兩天內不太會下雨', 'Little chance of rain for 2 days');
+    return top && top.pop >= 30 ? W(`${dayLabel(dateOf(top.t, tz), now, tz)} ${hourOf(top.t, tz)}時最高 ${top.pop}%`, `Peak ${top.pop}% ${dayLabel(dateOf(top.t, tz), now, tz)} at ${hourOf(top.t, tz)}`) : W('兩天內不太會下雨', 'Rain unlikely for 2 days');
   }
   const top = peakFrom(next);
   const day = dateOf(next.t, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.t, tz), now, tz);
-  // (In English a tile's day by its short name: "50% from Tomorrow 4:00" was cut at 320.)
+  // (In English a tile's day by its short name: "50% from Tomorrow 4:00" was cut at 320; the
+  // sheets' line too, and 「Little chance of rain for 2 days」 said shorter, 11-12.)
   const dayShort = day ? weekday(dateOf(next.t, tz)) : '';
   if (short) return next.t <= now ? W(`正在下 ${next.pop}%`, `Raining ${next.pop}%`) : W(`${day}${hourOf(next.t, tz)}時起 ${next.pop}%`, `${next.pop}% from ${dayShort ? `${dayShort} ` : ''}${hourOf(next.t, tz)}:00`);
   const peak = top !== next && top.pop > next.pop ? W(`・最高 ${top.pop}%`, `, peak ${top.pop}%`) : '';
-  return next.t <= now ? W(`正在下 ${next.pop}%${peak}`, `Raining ${next.pop}%${peak}`) : W(`${day ? `${day} ` : ''}${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`, `${next.pop}% from ${day ? `${day} ` : ''}${hourOf(next.t, tz)}:00${peak}`);
+  return next.t <= now ? W(`正在下 ${next.pop}%${peak}`, `Raining ${next.pop}%${peak}`) : W(`${day ? `${day} ` : ''}${hourOf(next.t, tz)}時起 ${next.pop}%${peak}`, `${next.pop}% from ${dayShort ? `${dayShort} ` : ''}${hourOf(next.t, tz)}:00${peak}`);
 }
 
 export function rainCard(f, { now, ranges }) {

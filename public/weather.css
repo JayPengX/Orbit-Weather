@@ -580,9 +580,12 @@ body {
   margin-top: 14px;
 }
 .wx-card-title p {
-  overflow: hidden;
   color: var(--q-label-2);
   font-variant-numeric: tabular-nums;
+}
+/* (One line, shrunk to fit by the kit's .q-fit-wrap; two only when 72% can't hold it.) */
+.wx-card-title p:not(.q-wrapped) {
+  overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }

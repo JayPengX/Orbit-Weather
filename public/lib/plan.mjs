@@ -182,7 +182,9 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   const list = stitch(pins, forecastFor, now, Math.min(span, 240), live);
   // (The first hour of each stay after the first: the minute it begins, `placeFrom`.)
   const starts = new Map(segments(list).slice(1).map(seg => [seg.from, startOf(pins, seg, live)]));
-  const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: placeName(x.pin), ...(starts.has(x.t) ? { placeFrom: starts.get(x.t) } : {}) }));
+  // (Each hour's place is a label on the track, the hours' band and the graphs: English's short 「Here」,
+  // 「Current location」 cut to 「Current loca」 in a quarter of the card, 11-12.)
+  const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: x.pin ? x.pin.name : W('目前位置', 'Here'), ...(starts.has(x.t) ? { placeFrom: starts.get(x.t) } : {}) }));
   // The days: the hours where you are make a day's high and low; its rain
   // chance is the highest of the places you're in 7–22時; its words and sun
   // the place you're in at noon.
