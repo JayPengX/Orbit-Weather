@@ -409,7 +409,7 @@ function readings(f, { now, key }) {
   }
   if (n.feels != null) out.push(gauge({ kind: 'feels', icon: 'thermo', name: W('體感', 'Feels like'), sub: n.temp != null ? e(`${W('氣溫', 'Actual')} ${deg(n.temp)}`) : '', v: deg(n.feels) }));
   if (n.vis != null) out.push(gauge({ kind: 'vis', icon: 'eye', name: W('能見度', 'Visibility'), sub: n.cloud != null ? e(`${W('雲量', 'Cloud')} ${Math.round(n.cloud)}%`) : '', v: `${n.vis}`, unit: W('公里', 'km'), track: fill((Math.min(n.vis, 20) / 20) * 100, 'var(--q-gray)') }));
-  return out.length ? part('ot-reads', W('今日數據', 'Today'), out.join('')) : '';
+  return out.length ? part('ot-reads', W('今日數據', "Today's readings"), out.join('')) : '';
 }
 
 // ---- What to do -------------------------------------------------------------------------------
@@ -427,7 +427,7 @@ function advice(f, { now, key }) {
     .join('');
   const more = list.length > SHOWN ? `<button class="ot-more" type="button" data-act="advice" data-page="${e(key)}">${W('全部', 'All')}${glyph('chevR', { size: 14 })}</button>` : '';
   // (Framed by the Orbit AI mark, as every smart thing is (Jay 11-11).)
-  const title = tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today');
+  const title = tomorrow ? W('明天的建議', "Tomorrow's advice") : W('今天的建議', "Today's advice");
   return part('ot-advice', kitUI.aiMarkHtml ? `<span class="q-h-ai">${kitUI.aiMarkHtml()}<span>${title}</span></span>` : title, rows, more);
 }
 

@@ -435,7 +435,7 @@ function adviceList(f, now) {
   const first = list.find(a => a.week?.days?.length)?.week.days[0].date;
   return { list, tomorrow: Boolean(first && now != null && first !== dateOf(now, f.tz)) };
 }
-const adviceTitle = tomorrow => (tomorrow ? W('明天的建議', 'Tomorrow') : W('今天的建議', 'Today'));
+const adviceTitle = tomorrow => (tomorrow ? W('明天的建議', "Tomorrow's advice") : W('今天的建議', "Today's advice"));
 const adviceRows = list => list.map(a => lifeTile({ kind: a.kind, level: a.level, title: LIFE[a.kind], text: a.text })).join('');
 
 // The sheet: every row.
