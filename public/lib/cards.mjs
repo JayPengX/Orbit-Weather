@@ -549,7 +549,7 @@ export function daySheet(f, date, { now, lat, lon }) {
     </div>
     <div class="wx-dayg">
       <div class="wx-scrub" aria-live="polite" data-sum="1">${sum}</div>
-      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe data-no-sheet-swipe>${dayCharts(hours, { tz: f.tz, now, date })}</div>` : `<p class="wx-foot">${W('沒有逐時預報', 'No hourly forecast')}</p>`}
+      ${hours.filter(h => h.temp != null).length >= 4 ? `<div class="wx-dayg-plot" data-noswipe data-no-sheet-swipe>${dayCharts(hours, { tz: f.tz, now, date, day: d })}</div>` : `<p class="wx-foot">${W('沒有逐時預報', 'No hourly forecast')}</p>`}
     </div>
     ${tips.length ? `<h3 class="q-sheet-h">${W('這天的建議', 'For this day')}</h3><div class="q-rowcard wx-lifegrid">${tips.map(t => lifeTile({ kind: t.k, level: t.lv, title: t.title, text: t.text })).join('')}</div>` : ''}
     <div class="wx-grid q-even">

@@ -257,7 +257,7 @@ const TEMP_STOPS = [[8, '#5ac8fa'], [16, '#4fd1c5'], [21, '#9be15d'], [25, '#ffd
 // `now`: the hours before it (today's kept earlier hours) faded, a line at
 // now; `date`: the sheet's day (its high and low are that day's; an hour of
 // the next morning, when today runs on into it, says 明天 at midnight).
-export function dayCharts(hours, { tz, now = null, date = null } = {}) {
+export function dayCharts(hours, { tz, now = null, date = null, day = null } = {}) {
   const n = hours.length;
   if (!n) return '';
   const w = PLOT_W / n;
@@ -307,6 +307,10 @@ export function dayCharts(hours, { tz, now = null, date = null } = {}) {
   const most = hours.filter(ofDay).length >= 12;
   for (const [i, above, word] of [[iHi, true, W('最高', 'H')], [iLo, false, W('最低', 'L')]]) {
     if (!most || i < 0 || (!above && i === iHi)) continue;
+    // (Only where the curve reaches the day's own 最高 / 最低, the numbers above
+    // it: today's low is often before the hours kept.)
+    const own = above ? day?.hi : day?.lo;
+    if (own != null && Math.round(own) !== Math.round(hours[i].temp)) continue;
     const yd = y(hours[i].temp);
     const up = above ? yd - 11 >= 12 : yd + 21 > base - 2;
     out.push(`<circle class="ch-hl" cx="${x(i)}" cy="${yd}" r="4.5"/>${valText(x(i), up ? yd - 11 : yd + 21, `${word} ${Math.round(hours[i].temp)}°`, 'ch-val ch-big')}`);

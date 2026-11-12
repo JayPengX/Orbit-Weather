@@ -157,6 +157,16 @@ test('charts: fitted to the card (no sideways scroll), the tabs\' ranges', () =>
   const day = dayCharts(shown.filter(h => dateOf(h.t) === '2026-10-03'), { tz: 'Asia/Taipei', aqi: [] });
   assert.match(day, /class="ch-tline"/);
   assert.match(day, /最高 \d+°/, 'the day\'s high and low marked');
+  // Only where the curve reaches the day's own numbers (today's low is often before the kept hours).
+  const dayHours = shown.filter(h => dateOf(h.t) === '2026-10-03');
+  const temps = dayHours.map(h => h.temp).filter(v => v != null);
+  const [top, bottom] = [Math.round(Math.max(...temps)), Math.round(Math.min(...temps))];
+  const same = dayCharts(dayHours, { tz: 'Asia/Taipei', day: { hi: top, lo: bottom } });
+  assert.match(same, new RegExp(`最高 ${top}°`));
+  assert.match(same, new RegExp(`最低 ${bottom}°`));
+  const before = dayCharts(dayHours, { tz: 'Asia/Taipei', day: { hi: top, lo: bottom - 2 } });
+  assert.match(before, new RegExp(`最高 ${top}°`));
+  assert.doesNotMatch(before, /最低/, 'the day\'s low came before the hours drawn: no 最低 mark saying otherwise');
   assert.equal((day.match(/<svg class="ch/g) || []).length, 3, 'temperature, rain, UV');
   assert.match(day, /<i class="ch-xh" hidden>/, 'no crosshair until a finger is on it');
   // One frame: the scale in a gutter on the right, the lines never under it.
