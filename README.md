@@ -16,42 +16,30 @@
 One forecast for where you are and the places you pin, down to the township. Part of **Orbit**, a family of apps for life in Taiwan that share one sign-in, the Orbit Pass. See them all at [orbit.jaypengx.com](https://orbit.jaypengx.com/pass/).
 
 <p align="center">
-  <img src="docs/screenshots/weather-1.webp" width="30%" alt="Today, in one look">
+  <img src="docs/screenshots/weather-1.webp" width="30%" alt="Your township's weather, in one look">
   <img src="docs/screenshots/weather-2.webp" width="30%" alt="Just ask: will it rain tomorrow?">
-  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Rain, ten days ahead">
+  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Which of the next ten days it rains">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.webp" width="30%" alt="Every hour of the day">
-  <img src="docs/screenshots/weather-5.webp" width="30%" alt="The air around you">
-  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Today's numbers, and advice">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/weather-7.webp" width="30%" alt="Every place you keep">
-  <img src="docs/screenshots/weather-8.webp" width="30%" alt="Tomorrow, hour by hour">
-  <img src="docs/screenshots/weather-9.webp" width="30%" alt="Your home, in your order">
+  <img src="docs/screenshots/weather-4.webp" width="30%" alt="Every hour's temperature and rain">
+  <img src="docs/screenshots/weather-5.webp" width="30%" alt="What to wear, whether to take an umbrella">
+  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Home, school, every place you keep">
 </p>
 
 <details>
 <summary>中文畫面</summary>
 
 <p align="center">
-  <img src="docs/screenshots/weather-1.zh.webp" width="30%" alt="今天天氣一眼看完">
-  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="用問的：明天會下雨嗎？">
-  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="未來十天降雨">
+  <img src="docs/screenshots/weather-1.zh.webp" width="30%" alt="你所在的鄉鎮，天氣一眼看完">
+  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="直接問：明天會下雨嗎？">
+  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="未來十天，哪天會下雨">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="一天的每小時">
-  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="附近空氣品質">
-  <img src="docs/screenshots/weather-6.zh.webp" width="30%" alt="今日數據與貼心建議">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/weather-7.zh.webp" width="30%" alt="你的每個地點">
-  <img src="docs/screenshots/weather-8.zh.webp" width="30%" alt="明天每小時的天氣">
-  <img src="docs/screenshots/weather-9.zh.webp" width="30%" alt="首頁照你的習慣排">
+  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="每小時的溫度與降雨">
+  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="穿什麼、帶不帶傘，直接說">
+  <img src="docs/screenshots/weather-6.zh.webp" width="30%" alt="家、學校，每個地點都顧到">
 </p>
 
 </details>
