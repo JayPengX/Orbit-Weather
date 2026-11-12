@@ -420,6 +420,14 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).place, '家');
   assert.equal(f.hours.find(h => h.t === tpe('2026-10-05T18:00:00')).temp, 22);
   assert.match(f.headline, /^現在在學校；17:00 到家/);
+  // A school on the half hour: its own minutes, not the hour's (「07:00 到學校」 for 07:30, 11-12).
+  const half = cleanPin({ ...sch, id: 'phalf', from: '07:30', to: '16:30' });
+  fc.phalf = fc.pschool2;
+  const halfTips = planTips([home, half], forecastFor, monday7).tips.filter(t => t.kind === 'move').map(t => t.text.split('，')[0]);
+  assert.deepEqual(halfTips, ['07:30 到學校', '16:30 到家']);
+  const hf = routeForecast([home, half], forecastFor, at10);
+  assert.match(hf.headline, /^現在在學校；16:30 到家/);
+  assert.equal(hf.hours.find(h => h.place === '家').placeFrom, tpe('2026-10-05T16:30:00'));
   const monday = f.days.find(d => d.date === '2026-10-05');
   assert.deepEqual(monday.places, ['學校', '家']);
   assert.equal(monday.hi, 31, 'the high from the hours where you are');

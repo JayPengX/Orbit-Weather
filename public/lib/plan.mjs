@@ -46,6 +46,14 @@ export function stitch(pins, forecastFor, from, n, live = null) {
 }
 
 // The stitched hours as stays: [{ key, pin, from, to, hours }].
+// The minute a stay really begins: an hour is placed by its half (07:00–08:00
+// is 學校 when 學校 starts 07:30), so its start is the pin's own clock, not
+// the hour's (「07:00 到學校」 for a 07:30 school, 11-12).
+export function startOf(pins, seg, live = null) {
+  for (let t = seg.from - 30 * 60_000; t <= seg.from + 30 * 60_000; t += 60_000) if (placeKey(at(pins, t, live)) === seg.key) return t;
+  return seg.from;
+}
+
 export function segments(list) {
   const out = [];
   for (const x of list) {
@@ -138,7 +146,7 @@ export function planTips(pins, forecastFor, now, live = null) {
     const pb = hb?.pop ?? 0;
     const worst = Math.max(pa, pb);
     const level = rainLevel(worst);
-    tips.push({ kind: 'move', title: W('移動', 'Move'), text: `${clock(b.from, TZ)} ${W('到', 'to ')}${placeName(b.pin)}${W('，', ', ')}${level !== 'none' ? `${W('雨', 'rain')} ${worst}%` : W('乾爽', 'dry')}`, level });
+    tips.push({ kind: 'move', title: W('移動', 'Move'), text: `${clock(startOf(pins, b, live), TZ)} ${W('到', 'to ')}${placeName(b.pin)}${W('，', ', ')}${level !== 'none' ? `${W('雨', 'rain')} ${worst}%` : W('乾爽', 'dry')}`, level });
   }
   // How different the places are at the same hour (the main stay away from home).
   const away = segs.filter(s => s.pin && !s.pin.home).sort((x, y) => y.to - y.from - (x.to - x.from))[0];
@@ -172,7 +180,9 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   const last = Math.max(...ends);
   const span = Math.max(1, Math.floor((last - Math.floor(now / HOUR) * HOUR) / HOUR) + 1);
   const list = stitch(pins, forecastFor, now, Math.min(span, 240), live);
-  const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: placeName(x.pin) }));
+  // (The first hour of each stay after the first: the minute it begins, `placeFrom`.)
+  const starts = new Map(segments(list).slice(1).map(seg => [seg.from, startOf(pins, seg, live)]));
+  const hours = list.filter(x => x.h).map(x => ({ ...x.h, place: placeName(x.pin), ...(starts.has(x.t) ? { placeFrom: starts.get(x.t) } : {}) }));
   // The days: the hours where you are make a day's high and low; its rain
   // chance is the highest of the places you're in 7–22時; its words and sun
   // the place you're in at noon.
@@ -234,7 +244,8 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   const segs = segments(stitch(pins, forecastFor, now, 36, live));
   const next = segs[1];
   const nf = next && stayFacts(next);
-  const when = next ? `${dateOf(next.from, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(next.from, tz), now, tz)} ${clock(next.from, tz)}`.trim() : '';
+  const nextAt = next ? startOf(pins, next, live) : null;
+  const when = next ? `${dateOf(nextAt, tz) === dateOf(now, tz) ? '' : dayLabel(dateOf(nextAt, tz), now, tz)} ${clock(nextAt, tz)}`.trim() : '';
   const temps = nf?.loaded ? `${Math.round(nf.lo) === Math.round(nf.hi) ? '' : `${Math.round(nf.lo)}–`}${Math.round(nf.hi)}°` : '';
   const enHead = next ? `In ${placeName(cur)}; ${when} to ${placeName(next.pin)}${nf.loaded ? `, ${temps}, rain ${nf.wet?.pop ?? 0}%` : ''}.` : `In ${placeName(cur)} all day.`;
   const headline = en ? enHead : next ? `現在在${placeName(cur)}；${when} 到${placeName(next.pin)}${nf.loaded ? `，${Math.round(nf.lo) === Math.round(nf.hi) ? '' : `${Math.round(nf.lo)}–`}${Math.round(nf.hi)}°、雨 ${nf.wet?.pop ?? 0}%` : ''}。` : `今天都在${placeName(cur)}。`;

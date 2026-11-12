@@ -60,7 +60,7 @@ function stopsOf(f, page, now) {
       const stay = [];
       for (let j = i; j < list.length && list[j].place === cur; j++) stay.push(list[j]);
       const wet = Math.max(...stay.map(x => x.pop ?? 0));
-      out.push({ t: list[i].t, label: when(list[i].t), v: deg(list[i].temp), name: cur, wet: wet >= RAIN_MAYBE ? wet : null, place: true, sky: list[i] });
+      out.push({ t: list[i].t, label: when(list[i].placeFrom ?? list[i].t), v: deg(list[i].temp), name: cur, wet: wet >= RAIN_MAYBE ? wet : null, place: true, sky: list[i] });
     }
   }
   if (out.length >= 3) return out;
