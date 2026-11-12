@@ -23,7 +23,7 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-4.webp" width="30%" alt="Every hour's temperature and rain">
-  <img src="docs/screenshots/weather-5.webp" width="30%" alt="What to wear, whether to take an umbrella">
+  <img src="docs/screenshots/weather-5.webp" width="30%" alt="What to wear, umbrella or not">
   <img src="docs/screenshots/weather-6.webp" width="30%" alt="Home, school, every place you keep">
 </p>
 
