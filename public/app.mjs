@@ -140,12 +140,18 @@ function buildPages() {
   if (homePin) setPlace('home', pinPlace(homePin));
   tellPlaces();
   const old = Object.fromEntries(state.pages.map(p => [p.key, p]));
+  // (Each page the same object across rebuilds: a fix, a name or a load in
+  // flight lands on the page drawn. The pass's sign-in rebuilt them while the
+  // phone located: the new township's name went to a copy no longer drawn,
+  // and the title kept the old one, 11-12.)
+  const keep = (key, fields) => Object.assign(old[key] || {}, fields);
   state.pages = [
     // 我的行程 first, once there's a pin: the weather where you'll be.
     // (A place only added, no hours, not home and not 跟著課表, is never where the plan has you.)
-    ...(state.data.pins.some(p => p.days.length || p.home || p.cls) ? [{ key: 'plan', plan: true, pin: null, lat: null, lon: null }] : []),
-    { ...(old.here || {}), key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here?.place || old.here?.place || null },
-    ...state.data.pins.map(pin => ({ ...(old[pin.id] || {}), key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town } }))
+    ...(state.data.pins.some(p => p.days.length || p.home || p.cls) ? [keep('plan', { key: 'plan', plan: true, pin: null, lat: null, lon: null })] : []),
+    // (Here's own kept place, even none: a move over 1 km drops the old name while the new one comes.)
+    keep('here', { key: 'here', pin: null, lat: here?.lat ?? old.here?.lat ?? null, lon: here?.lon ?? old.here?.lon ?? null, place: here ? here.place || null : old.here?.place || null }),
+    ...state.data.pins.map(pin => keep(pin.id, { key: pin.id, pin, lat: pin.lat, lon: pin.lon, place: { county: pin.county, town: pin.town } }))
   ];
 }
 // (A place looked up is a page too while its sheet is open: its day and metric sheets open as any page's.)

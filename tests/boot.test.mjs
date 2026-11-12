@@ -27,7 +27,16 @@ test("搜尋地點: a place looked up is kept in memory only, and its rows never
   assert.ok(!/data-look=/.test(app), 'a [data-look] row: closest() reaches <html data-look="native">, so any tap in the sheet opened "native"');
   assert.match(app, /const cell = page\.lat != null && !page\.look \?/, "a looked-up place's forecast isn't kept on the device until 加入");
   // A place only added (no hours, not home, not 跟著課表) brings no 我的行程.
-  assert.match(app, /state\.data\.pins\.some\(p => p\.days\.length \|\| p\.home \|\| p\.cls\) \? \[\{ key: 'plan'/);
+  assert.match(app, /state\.data\.pins\.some\(p => p\.days\.length \|\| p\.home \|\| p\.cls\) \? \[keep\('plan', \{ key: 'plan'/);
+});
+
+test("a rebuild keeps each page's object: a fix's name, note and load in flight land on the page drawn", () => {
+  // (The pass's sign-in rebuilt the pages while the phone located: Hsinchu's
+  // name went to a copy no longer drawn, the title said 信義區 over Taipei's
+  // forecast, 11-12.)
+  assert.match(app, /const keep = \(key, fields\) => Object\.assign\(old\[key\] \|\| \{\}, fields\);/);
+  assert.match(app, /keep\('here', \{[^\n]*place: here \? here\.place \|\| null : old\.here\?\.place \|\| null \}\)/, "here's own kept place wins, even none (a move over 1 km drops the old name)");
+  assert.match(app, /state\.data\.pins\.map\(pin => keep\(pin\.id,/);
 });
 
 test('a school pin is told by its name or by following Class: its 停課 counts, not 停班', () => {
