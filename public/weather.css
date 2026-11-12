@@ -1931,12 +1931,54 @@ button.ot-g {
 
 /* ---------- Every screen ---------- */
 /* (A phone on its side: the sky's card shorter.) */
+/* A phone on its side: the sky card half the screen at most (RULEBOOK 11-12;
+   it was 286 of 390): the temperature smaller, the sky's picture beside two
+   lines (the sky; high, low and feels), the track tighter. */
 @media (orientation: landscape) and (max-height: 520px) {
+  .ot-hero {
+    padding: 12px 16px 14px;
+  }
+  .ot-eyebrow {
+    min-height: 24px;
+  }
+  .ot-now {
+    align-items: center;
+    margin-top: 2px;
+  }
   .ot-temp {
-    font-size: 64px;
+    font-size: 56px;
+  }
+  .ot-sky {
+    grid-template-columns: auto auto auto;
+    align-items: center;
+    column-gap: 10px;
+    row-gap: 0;
+  }
+  .ot-icon {
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+  .ot-icon svg {
+    width: 40px;
+    height: 40px;
+  }
+  .ot-cond {
+    grid-column: 2 / span 2;
+    margin: 0;
+    font-size: 17px;
+    line-height: 22px;
+  }
+  .ot-hilo {
+    grid-column: 2;
+  }
+  .ot-feel {
+    grid-column: 3;
   }
   .ot-day {
-    margin-top: 10px;
+    margin-top: 8px;
+  }
+  .ot-stop {
+    padding-top: 18px;
   }
 }
 
