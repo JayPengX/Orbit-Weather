@@ -17,8 +17,10 @@ import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planN
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
 // there for a school, 停班 for any other place.
-const SCHOOL = /學|校|園|school|college|universit|class/i;
-const pinNeed = pin => (SCHOOL.test(pin?.name || '') ? 'class' : 'work');
+// (高中, 國中, 國小, 高職 and 附中 say school without 學 or 校: 「竹東高中」 was
+// taken for work, its 停課 missed, 11-12. A place on Class's timetable is a school.)
+const SCHOOL = /學|校|園|高中|國中|國小|高職|附中|school|college|universit|class/i;
+const pinNeed = pin => (pin?.cls || SCHOOL.test(pin?.name || '') ? 'class' : 'work');
 const pinPlace = pin => (pin?.county ? { county: pin.county, town: pin.town || null } : { lat: pin.lat, lon: pin.lon });
 // (A stop from later in the day leaves the morning's going there as it is.)
 const offAllDay = o => Boolean(o && (!o.from || o.from <= '08:00'));

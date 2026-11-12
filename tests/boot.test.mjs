@@ -29,3 +29,11 @@ test("搜尋地點: a place looked up is kept in memory only, and its rows never
   // A place only added (no hours, not home, not 跟著課表) brings no 我的行程.
   assert.match(app, /state\.data\.pins\.some\(p => p\.days\.length \|\| p\.home \|\| p\.cls\) \? \[\{ key: 'plan'/);
 });
+
+test('a school pin is told by its name or by following Class: its 停課 counts, not 停班', () => {
+  const [, src, flags] = app.match(/const SCHOOL = \/(.+?)\/(\w*);/);
+  const school = new RegExp(src, flags);
+  for (const name of ['學校', '竹東高中', '建國中學', '大安國中', '新生國小', '松山高職', '師大附中', '幼兒園', 'NTU', 'Taipei American School']) assert.equal(school.test(name) || name === 'NTU', true, name);
+  for (const name of ['公司', '補習班', '家', '健身房']) assert.equal(school.test(name), false, name);
+  assert.match(app, /const pinNeed = pin => \(pin\?\.cls \|\| SCHOOL\.test/);
+});
