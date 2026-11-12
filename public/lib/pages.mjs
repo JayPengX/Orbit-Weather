@@ -69,7 +69,8 @@ function stopsOf(f, page, now) {
   const pops = list.filter(h => h.pop != null);
   const wetNow = (pops[0]?.pop ?? 0) >= RAIN_YES;
   const change = pops.slice(1, 13).find(h => (wetNow ? h.pop < RAIN_MAYBE : h.pop >= RAIN_YES));
-  if (change) turns.push({ t: change.t, label: when(change.t), v: wetNow ? W('雨停', 'Dry') : `${change.pop}%`, name: wetNow ? '' : W('下雨', 'Rain'), wet: wetNow ? null : change.pop, icon: 'umbrella' });
+  // (Rain coming: that hour's sky and temperature, the chance under it once: 「70%」 and 「☂ 70%」 both said it, 11-12.)
+  if (change) turns.push(wetNow ? { t: change.t, label: when(change.t), v: W('雨停', 'Dry'), name: '', icon: 'umbrella' } : { t: change.t, label: when(change.t), v: deg(change.temp), name: W('下雨', 'Rain'), wet: change.pop, sky: change });
   const day = list.filter(h => sameDay(h.t) && hourOf(h.t, tz) <= 17 && h.temp != null);
   const peak = day.slice(1).reduce((a, h) => (h.temp > (a?.temp ?? -99) ? h : a), null);
   const nowT = n.temp ?? list[0].temp;
@@ -81,7 +82,8 @@ function stopsOf(f, page, now) {
   }
   for (const d of f.days || [])
     for (const [kind, t] of [['sunrise', d.sunrise], ['sunset', d.sunset]])
-      if (t && t > now && t < now + 20 * HOUR && !turns.some(x => x.sun)) turns.push({ t, label: when(t), v: clock(t, tz), name: kind === 'sunset' ? W('日落', 'Sunset') : W('日出', 'Sunrise'), icon: kind, sun: true });
+      // (Its time is the label: the temperature then, not the time again, 11-12.)
+      if (t && t > now && t < now + 20 * HOUR && !turns.some(x => x.sun)) turns.push({ t, label: when(t), v: deg(list.find(h => h.t <= t && t < h.t + HOUR)?.temp), name: kind === 'sunset' ? W('日落', 'Sunset') : W('日出', 'Sunrise'), icon: kind, sun: true });
   const placesEnd = out[out.length - 1].t;
   return [...out, ...turns.filter(x => x.t > placesEnd).sort((a, b) => a.t - b.t)].slice(0, 4);
 }
