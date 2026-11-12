@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
-import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec } from '../public/lib/cards.mjs';
+import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec, placeName } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
 import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
@@ -436,7 +436,10 @@ test('my route: each hour from where I am — school on weekdays 07–17, home o
   // The regular page draws it, the route's title on top, the places on the graphs.
   const html = pageHtml(f, { key: 'plan', plan: true, pin: sch, place: { town: '東區' } }, { now: at10 });
   assert.match(html, /class="wx-title"[^>]*><span>我的行程<\/span>/);
-  assert.match(html, /現在在 學校 · 東區/);
+  assert.match(html, /現在在學校 · 東區/);
+  // Off every pin: the township, once (「現在在 目前位置 · 信義區」 said where twice).
+  assert.equal(placeName({ plan: true, pin: null, place: { county: '臺北市', town: '信義區' } }).sub, '現在在信義區');
+  assert.equal(placeName({ plan: true, pin: null, place: null }).sub, '目前位置');
   assert.match(html, /data-metric="rain"/);
   assert.match(metricSheet('rain', f, { now: at10, key: 'plan', ranges: {} }), /class="ch-place"[^>]*>家</, 'the big graph names the city where you move');
   assert.ok(!/更多資訊/.test(html), 'not what doesn\'t matter on the move');

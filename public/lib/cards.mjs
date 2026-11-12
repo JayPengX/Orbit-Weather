@@ -123,8 +123,14 @@ export function placeName(page) {
   // (Here with no township's name yet: the title already says 目前位置, so not again under it.)
   // (A place looked up: its town is the title, its county under it. A pin
   // named after its town doesn't say the town twice.)
+  // (我的行程: where you are now, 「現在在學校 · 東區」, or off every pin
+  // 「現在在信義區」: 「現在在 目前位置 · 信義區」 said where twice, 11-12.)
   const sub = page.plan
-    ? `${W('現在在', 'Now at')} ${page.pin ? page.pin.name : W('目前位置', 'current location')}${place.main ? ` · ${place.main}` : ''}`
+    ? page.pin
+      ? `${W('現在在', 'Now at ')}${page.pin.name}${place.main && place.main !== page.pin.name ? ` · ${place.main}` : ''}`
+      : place.main
+        ? `${W('現在在', 'Now in ')}${place.main}`
+        : W('目前位置', 'Current location')
     : page.look
       ? place.sub
     : page.pin
