@@ -21,7 +21,7 @@ Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RUL
 - 11-10 With Orbit Class: a place can follow Class's timetable (40 minutes before the first class to 20 after the last on school days); nothing is sent, the two apps share the phone's notebook.
 - One number means one thing everywhere: the line, the graph and the 10 days read the same hours; today's rain chance and advice count only the hours ahead (`dayPop`).
 - No source named on screen (a test checks); no sentence over the hours (a test checks); no warning banner. An old forecast is never read as now: faded, 更新中, hidden past 6 hours.
-- Light and dark from the kit's tokens; the sky stays in its card at the top in both. English through `W(zh, en)`; place names stay Chinese. Abroad (11-06): Google alone in the place's time zone, OpenStreetMap's name; metric only.
+- Light and dark from the kit's tokens; the sky stays in its card at the top in both. English through `W(zh, en)`; place names in English by the kit's `place()` (RULEBOOK 10-27), a pin's own name as typed. Abroad (11-06): Google alone in the place's time zone, OpenStreetMap's name; metric only.
 
 ## How it works
 
