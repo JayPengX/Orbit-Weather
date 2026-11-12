@@ -430,6 +430,9 @@ async function locate({ force = false } = {}) {
     return loadPage(here);
   }
   if (may === 'denied') {
+    // (定位 stays on the page after a no: a tap says where it's turned back on.)
+    here.askable = true;
+    if (force) kitUI.toast?.(W('定位已關閉：到「設定 › 隱私權與安全性 › 定位服務」打開', 'Location is off: turn it on in Settings › Privacy & Security › Location Services'), { ms: 5000 });
     here.note = state.local.here ? W('定位已關閉，顯示上次的位置', 'Location off · last location') : W('定位已關閉，顯示大約位置', 'Location off · approximate');
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
@@ -466,7 +469,8 @@ async function locateNow(here) {
       if (here.note !== note) ((here.note = note), render());
     } else await placeHere(here, pos);
   } else if (quick.error) {
-    // (Refused at the phone's own prompt: said as location off, as when it was off before.)
+    // (Refused at the phone's own prompt: said as location off, as when it was off before; 定位 stays to ask again.)
+    here.askable = true;
     here.note = quick.error === 'denied'
       ? state.local.here ? W('定位已關閉，顯示上次的位置', 'Location off · last location') : W('定位已關閉，顯示大約位置', 'Location off · approximate')
       : state.local.here ? W('無法定位，顯示上次的位置', 'Can’t locate · last location') : W('無法定位，顯示大約位置', 'Can’t locate · approximate');
