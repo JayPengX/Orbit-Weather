@@ -19,13 +19,14 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-1.webp" width="30%" alt="Your township's weather, in one look">
-  <img src="docs/screenshots/weather-2.webp" width="30%" alt="Which of the next ten days it rains">
-  <img src="docs/screenshots/weather-3.webp" width="30%" alt="Every hour's temperature and rain">
+  <img src="docs/screenshots/weather-2.webp" width="30%" alt="On a computer, the whole day on one page">
+  <img src="docs/screenshots/weather-3.webp" width="30%" alt="What to wear, umbrella or not">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.webp" width="30%" alt="What to wear, umbrella or not">
-  <img src="docs/screenshots/weather-5.webp" width="30%" alt="Air quality, hour by hour">
+  <img src="docs/screenshots/weather-4.webp" width="30%" alt="Which of the next ten days it rains">
+  <img src="docs/screenshots/weather-5.webp" width="30%" alt="Every hour's temperature and rain">
+  <img src="docs/screenshots/weather-6.webp" width="30%" alt="Air quality, hour by hour">
 </p>
 
 <details>
@@ -33,13 +34,14 @@ One forecast for where you are and the places you pin, down to the township. Par
 
 <p align="center">
   <img src="docs/screenshots/weather-1.zh.webp" width="30%" alt="你所在的鄉鎮，天氣一眼看完">
-  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="未來十天，哪天會下雨">
-  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="每小時的溫度與降雨">
+  <img src="docs/screenshots/weather-2.zh.webp" width="30%" alt="在電腦上，一整天一頁看完">
+  <img src="docs/screenshots/weather-3.zh.webp" width="30%" alt="穿什麼、帶不帶傘，直接說">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="穿什麼、帶不帶傘，直接說">
-  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="空氣品質，每小時都看得到">
+  <img src="docs/screenshots/weather-4.zh.webp" width="30%" alt="未來十天，哪天會下雨">
+  <img src="docs/screenshots/weather-5.zh.webp" width="30%" alt="每小時的溫度與降雨">
+  <img src="docs/screenshots/weather-6.zh.webp" width="30%" alt="空氣品質，每小時都看得到">
 </p>
 
 </details>
