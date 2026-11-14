@@ -654,7 +654,7 @@ function findSheet() {
       if (!place) {
         // (A place code can't find: asked of the AI only on a tap.)
         list.innerHTML = ask.unknown
-          ? `<button class="q-cell wx-ask-row" type="button" data-ask-ai><span class="q-cell-icon wx-ask-spark" aria-hidden="true">${kitUI.icons?.ai || kitUI.icons?.spark || ''}</span><span class="q-cell-text"><span>${e(W(`問問「${ask.unknown}」的天氣`, `Ask about ${ask.unknown}`))}</span><small>${e(W('用 AI 找出這個地方在哪，天氣照 Orbit 的預報', 'AI finds where it is; the weather is Orbit’s forecast'))}</small></span></button>`
+          ? `<button class="q-cell wx-ask-row" type="button" data-ask-ai data-ai-tap><span class="q-cell-icon wx-ask-spark" aria-hidden="true">${kitUI.icons?.ai || kitUI.icons?.spark || ''}</span><span class="q-cell-text"><span>${e(W(`問問「${ask.unknown}」的天氣`, `Ask about ${ask.unknown}`))}</span><small>${e(W('用 AI 找出這個地方在哪，天氣照 Orbit 的預報', 'AI finds where it is; the weather is Orbit’s forecast'))}</small></span></button>`
           : askNoteHtml(W('說個地方，例如：明天竹北會下雨嗎', 'Name a place, e.g. Will it rain in Zhubei tomorrow?'));
         return;
       }
