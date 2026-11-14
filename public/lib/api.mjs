@@ -3,11 +3,11 @@
 
 import * as kitLang from '#kit/lang.mjs';
 // A county or township in the reader's language (the kit's, once every phone has it).
-export const placeIn = name => kitLang.place?.(name) ?? name;
+export const placeIn = name => kitLang.place(name) ?? name;
 import * as kit from '#kit/orbit.mjs';
 
 // (api.<domain> on the family's own domain: the kit's API, kit/domain.mjs.)
-export const PROXY = kit.API || 'https://orbit-workers-proxy.pengzjay.workers.dev';
+export const PROXY = kit.API;
 // How often the forecast is asked again, after what its sources do: Google's
 // current conditions change every 15 minutes and its forecast every 30, the
 // stations' and the air's readings every hour, CWA's township forecast every
@@ -102,7 +102,7 @@ export const REST_MS = 30_000;
 // it (null when the request ends without it; then it's asked again).
 export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = FIRST_MS, restMs = REST_MS } = {}) {
   // (`tz`: a phone on Taiwan's clock behind a VPN abroad gets Taipei, not the VPN's city.)
-  const tz = kit.phoneZone?.() === 'Asia/Taipei' ? '&tz=Asia%2FTaipei' : '';
+  const tz = kit.phoneZone() === 'Asia/Taipei' ? '&tz=Asia%2FTaipei' : '';
   const path = where.auto ? `/weather?auto=1${tz}` : `/weather?lat=${where.lat.toFixed(4)}&lon=${where.lon.toFixed(4)}`;
   const stop = new AbortController();
   // (Raced as well as passed on: a read the signal doesn't reach ends too.)

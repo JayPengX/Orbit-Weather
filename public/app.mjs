@@ -6,7 +6,6 @@
 import { orbitSession, topActions, tabBar, installGate, watchUpdates, schedulePush, tell, ask, closeSheet, mayLocate, keepOffline } from '#kit/orbit.mjs';
 import { settleSegs, escHtml as e } from '#kit/ui.mjs';
 import * as kitUI from '#kit/ui.mjs';
-// (The kit's storage, read through the namespace: a phone on an older kit opens without it.)
 import * as kitCore from '#kit/orbit.mjs';
 import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
@@ -38,7 +37,7 @@ import { routeForecast, useClasses, planTips } from './lib/plan.mjs';
 // together): Orbit Class's school days as held, on this phone. A place set
 // to 跟著課表 is where you are from just before the first class to just after
 // the last (pins.mjs), and 我的行程's advice says when an outdoor class (體育)
-// meets rain or heat (plan.mjs). A kit without it, or no Class: nothing changes.
+// meets rain or heat (plan.mjs). No Class: nothing changes.
 let family = null;
 const classDays = () => family?.heard?.('class', 'days', { maxAge: 21 * 86_400_000 }) || null;
 import('#kit/family.mjs')
@@ -74,7 +73,7 @@ const state = {
   // What each page's graphs show, for the read-outs: key → { uv, rain, air, tz }.
   cols: {},
   // The graphs' ranges (the cards' tabs), this device's choice.
-  ranges: kitCore.readJson?.(RANGES, {}) || {}
+  ranges: kitCore.readJson(RANGES, {}) || {}
 };
 
 // ---- Pages: 我的行程, here, then each pin; one shown at a time ---------------------------
@@ -271,15 +270,15 @@ function render() {
   if (page.key !== shownKey) ((shownKey = page.key), visit++);
   panel.innerHTML = skyPage(forecastOf(page), page, { now, visit, cards: state.data.cards, hidden: state.data.hidden, home: state.data.pins.find(p => p.home)?.name || '' });
   // (The owner's cards in columns on a wide screen, in the phone's order.)
-  kitUI.flowColumns?.(panel);
+  kitUI.flowColumns(panel);
 }
-kitCore.onScreen?.(() => {
-  if (state.tab === 'now') kitUI.flowColumns?.($('panel-now'));
-  if (state.look?.box?.isConnected) kitUI.flowColumns?.(state.look.box);
+kitCore.onScreen(() => {
+  if (state.tab === 'now') kitUI.flowColumns($('panel-now'));
+  if (state.look?.box?.isConnected) kitUI.flowColumns(state.look.box);
 });
 
 // A swipe across 天氣 goes to the place beside, from its top (the title says which).
-kitUI.daySwipe?.($('panel-now'), dir => {
+kitUI.daySwipe($('panel-now'), dir => {
   const next = state.pages[state.pages.indexOf(current()) + dir];
   if (!next) return false;
   state.key = next.key;
@@ -432,7 +431,7 @@ async function locate({ force = false } = {}) {
   if (may === 'denied') {
     // (定位 stays on the page after a no: a tap says where it's turned back on.)
     here.askable = true;
-    if (force) kitUI.toast?.(W('定位已關閉：到「設定 › 隱私權與安全性 › 定位服務」打開', 'Location is off: turn it on in Settings › Privacy & Security › Location Services'), { ms: 5000 });
+    if (force) kitUI.toast(W('定位已關閉：到「設定 › 隱私權與安全性 › 定位服務」打開', 'Location is off: turn it on in Settings › Privacy & Security › Location Services'), { ms: 5000 });
     here.note = state.local.here ? W('定位已關閉，顯示上次的位置', 'Location off · last location') : W('定位已關閉，顯示大約位置', 'Location off · approximate');
     if (!state.local.here) here.lat = here.lon = null;
     return loadPage(here);
@@ -635,7 +634,7 @@ function findSheet() {
     <label class="q-search wx-find-field"><input id="find-q" type="search" placeholder="${W('鄉鎮市區，或問天氣', 'A district, or ask the weather')}" autocomplete="off" enterkeyhint="search" aria-label="${W('搜尋地點', 'Search a place')}"><button class="q-search-clear" type="button" data-find="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
     <div id="find-list" class="q-list wx-find-list"></div>`, 'wx-find-sheet');
   // (The screen's height from the start, as a search is: it doesn't grow under the finger as results come.)
-  kitUI.setSheetDetent?.(d, 'large');
+  kitUI.setSheetDetent(d, 'large');
   const input = d.querySelector('#find-q');
   const list = d.querySelector('#find-list');
   // Nothing typed: where the phone is, to add as a place (what 用目前位置 did).
@@ -743,7 +742,7 @@ function drawLook() {
   if (page.box.dataset.sig === sig) return;
   page.box.dataset.sig = sig;
   page.box.innerHTML = skyPage(forecastOf(page), page, { now, cards: state.data.cards, hidden: state.data.hidden, bare: true });
-  kitUI.flowColumns?.(page.box);
+  kitUI.flowColumns(page.box);
 }
 // 加入: the place kept under its own name, no hours (編輯 sets them, and a home).
 // Already one of the places: 已加入 opens it.
@@ -766,8 +765,8 @@ async function addLook(page) {
   }
   state.data.pins.push(pin);
   leave();
-  kitUI.tick?.();
-  kitUI.toast?.(W(`已加入「${pin.name}」`, `Added ${pin.name}`), { ms: 1600 });
+  kitUI.tick();
+  kitUI.toast(W(`已加入「${pin.name}」`, `Added ${pin.name}`), { ms: 1600 });
   await saveData();
 }
 
@@ -1098,7 +1097,7 @@ document.addEventListener('click', ev => {
   if (tab) {
     const [kind, k] = tab.dataset.range.split(':');
     state.ranges[kind] = k;
-    kitCore.writeJson?.(RANGES, state.ranges);
+    kitCore.writeJson(RANGES, state.ranges);
     return document.querySelectorAll('dialog[open]').forEach(d => d.redraw?.());
   }
   // 定位: where the phone is, asked now (it was left on the last place).

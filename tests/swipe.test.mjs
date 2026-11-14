@@ -29,6 +29,6 @@ test('a new place on 天氣 starts a new visit, and a swipe brings it in from th
   const app = readFileSync(new URL('../public/app.mjs', import.meta.url), 'utf8');
   assert.match(app, /if \(page\.key !== shownKey\) \(\(shownKey = page\.key\), visit\+\+\);/);
   assert.match(app, /skyPage\(forecastOf\(page\), page, \{ now, visit,/);
-  const swipe = app.slice(app.indexOf('kitUI.daySwipe?.($(\'panel-now\')'));
+  const swipe = app.slice(app.indexOf('kitUI.daySwipe($(\'panel-now\')'));
   assert.match(swipe.slice(0, 600), /globalThis\.scrollTo\(0, 0\)/, 'select() leaves the scroll when the tab is the same one');
 });
