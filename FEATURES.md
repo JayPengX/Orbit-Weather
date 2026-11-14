@@ -19,6 +19,7 @@ To remove a feature on purpose, delete its line here in the same commit and say 
 - The sky in its card at the top: now, the high and low, the day's stops or turns on one track — `public/lib/pages.mjs`, `public/weather.css`: `ot-hero`, `skyClass`, `ot-day`
 - A swipe goes to the place beside, the title says which and opens 地點 — `public/app.mjs`, `public/lib/pages.mjs`: `daySwipe`, `data-act="places"`
 - 我的行程's ten days say where you'll be each day, a stretch of days a place (the hours' rail) — `public/lib/pages.mjs`: `ot-where is-days`
+- 我的行程's radar shower: each 5 minutes from the radar of where you'll be then, as on a city's page (Jay 2026-11-14) — `public/lib/plan.mjs`: `routeRadar`
 - A dry day's rain is one line saying when rain comes next (never an empty track); the sun's row is the day's peak still to come, after dark tomorrow's — `public/lib/pages.mjs`: `nextRain`, `is-dry`, `uvDay`
 - 早晨天氣 time and 版面 in 地點 — `public/lib/pages.mjs`: `brief-time`, `data-act="layout"`
 - 定位 asks where the phone is; an old copy says so — `public/lib/pages.mjs`: `data-locate`, `wx-stale`

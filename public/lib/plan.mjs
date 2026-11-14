@@ -254,5 +254,24 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   const alerts = [];
   for (const k of new Set(list.slice(0, 24).map(x => x.key))) for (const a of forecastFor(k)?.alerts || []) if (!alerts.some(b => b.title === a.title)) alerts.push(a);
   // (`own`: its headline is in the reader's language already.)
-  return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, own: true, place: fNow.place, dayOff: fNow.dayOff, places: [...new Set(list.map(x => placeName(x.pin)))] };
+  const radar = routeRadar(pins, forecastFor, fNow, live);
+  return { tz, at: fNow.at, partial: fNow.partial, now: fNow.now, hours, days, air: fNow.air, alerts, advice, headline, own: true, place: fNow.place, dayOff: fNow.dayOff, ...(radar ? { radar } : {}), places: [...new Set(list.map(x => placeName(x.pin)))] };
+}
+
+// The radar's next two hours along the route (Jay 11-14: 我的行程 at home in
+// 竹北 showed no shower while 竹北市 did): each step from the radar of where
+// you'll be then, on the clock of the place you're in now; a place with no
+// radar ends it there (rain-now.mjs reads only as far as it can say).
+export function routeRadar(pins, forecastFor, fNow, live = null) {
+  const base = fNow?.radar;
+  if (!base?.rate?.length) return null;
+  const step = (base.step || 5) * 60_000;
+  const rate = base.rate.map((v, i) => {
+    const t = base.at + i * step;
+    const r = forecastFor(placeKey(at(pins, t + step / 2, live)))?.radar;
+    if (!r?.rate?.length) return null;
+    const j = Math.round((t - r.at) / ((r.step || 5) * 60_000));
+    return r.rate[j] ?? null;
+  });
+  return { ...base, rate };
 }

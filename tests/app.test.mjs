@@ -382,6 +382,7 @@ test('the day sheet: its read-out (the days around it are the app’s strip)', (
 // ---- 我的行程 ----
 import { stitch, segments, planTips, routeForecast, adviceSpan } from '../public/lib/plan.mjs';
 import { placeAt } from '../public/lib/pins.mjs';
+import { rainSoon } from '../public/lib/soon.mjs';
 
 test('my route: each hour from where I am — school on weekdays 07–17, home otherwise', () => {
   const home = cleanPin({ id: 'phome', name: '家', lat: 25.03, lon: 121.56, county: '臺北市', town: '信義區', days: [], home: true });
@@ -475,6 +476,29 @@ test("my route follows the phone when it's elsewhere: here for now, the pins aft
   assert.match(f.headline, /^現在在目前位置/);
   // Without it, the plan as before.
   assert.equal(routeForecast(pins, k => fc[k] || null, at10).hours[0].place, '學校');
+});
+
+test("my route's radar: the shower where I'll be, step by step (11-14: none at home in 竹北)", () => {
+  const home = cleanPin({ id: 'phome', name: '家', lat: 24.83, lon: 121.01, county: '新竹縣', town: '竹北市', days: [], home: true });
+  const sch = cleanPin({ id: 'pschool4', name: '學校', lat: 24.8, lon: 120.97, county: '新竹市', town: '東區', days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' });
+  const pins = [home, sch];
+  const now = tpe('2026-10-05T16:20:00');
+  const at = now - 60_000;
+  const mk = (rate, rAt = at) => ({ tz: 'Asia/Taipei', at, now: { temp: 22 }, hours: Array.from({ length: 6 }, (_, i) => ({ t: tpe('2026-10-05T16:00:00') + i * H, temp: 22, pop: 20 })), days: [], radar: { at: rAt, step: 5, rate } });
+  const fc = { pschool4: mk(Array(24).fill(0)), phome: mk([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0], at - 5 * 60_000) };
+  const f = routeForecast(pins, k => fc[k] || null, now);
+  // 16:19–17:00 at school (dry), then home: home's shower, on its own clock (one step behind).
+  assert.deepEqual(f.radar.rate.slice(0, 9), Array(9).fill(0));
+  assert.deepEqual(f.radar.rate.slice(11, 15), [2, 3, 3, 1]);
+  const soon = rainSoon(f, now);
+  assert.equal(soon.radar, true);
+  assert.equal(soon.kind, 'start');
+  // All day at home: the home's radar as it is; none: the route has none.
+  const r2 = routeForecast([home], k => fc[k] || null, now).radar;
+  assert.deepEqual(r2.rate.slice(11, 14), [0, 2, 3]);
+  assert.equal(routeForecast(pins, k => (k === 'pschool4' ? fc[k] : { ...fc[k], radar: null }), now).radar.rate[12], null, 'a place without radar ends it');
+  delete fc.pschool4.radar;
+  assert.equal(routeForecast(pins, k => fc[k] || null, now).radar, undefined);
 });
 
 test('notices follow the route: home outside the pins\' hours', () => {
