@@ -77,6 +77,14 @@ test('an old copy is never read as now: the details read the hour now, not its f
   assert.match(pageHtml(f, { key: 'here', place: { town: '信義區' } }, { now: NOW }), /wx-old[^]*2 小時前的資料|5 小時前的資料/);
 });
 
+test('daylight is whole minutes: 10 h 59 min 40 s is 11 h 0 min, never 10 h 60 min (墾丁 11-22)', () => {
+  const f = today();
+  const d = f.days[0];
+  const html = infoCard({ ...f, days: [{ ...d, sunset: d.sunrise + 10 * H + 59 * 60_000 + 40_000 }, ...f.days.slice(1)] }, { now: NOW, page: { place: { town: '信義區' } } });
+  assert.match(html, /11 小時 0 分/);
+  assert.doesNotMatch(html, /60 分/);
+});
+
 test('a day with no temperatures has no charts to read (nothing to put a finger on)', () => {
   const f = { ...forecast, hours: forecast.hours.map(h => ({ ...h, temp: null, feels: null })) };
   const html = daySheet(f, '2026-10-03', { now: NOW });

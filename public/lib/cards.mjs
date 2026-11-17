@@ -578,7 +578,8 @@ export function infoCard(f, { now, lat, lon, page }) {
   const d = today(f, now);
   const s = d?.sunrise ? { sunrise: d.sunrise, sunset: d.sunset } : lat != null ? sunTimes(date, lat, lon) : null;
   const g = s && goldenHours(s);
-  const len = s ? s.sunset - s.sunrise : 0;
+  // (Whole minutes first, then hours: 10 h 59 min 40 s is 11 h 0 min, never 10 h 60 min.)
+  const lenMin = s ? Math.round((s.sunset - s.sunrise) / 60_000) : 0;
   const moon = moonName(d?.moon?.phase);
   const trend = n.pressure != null && h3?.pressure != null ? (h3.pressure - n.pressure > 0.5 ? ' ↑' : h3.pressure - n.pressure < -0.5 ? ' ↓' : ' →') : '';
   // (The place the header shows: one rule, placeLines.)
@@ -590,7 +591,7 @@ export function infoCard(f, { now, lat, lon, page }) {
     [glyph('bolt'), W('雷雨機率', 'Thunderstorms'), pct(h0?.thunder), '', 'purple'],
     [glyph('sunrise'), W('日出', 'Sunrise'), s ? clock(s.sunrise, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.morning[0], f.tz)}–${clock(g.morning[1], f.tz)}` : '', 'orange'],
     [glyph('sunset'), W('日落', 'Sunset'), s ? clock(s.sunset, f.tz) : '–', g ? `${W('黃金時刻', 'Golden')} ${clock(g.evening[0], f.tz)}–${clock(g.evening[1], f.tz)}` : '', 'pink'],
-    [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(len / HOUR)} 小時 ${Math.round((len % HOUR) / 60_000)} 分`, `${Math.floor(len / HOUR)} h ${Math.round((len % HOUR) / 60_000)} min`) : '–', '', 'yellow'],
+    [glyph('clock'), W('日照長度', 'Daylight'), s ? W(`${Math.floor(lenMin / 60)} 小時 ${lenMin % 60} 分`, `${Math.floor(lenMin / 60)} h ${lenMin % 60} min`) : '–', '', 'yellow'],
     [glyph('moon'), W('月相', 'Moon'), moon ? e(moon) : '–', d?.moon?.rise ? `${W('月出', 'Rise')} ${clock(d.moon.rise, f.tz)}${d.moon.set ? ` · ${W('月落', 'set')} ${clock(d.moon.set, f.tz)}` : ''}` : '', 'indigo'],
     [glyph('air'), W('PM10 / 臭氧', 'PM10 / ozone'), `${f.air?.pm10 ?? '–'} / ${f.air?.o3 ?? '–'}`, 'μg/m³ / ppb', 'green'],
     [glyph('station'), W('附近測站', 'Nearest station'), n.station ? [stationName(n.station.name), n.station.temp != null ? deg(n.station.temp) : ''].filter(Boolean).join(' ') : '–', n.station ? W(`${n.station.km} 公里 · ${clock(n.station.at, f.tz)} 實測`, `${n.station.km} km · ${clock(n.station.at, f.tz)}`) : '', 'mint'],
