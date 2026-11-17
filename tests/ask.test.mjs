@@ -49,6 +49,24 @@ test('問天氣 in English: the same question read on a phone in English', () =>
   assert.equal(readAsk('Hsinchu weather', towns, { today }).place.county, '新竹縣');
 });
 
+test('問天氣: the sky\'s words are neither a day nor a place (sunscreen was Sunday, 出太陽 a place to ask the AI about)', () => {
+  const tue = '2026-11-17';
+  assert.equal(dayOf('Do I need sunscreen today?', tue).day, tue);
+  assert.equal(dayOf('Will there be thunderstorms today?', tue).day, tue);
+  assert.equal(dayOf('Is it sunny?', tue).day, tue);
+  assert.equal(dayOf('Will it rain on Friday?', tue).day, '2026-11-20');
+  assert.equal(dayOf('rain on thurs', tue).day, '2026-11-19');
+  assert.equal(dayOf('next Monday', tue).day, '2026-11-23');
+  for (const q of ['明天會出太陽嗎', '明天是晴天嗎', '今天會打雷嗎', '明天風大嗎', '颱風會來嗎', 'Will it be sunny tomorrow?', 'Is it windy today?', 'Will there be thunderstorms tomorrow?']) {
+    const a = readAsk(q, towns, { today: tue });
+    assert.equal(a.unknown, '', q);
+    assert.equal(a.here, true, q);
+  }
+  assert.equal(readAsk('Will there be thunderstorms tomorrow?', towns, { today: tue }).what, 'rain');
+  assert.equal(readAsk('Will it rain at Sun Moon Lake tomorrow?', towns, { today: tue }).unknown, 'Sun Moon Lake');
+  assert.equal(readAsk('霧社明天會下雨嗎', towns, { today: tue }).unknown, '霧社');
+});
+
 test('問天氣: the answer is the forecast’s own numbers', () => {
   const f = { tz: 'Asia/Taipei', hours: [], days: [{ date: '2026-11-14', hi: 9.6, lo: 1.2, pop: 60, day: { condition: { code: 'RAIN' } }, night: { condition: { code: 'LIGHT_SNOW' } } }, { date: '2026-11-12', hi: 24, lo: 18, pop: 20, day: { condition: { code: 'CLEAR' } } }] };
   const now = Date.parse('2026-11-11T02:00:00Z');
