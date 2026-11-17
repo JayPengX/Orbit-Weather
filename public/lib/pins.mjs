@@ -214,15 +214,21 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
         .map(s => ({ ...s, from: Math.max(dayStart, s.from), to: Math.min(dayEnd, s.to) }))
         .filter(s => s.to > s.from)
         .sort((a, b) => a.from - b.from);
+      // Each stretch of the day at the place the screen puts it (activePin: of
+      // the pins whose hours hold it, the first in the list), home between
+      // them. (Overlapping pins, 學校 07:30–17:00 and 補習班 16:30–21:00, had
+      // the later one dropped whole, so its rain was never watched: home's was.)
+      const cuts = [...new Set([dayStart, dayEnd, ...segs.flatMap(s => [s.from, s.to])])].sort((a, b) => a - b);
       const all = [];
-      let cursor = dayStart;
-      for (const s of segs) {
-        if (s.from < cursor) continue;
-        if (s.from > cursor && here) all.push({ from: cursor, to: s.from, p: here, pin: homePin });
-        all.push({ from: s.from, to: s.to, p: s.pin, pin: s.pin, sfx: s.sfx });
-        cursor = s.to;
+      for (let k = 0; k < cuts.length - 1; k++) {
+        const [from, to] = [cuts[k], cuts[k + 1]];
+        const s = segs.filter(x => x.from <= from && x.to >= to).sort((a, b) => pins.indexOf(a.pin) - pins.indexOf(b.pin))[0];
+        const p = s ? s.pin : here;
+        if (!p) continue;
+        const last = all[all.length - 1];
+        if (last && last.to === from && last.p === p && last.sfx === (s?.sfx || '')) last.to = to;
+        else all.push({ from, to, p, pin: s ? s.pin : homePin, sfx: s?.sfx || '' });
       }
-      if (cursor < dayEnd && here) all.push({ from: cursor, to: dayEnd, p: here, pin: homePin });
       for (const s of all) {
         if (s.to <= now) continue;
         items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon at {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}${s.sfx || ''}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });

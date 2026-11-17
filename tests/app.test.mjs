@@ -525,6 +525,20 @@ test('notices follow the route: home outside the pins\' hours', () => {
   assert.ok(!items.some(x => x.check.weather.lat === 22.6), 'never the device\'s place when there\'s a home');
 });
 
+test('notices follow overlapping pins as the screen does: 補習班 from where 學校 ends, not home', () => {
+  const sch = cleanPin({ id: 'psch3', name: '學校', lat: 24.8, lon: 121.0, days: [1, 2, 3, 4, 5], from: '07:30', to: '17:00' });
+  const cram = cleanPin({ id: 'pcram', name: '補習班', lat: 24.81, lon: 121.02, days: [1, 2, 3, 4, 5], from: '16:30', to: '21:00' });
+  const rain = planNotices({ pins: [sch, cram], here: { lat: 24.7, lon: 121.1 }, now: tpe('2026-11-18T06:00:00'), days: 1, briefOn: false }).filter(x => x.kind === 'rain');
+  assert.deepEqual(rain.map(x => x.tag.split(':')[2]), ['here', 'psch3', 'pcram']);
+  assert.equal(rain[2].at, tpe('2026-11-18T17:00:00'));
+  assert.equal(rain[2].check.weather.lat, 24.81);
+  // A pin inside another's hours: the first in the list holds them, as on screen.
+  const lunch = cleanPin({ id: 'plunch', name: '午餐', lat: 24.9, lon: 121.1, days: [1, 2, 3, 4, 5], from: '12:00', to: '13:00' });
+  const inside = planNotices({ pins: [lunch, sch], here: null, now: tpe('2026-11-18T06:00:00'), days: 1, briefOn: false }).filter(x => x.kind === 'rain');
+  assert.deepEqual(inside.map(x => x.tag.split(':')[2]), ['psch3', 'plunch', 'psch3']);
+  assert.equal(activePin([lunch, sch], tpe('2026-11-18T12:30:00')).id, 'plunch');
+});
+
 test('the app\'s own pictures: a weather picture for each kind, glyphs', async () => {
   const { wxArt, conditionArt, sunArt, glyph, ICON_DEFS } = await import('../public/lib/icons.mjs');
   const { conditionKind } = await import('../public/lib/format.mjs');
