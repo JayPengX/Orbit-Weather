@@ -41,6 +41,10 @@ export function cleanPin(p) {
     to: clockOk(p.to) ? p.to : '17:00',
     // Home: where you are when no other pin's hours hold (one at most).
     home: p.home === true,
+    // (When it was made home: the home is the one made home last, never the one
+    // edited last; a rename of the old home on a phone not synced yet took
+    // home back from the place made home on the iPad.)
+    ...(p.home === true && Number(p.homeT) > 0 ? { homeT: Number(p.homeT) } : {}),
     // 跟著課表 (the family's notebook, Jay 11-10): its hours each school day
     // are Orbit Class's, first class to last (pinActiveAt), its own the rest.
     ...(p.cls === true ? { cls: true } : {}),
@@ -85,6 +89,16 @@ export function pinActiveAt(pin, t) {
 }
 
 // The pin to open on now, or null (the current location).
+// What a place is to the family's other apps: 'home', 'school' (Class's 停課
+// is read there), 'work' or null. One rule for the kit's dayoff place and the
+// family's notebook: a place following Class's timetable is the school with
+// or without weekdays (dayoff left it out, so Class read 停課 at home's).
+export function pinRole(pin, isClass = false) {
+  if (!pin) return null;
+  if (pin.home) return 'home';
+  const weekday = (pin.days || []).some(d => d > 0 && d < 6);
+  return pin.cls || (weekday && isClass) ? 'school' : weekday ? 'work' : null;
+}
 export const activePin = (pins, t = Date.now()) => (pins || []).find(p => !p.home && pinActiveAt(p, t)) || (pins || []).find(p => p.home && pinActiveAt(p, t)) || null;
 // Where you are at t by the schedule: a pin inside its hours, else home,
 // else null (wherever the device is).
@@ -105,9 +119,11 @@ export function scheduleText(pin) {
 
 // ---- The payload on the pass ------------------------------------------------------
 //
-// 'w1:' + JSON { pins, brief, t, gone: { id: t }, cards, hidden } (a
+// 'w1:' + JSON { pins, brief, t, st, gone: { id: t }, cards, hidden } (a
 // deleted pin is kept as gone, so an older copy elsewhere doesn't bring it
-// back; the cards' order and the hidden ones from the newer copy).
+// back; the brief's time, the cards' order and the hidden ones from the copy
+// whose settings were set last, `st`: any edit moved `t`, so a place added on
+// a phone offline put back the iPad's older brief time and layout).
 
 // The cards under the top, in the owner's order; `hidden` ones left out.
 const CARDS = { metrics: W('天氣指標（降雨・紫外線・空氣）', 'Conditions'), advice: W('建議', 'Advice'), days: W('10 天預報', 'Forecast'), info: W('更多資訊', 'Details') };
@@ -119,10 +135,10 @@ function cleanLayout(cards, hidden) {
 }
 
 export function emptyData() {
-  return { pins: [], brief: '06:30', t: 0, gone: {}, cards: [...DEFAULT_LAYOUT], hidden: [] };
+  return { pins: [], brief: '06:30', t: 0, st: 0, gone: {}, cards: [...DEFAULT_LAYOUT], hidden: [] };
 }
 export function encodeData(data) {
-  return 'w1:' + JSON.stringify({ pins: data.pins, brief: data.brief, t: data.t, gone: data.gone, cards: data.cards, hidden: data.hidden });
+  return 'w1:' + JSON.stringify({ pins: data.pins, brief: data.brief, t: data.t, ...(data.st ? { st: data.st } : {}), gone: data.gone, cards: data.cards, hidden: data.hidden });
 }
 export function decodeData(text) {
   if (typeof text !== 'string' || !text.startsWith('w1:')) return null;
@@ -132,6 +148,7 @@ export function decodeData(text) {
       pins: (Array.isArray(j.pins) ? j.pins : []).map(cleanPin).filter(Boolean).slice(0, MAX_PINS),
       brief: clockOk(j.brief) ? j.brief : '06:30',
       t: Number(j.t) || 0,
+      st: Number(j.st) || 0,
       gone: j.gone && typeof j.gone === 'object' ? Object.fromEntries(Object.entries(j.gone).filter(([, v]) => Number.isFinite(v))) : {},
       ...cleanLayout(j.cards, j.hidden)
     };
@@ -140,8 +157,11 @@ export function decodeData(text) {
   }
 }
 // Two copies made one: each pin the newer of the two, a deletion newer than
-// the pin wins, one home (the one marked last); the brief time and the cards
-// from the newer copy. Order: `a`'s, then new ones.
+// the pin wins, one home (the one made home last); the brief time and the
+// cards from the copy whose settings were set last. Order: the newer copy's,
+// then the other's new ones (`a`'s first kept each device's own order for
+// good, and the pass was written over at every return; a tie goes to `b`,
+// the pass's, so the two settle on one).
 export function mergeData(a, b, now = Date.now()) {
   if (!a) return b || emptyData();
   if (!b) return a;
@@ -153,13 +173,15 @@ export function mergeData(a, b, now = Date.now()) {
     const had = byId.get(p.id);
     if (!had || p.t > had.t) byId.set(p.id, p);
   }
-  const order = [...a.pins.map(p => p.id), ...b.pins.map(p => p.id)];
+  const newer = (b.t || 0) >= (a.t || 0) ? b : a;
+  const older = newer === b ? a : b;
+  const order = [...newer.pins.map(p => p.id), ...older.pins.map(p => p.id)];
   let pins = [...new Set(order)].map(id => byId.get(id)).filter(p => p && !(gone[p.id] >= p.t)).slice(0, MAX_PINS);
   // One home at most: two devices each marking one, the one marked last.
-  const home = pins.filter(p => p.home).sort((x, y) => y.t - x.t)[0];
+  const home = pins.filter(p => p.home).sort((x, y) => (y.homeT || 0) - (x.homeT || 0) || y.t - x.t)[0];
   if (home) pins = pins.map(p => (p.home && p !== home ? { ...p, home: false } : p));
-  const newer = (b.t || 0) > (a.t || 0) ? b : a;
-  return { pins, brief: newer.brief, t: Math.max(a.t || 0, b.t || 0), gone, ...cleanLayout(newer.cards, newer.hidden) };
+  const set = (a.st || 0) === (b.st || 0) ? newer : (b.st || 0) > (a.st || 0) ? b : a;
+  return { pins, brief: set.brief, t: Math.max(a.t || 0, b.t || 0), st: Math.max(a.st || 0, b.st || 0), gone, ...cleanLayout(set.cards, set.hidden) };
 }
 
 // ---- Notices: where each one is for ----------------------------------------------

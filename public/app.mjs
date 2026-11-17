@@ -11,7 +11,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, getPosition, fetchForecast, fetchWhere, fetchPlaces, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
@@ -83,8 +83,7 @@ const state = {
 function tellPlaces() {
   if (!family?.setPlace) return;
   for (const pin of state.data?.pins || []) {
-    const weekday = pin.days.some(d => d > 0 && d < 6);
-    const role = pin.home ? 'home' : pin.cls || (weekday && pinNeed(pin) === 'class') ? 'school' : weekday ? 'work' : null;
+    const role = pinRole(pin, pinNeed(pin) === 'class');
     if (role) family.setPlace(role, { lat: pin.lat, lon: pin.lon, name: pin.name }, 'weather');
   }
 }
@@ -134,7 +133,10 @@ function tellRain(now) {
 function buildPages() {
   const here = state.local.here;
   // (The person's school and work, where the other apps can read them: Class's 停課 is the school's.)
-  for (const pin of state.data.pins) if (pin.county && !pin.home && pin.days.some(d => d > 0 && d < 6)) setPlace(pinNeed(pin) === 'class' ? 'school' : 'work', pinPlace(pin));
+  for (const pin of state.data.pins) {
+    const role = pin.county && pinRole(pin, pinNeed(pin) === 'class');
+    if (role === 'school' || role === 'work') setPlace(role, pinPlace(pin));
+  }
   const homePin = state.data.pins.find(p => p.home && p.county);
   if (homePin) setPlace('home', pinPlace(homePin));
   tellPlaces();
@@ -541,11 +543,15 @@ const pass = passSync(q, {
     if (!state.started) return;
     buildPages();
     render();
+    openWaitingPin();
     sendNotices();
   }
 });
-async function saveData() {
+// (`settings`: the brief's time or 版面 changed, dated on their own so a pin
+// edited elsewhere doesn't put them back, pins.mjs mergeData.)
+async function saveData({ settings = false } = {}) {
   state.data.t = Date.now();
+  if (settings) state.data.st = state.data.t;
   keepData();
   buildPages();
   render();
@@ -880,8 +886,11 @@ function pinSheet(pin) {
       if (timed && draft.from === draft.to) return tell({ title: W('開始和結束不能是同一個時間', 'From and to can’t be the same time'), body: W('換一個結束時間。', 'Pick another end time.') });
       const clean = cleanPin({ ...draft, days: timed ? draft.days : [], t: Date.now() });
       if (!clean) return tell({ title: W('請選擇臺灣的地點', 'Pick a place in Taiwan'), body: W('用目前位置，或搜尋鄉鎮市區。', 'Use your location, or search a district.') });
-      // One home at most.
-      if (clean.home) state.data.pins = state.data.pins.map(p => (p.id !== clean.id && p.home ? { ...p, home: false, t: Date.now() } : p));
+      // One home at most: the one made home now (dated, homeT). The old home
+      // isn't stamped as edited: its new `t` outdid a deletion made elsewhere
+      // meanwhile and brought the place back; mergeData's one home settles it.
+      if (clean.home && !state.data.pins.find(p => p.id === clean.id)?.home) clean.homeT = Date.now();
+      if (clean.home) state.data.pins = state.data.pins.map(p => (p.id !== clean.id && p.home ? { ...p, home: false } : p));
       const at = state.data.pins.findIndex(p => p.id === clean.id);
       if (at >= 0) state.data.pins[at] = clean;
       else state.data.pins.push(clean);
@@ -930,7 +939,7 @@ function layoutSheet() {
     kitUI.reorder(box.querySelector('#card-order'), {
       onChange: keys => {
         state.data.cards = [...keys, ...state.data.cards.filter(k => !keys.includes(k))];
-        saveData();
+        saveData({ settings: true });
       }
     });
   wire();
@@ -951,14 +960,14 @@ function layoutSheet() {
       box.innerHTML = body();
       wire();
     } else return;
-    saveData();
+    saveData({ settings: true });
   });
 }
 // The morning brief's time, in 地點 (the notice's own switch is the account's).
 document.addEventListener('change', ev => {
   if (ev.target.id !== 'brief-time' || !/^\d{2}:\d{2}$/.test(ev.target.value)) return;
   state.data.brief = ev.target.value;
-  saveData();
+  saveData({ settings: true });
 });
 
 // A metric's sheet: its big graph, tabs and read-out.
@@ -1242,11 +1251,24 @@ const hashPin = () => {
   const m = /pin=(p[a-z0-9]+)/.exec(location.hash);
   return m && pageOf(m[1]) ? m[1] : null;
 };
+// A notice's pin this device doesn't have yet (added on another: the
+// account's notices name every device's places): opened when the pass brings
+// it. (The phone was up on its own copy already, so the address was read once
+// and 我的行程 opened instead.)
+let waitingPin = null;
+const askedPin = () => /pin=(p[a-z0-9]+)/.exec(location.hash)?.[1] || null;
+function openWaitingPin() {
+  if (!waitingPin || !state.started || !pageOf(waitingPin)) return;
+  const key = waitingPin;
+  waitingPin = null;
+  if (askedPin() === key) choose(key);
+}
 // (#tab=week, from before 天氣 was one page: 天氣.)
 const hashTab = () => ({ week: 'now', places: 'places' })[/tab=(week|places)/.exec(location.hash)?.[1]] || null;
 window.addEventListener('hashchange', () => {
   const key = hashPin();
   if (key) return choose(key);
+  waitingPin = askedPin();
   if (hashTab()) showTab(hashTab());
 });
 
@@ -1265,6 +1287,7 @@ async function boot() {
   // 我的行程 when there are pins (it shows where you are now), else here; a
   // notice's pin; the tab the address names.
   state.key = hashPin() ?? state.pages[0].key;
+  if (!hashPin()) waitingPin = askedPin();
   state.tab = hashTab() ?? 'now';
   // A phone that has opened Weather before: its last forecast up at once and
   // the phone asked where it is beside the sign-in, not after it (the sign-in's
@@ -1290,6 +1313,7 @@ async function boot() {
   // (The pass's pins in: a notice's pin, or 我的行程, can be named now.)
   if (!state.started) state.key = hashPin() ?? state.pages[0].key;
   render();
+  openWaitingPin();
   // A first opening: the loading screen lifts when the first place's forecast
   // is in (or after 8 s: a phone's slow first fix and forecast), not onto blank cards.
   if (!used) await Promise.race([firstForecast, locate().catch(() => {}), new Promise(r => setTimeout(r, 8000))]);

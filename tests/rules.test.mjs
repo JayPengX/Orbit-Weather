@@ -111,7 +111,8 @@ test('two devices each marking a home: one home, the one marked last', () => {
   const a = { ...emptyData(), pins: [cleanPin({ id: 'pa', name: '家', lat: 25, lon: 121.5, home: true, t: 10 })], t: 10 };
   const b = { ...emptyData(), pins: [cleanPin({ id: 'pb', name: '新家', lat: 24.8, lon: 121, home: true, t: 20 })], t: 20 };
   const m = mergeData(a, b, NOW);
-  assert.deepEqual(m.pins.map(p => [p.id, p.home]), [['pa', false], ['pb', true]]);
+  // (In the newer copy's order, so two devices settle on one: 11-17.)
+  assert.deepEqual(m.pins.map(p => [p.id, p.home]), [['pb', true], ['pa', false]]);
   assert.deepEqual(mergeData(b, a, NOW).pins.filter(p => p.home).map(p => p.id), ['pb']);
 });
 
