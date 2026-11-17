@@ -177,7 +177,8 @@ function hourTrack(f, { now, key, page }) {
   const span = Math.max(4, hi - lo);
   const top = (hi + lo) / 2 + span / 2;
   const yOf = t => Y0 + ((top - t) / span) * YH;
-  const sun = sunEvents(f, hs[0].t, hs[hs.length - 1].t + HOUR);
+  // (From now: a sunset ten minutes gone was drawn after 現在 as still to come.)
+  const sun = sunEvents(f, Math.max(hs[0].t, now), hs[hs.length - 1].t + HOUR);
   // (The hours the radar sees a shower in say it: its picture and its word, Jay 2026-11-10.)
   const radar = radarHours(f, now);
   const cols = [];

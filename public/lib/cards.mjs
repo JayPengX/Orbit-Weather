@@ -293,12 +293,13 @@ const tabsHtml = (kind, list, on) => {
 
 // The 10 days, a column each (for the bars).
 export function daysCols(f, now) {
-  // (Today's chance of rain: dayPop's, as the 10-day row says it.)
+  // (Today's chance of rain: dayPop's, as the 10-day row says it. In English
+  // Today, then the weekdays: Today and Tomorrow cut to three letters read Tod, Tom.)
   const today = dateOf(now, f.tz);
   return (f.days || [])
     .filter(d => d.date >= today)
     .slice(0, 10)
-    .map(d => ({ date: d.date, label: en ? dayLabel(d.date, now, f.tz).slice(0, 3) : dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: dayPop(f, d, now), mm: d.mm, uvMax: d.uvMax, daily: true }));
+    .map(d => ({ date: d.date, label: en ? (d.date === today ? 'Today' : weekday(d.date)) : dayLabel(d.date, now, f.tz).replace(/^週/, ''), pop: dayPop(f, d, now), mm: d.mm, uvMax: d.uvMax, daily: true }));
 }
 // The daylight days ahead: [{ date, hours (6–18時, from now on) }].
 export function uvDays(f, now) {
@@ -546,7 +547,7 @@ export function daySheet(f, date, { now, lat, lon }) {
   const sum = `<div class="wx-scrub-time"><b>${W('全天', 'All day')}</b><span>${e(places || conditionText(c.code, c.text) || '')}</span></div>
     <div class="wx-scrub-vals is-sum">
       <div><span>${W('最高 / 最低', 'High / low')}</span><b>${deg(d?.hi)} / ${deg(d?.lo)}</b><small>${W('體感', 'Feels')} ${deg(d?.feelsHi)} / ${deg(d?.feelsLo)}</small></div>
-      <div><span>${W('降雨', 'Rain')}</span><b>${pct(d?.pop)}</b><small>${d?.mm ? `${d.mm} mm` : '&nbsp;'}</small></div>
+      <div><span>${W('降雨', 'Rain')}</span><b>${pct(dayPop(f, d, now))}</b><small>${d?.mm ? `${d.mm} mm` : '&nbsp;'}</small></div>
       <div><span>${W('紫外線最高', 'UV high')}</span><b>${d?.uvMax ?? '–'}</b><small>${e(uvLevel(d?.uvMax) || '') || '&nbsp;'}</small></div>
       <div><span>${W('空氣最高', 'Air high')}</span><b>${fc?.aqi ?? '–'}</b><small>${fc ? `<i class="wx-lv" style="--c:${aqiColor(fc.aqi)}" aria-hidden="true"></i>${e(aqiLevel(fc.level))}` : '&nbsp;'}</small></div>
     </div>`;

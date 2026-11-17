@@ -59,3 +59,12 @@ test('an old copy says "Not updated" and "3 h old", short enough to sit beside T
   const { staleText } = await import('../public/lib/format.mjs');
   assert.equal(staleText(0, 3 * 3_600_000), '3 h old');
 });
+
+test('the 10-day graphs label their days Today, then the weekdays (Today and Tomorrow cut to three letters read Tod, Tom)', async () => {
+  const { daysCols } = await import('../public/lib/cards.mjs');
+  const { NOW } = await import('./fixture.mjs');
+  const labels = daysCols(forecast, NOW).map(c => c.label);
+  assert.equal(labels[0], 'Today');
+  assert.ok(!labels.some(l => /^(Tod|Tom)$/.test(l)), labels.join(' '));
+  assert.match(labels[1], /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat)$/);
+});

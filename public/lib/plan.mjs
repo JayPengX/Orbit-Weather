@@ -77,6 +77,11 @@ function stayFacts(seg) {
   return { hi: maxBy(hs, 'temp')?.temp ?? null, lo: minBy(hs, 'temp')?.temp ?? null, wet: maxBy(hs, 'pop'), uv: maxBy(hs, 'uv'), loaded: hs.length > 0 };
 }
 
+// The day the proxy's advice is for (Orbit-Core weather.js adviceWindow:
+// today's school hours, tomorrow's once they end at 17:00).
+const PROXY_DAY_ENDS = 17;
+const proxyDay = now => (hourOf(now, TZ) >= PROXY_DAY_ENDS ? dateOf(now + 24 * HOUR, TZ) : dateOf(now, TZ));
+
 // The day the advice is for: what's left of today (to 22時), or tomorrow
 // 6–22時 once it's 21時.
 export function adviceSpan(now) {
@@ -215,7 +220,16 @@ export function routeForecast(pins, forecastFor, now, live = null) {
   // you are by day; laundry, the window at night, sleep, the car at home).
   const { span: aSpan, tips } = planTips(pins, forecastFor, now, live);
   const dayKey = placeKey(at(pins, aSpan.from + Math.floor((aSpan.to - aSpan.from) / 2 / HOUR) * HOUR, live));
-  const take = (k, kinds) => (forecastFor(k)?.advice || []).filter(a => kinds.includes(a.kind));
+  // (The proxy's rows are for its own advice day, tomorrow's from 17:00, the
+  // route's for today until 21:00: between the two, tomorrow's thunder and
+  // heat sat under today's 雨傘 and 穿著, and a week table of tomorrow's
+  // titled the card 明天的建議. Only rows of the route's day, one day's tables.)
+  const spanDay = dateOf(aSpan.from, tz);
+  const dayBound = proxyDay(now) === spanDay ? [] : ['thunder', 'heat'];
+  const take = (k, kinds) =>
+    (forecastFor(k)?.advice || [])
+      .filter(a => kinds.includes(a.kind) && !dayBound.includes(a.kind))
+      .map(a => (a.week?.days?.[0]?.date && a.week.days[0].date !== spanDay ? { ...a, week: null } : a));
   const advice = [
     // (In the reader's language already, `own`: not the proxy's Chinese to translate.)
     ...tips.map(t => ({ kind: t.kind, level: t.level, text: `${t.title}：${t.text}`, own: true })),
