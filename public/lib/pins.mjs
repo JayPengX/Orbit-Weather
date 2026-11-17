@@ -253,7 +253,7 @@ export function planNotices({ pins = [], brief = '06:30', here: device = null, n
       }
       for (const s of all) {
         if (s.to <= now) continue;
-        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon at {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}${s.sfx || ''}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
+        items.push({ at: Math.max(s.from, now + 60_000), until: s.to, kind: 'rain', title: s.pin ? W(`${s.pin.name} 快下雨了`, `Rain soon at ${s.pin.name}`) : W('{place}快下雨了', 'Rain soon in {place}'), tag: `rain:${date}:${s.pin?.id || 'here'}${s.sfx || ''}`, hash: s.pin ? `pin=${s.pin.id}` : '', check: { weather: { ...where(s.p), kind: 'rain' } } });
       }
     }
   }

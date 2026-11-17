@@ -25,6 +25,15 @@ const shift = (base, wetAt) => ({ ...forecast, at: at10 - 60_000, hours: forecas
 
 test('in English', () => assert.equal(en, true));
 
+test('notices for wherever the phone is, in English: a district is "in", a place of the reader\'s own is "at"', async () => {
+  // (The Worker puts the district's English name where {place} stands: "Rain soon at Xinyi" read wrong, 11-18.)
+  const { planNotices } = await import('../public/lib/pins.mjs');
+  const here = planNotices({ pins: [], here: { lat: 25.03, lon: 121.56 }, now: at10, days: 1 });
+  assert.deepEqual([...new Set(here.map(i => i.title))].sort(), ['Rain soon in {place}', '{place} today']);
+  const own = planNotices({ pins: [{ ...home, name: 'Home' }], now: at10, days: 1 });
+  assert.deepEqual([...new Set(own.map(i => i.title))].sort(), ['Home today', 'Rain soon at Home']);
+});
+
 test("my route in English: its own sentence and tiles shown, a Chinese pin name and all (they're the reader's own words)", () => {
   const fc = { phome: shift(22, 30), pschool: shift(25, 15) };
   const f = routeForecast([home, sch], k => fc[k] || null, at10);
