@@ -96,6 +96,11 @@ async function get(path, token, fetchFn) {
 // 2026-11-05); only one that has gone quiet is dropped.
 export const FIRST_MS = 8000;
 export const REST_MS = 30_000;
+// An answer is a forecast only when it has something to draw (its time and
+// the weather now or its hours): an empty answer, an error page's JSON or a
+// changed shape is a failure, so the last good copy stays (never saved over).
+export const isForecast = f => Boolean(f && typeof f === 'object' && !Array.isArray(f) && Number.isFinite(f.at) && ((f.now && typeof f.now === 'object') || (Array.isArray(f.hours) && f.hours.length)));
+const notForecast = () => Object.assign(new Error('/weather not a forecast'), { status: 0 });
 // The forecast for a point, or where the network says (`auto`): → { f, rest }.
 // When `f` isn't the last word (`more`, `refreshing`), the proxy sends the
 // whole answer on the same request the moment it's in: `rest`, a promise of
@@ -120,7 +125,9 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
     if (!reader) {
       const [f, rest] = (res.text ? await within(res.text()) : JSON.stringify(await within(res.json()))).trim().split('\n');
       clearTimeout(timer);
-      return { f: JSON.parse(f), rest: Promise.resolve(rest ? JSON.parse(rest) : null) };
+      if (!isForecast(JSON.parse(f))) throw notForecast();
+      const g = rest ? JSON.parse(rest) : null;
+      return { f: JSON.parse(f), rest: Promise.resolve(isForecast(g) ? g : null) };
     }
     const text = new TextDecoder();
     let buf = '';
@@ -145,10 +152,11 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
       }
     };
     const f = await line();
-    if (!f) throw Object.assign(new Error('/weather empty'), { status: 0 });
+    if (!isForecast(f)) throw notForecast();
     clearTimeout(timer);
     timer = after((limit = restMs));
     const rest = line()
+      .then(g => (isForecast(g) ? g : null))
       .catch(() => (reader.cancel().catch(() => {}), null))
       .finally(() => clearTimeout(timer));
     return { f, rest };

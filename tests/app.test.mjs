@@ -267,9 +267,21 @@ test('the forecast in lines: the first answer at once, the whole one when it com
   push.close();
   assert.deepEqual(await rest, { at: 2, hours: [1, 2] });
   // A proxy that sends one answer (no line after it): no rest.
-  const one = await fetchForecast({ auto: true }, 'T', async () => new Response('{"at":3}'));
-  assert.deepEqual(one.f, { at: 3 });
+  const one = await fetchForecast({ auto: true }, 'T', async () => new Response('{"at":3,"hours":[1]}'));
+  assert.deepEqual(one.f, { at: 3, hours: [1] });
   assert.equal(await one.rest, null);
+});
+
+test('an answer that is not a forecast is a failure, never kept over the last good copy', async () => {
+  // An empty object, an empty list, an error's JSON, a changed shape: each turned down.
+  for (const body of ['{}', '[]', '{"error":"upstream"}', '{"data":{"now":{}}}', '{"at":1,"hours":[]}'])
+    await assert.rejects(fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => new Response(body)), e => e.status === 0, body);
+  // An error page with 200: not JSON, a failure too.
+  await assert.rejects(fetchForecast({ auto: true }, 'T', async () => new Response('<!doctype html><h1>503</h1>')));
+  // A good first line with a broken whole one after it: the first stands, the rest is nothing.
+  const two = await fetchForecast({ auto: true }, 'T', async () => new Response('{"at":1,"more":true,"now":{"temp":20}}\n{}\n'));
+  assert.equal(two.f.now.temp, 20);
+  assert.equal(await two.rest, null);
 });
 
 test('a forecast request that stalls is dropped: the first answer within firstMs, the whole one within restMs', async () => {
@@ -284,7 +296,7 @@ test('a forecast request that stalls is dropped: the first answer within firstMs
   let push;
   const res = new Response(new ReadableStream({ start: c => (push = c) }));
   const asked = fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => res, { firstMs: 50, restMs: 80 });
-  push.enqueue(enc.encode('{"at":1,"more":true}\n'));
+  push.enqueue(enc.encode('{"at":1,"more":true,"hours":[1]}\n'));
   const { f, rest } = await asked;
   assert.equal(f.at, 1);
   assert.equal(await rest, null);
@@ -297,7 +309,7 @@ test('a forecast still coming on a slow link is read to its end: each piece give
   const res = new Response(new ReadableStream({ start: c => (push = c) }));
   const asked = fetchForecast({ lat: 25.03, lon: 121.56 }, 'T', async () => res, { firstMs: 300, restMs: 300 });
   // The first line in pieces, 60 ms apart: 480 ms in all, past firstMs, never quiet for it.
-  for (const piece of ['{"at":1,', '"more":true,', '"pad":"', 'x', 'x', 'x', 'x', '"}\n']) {
+  for (const piece of ['{"at":1,', '"more":true,', '"hours":[1],', '"pad":"', 'x', 'x', 'x', 'x', '"}\n']) {
     await wait(60);
     push.enqueue(enc.encode(piece));
   }
@@ -313,7 +325,7 @@ test('a forecast still coming on a slow link is read to its end: each piece give
 
 test('proxy calls carry the session; the device keeps a few places', async () => {
   const urls = [];
-  const f = async u => (urls.push(u), { ok: true, json: async () => ({}) });
+  const f = async u => (urls.push(u), { ok: true, json: async () => ({ at: 1, hours: [1] }) });
   await fetchForecast({ lat: 25.03412, lon: 121.56456 }, 'TOKEN', f);
   await fetchForecast({ auto: true }, 'T', f);
   await fetchWhere(25.034123, 121.565432, 'T', f);
