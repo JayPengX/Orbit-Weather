@@ -781,3 +781,11 @@ test('目前位置 is a page only away from your places (Jay 11-20: at home or s
   assert.equal(atAPlace(null, [home]), false, 'no position: it stays (定位 is asked there)');
   assert.equal(atAPlace({ lat: 24.8281, lon: 121.0131 }, []), false);
 });
+
+test('an exact spot says its county and township under its name (Jay 11-20: 台北101購物中心 said only 臺北市)', () => {
+  const place = { county: '臺北市', town: '信義區' };
+  assert.equal(placeName({ look: true, name: '台北101購物中心', place }).sub, '臺北市 信義區');
+  assert.equal(placeName({ pin: { name: '家', spot: '成功九街90號', days: [] }, place: { county: '新竹縣', town: '竹北市' } }).sub, '新竹縣 竹北市');
+  // A township looked up keeps its county alone: the title is the township.
+  assert.equal(placeName({ look: true, name: '', place }).sub, '臺北市');
+});

@@ -125,7 +125,12 @@ export function placeName(page) {
   // named after its town doesn't say the town twice.)
   // (我的行程: where you are now, 「現在在學校 · 東區」, or off every pin
   // 「現在在信義區」: 「現在在 目前位置 · 信義區」 said where twice, 11-12.)
-  const sub = page.plan
+  // (An exact spot, looked up or kept, is titled by its own name: under it the
+  // county and township, 「臺北市 信義區」, as the search and 編輯地點 say, Jay 11-20.)
+  const spot = page.look ? page.name : page.pin?.spot;
+  const sub = !page.plan && spot
+    ? en ? [place.main, place.sub].filter(Boolean).join(', ') : [place.sub, place.main].filter(Boolean).join(' ')
+    : page.plan
     ? page.pin
       ? `${W('現在在', 'Now at ')}${page.pin.name}${place.main && place.main !== page.pin.name ? ` · ${place.main}` : ''}`
       : place.main
