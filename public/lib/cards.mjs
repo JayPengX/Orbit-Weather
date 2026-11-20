@@ -97,12 +97,12 @@ function radarPanel(r, now, tz) {
   const ticks = [`<span style="left:0">${W('現在', 'Now')}</span>`];
   for (const k of [6, 12, 18]) if (k < n - 2) ticks.push(`<span style="left:${Math.round((k / n) * 1000) / 10}%">${clock(r.bars[k].t, tz)}</span>`);
   const said = [s.head, s.span, s.tip].join(W('，', ', '));
-  return `<div class="wx-rain wx-rain-${r.kind} lv-${s.word.level}" role="note" aria-label="${e(said)}">
-    <p class="wx-rain-head">${glyph('umbrella', { size: 18 })}<b>${e(s.head)}</b></p>
-    <p class="wx-rain-sub">${e(`${s.span} · ${s.tip}`)}</p>
-    <div class="wx-rain-bars" style="--n:${n}" aria-hidden="true">${bars}</div>
-    <p class="wx-rain-axis" aria-hidden="true">${ticks.join('')}</p>
-    <p class="wx-rain-note">${e(W('雷達追蹤雨雲 · 約 1.5 公里內 · 時間為估計', 'Radar-tracked · within ~1.5 km · times are estimates'))}</p>
+  return `<div class="wx-radar wx-radar-${r.kind} lv-${s.word.level}" role="note" aria-label="${e(said)}">
+    <p class="wx-radar-head">${glyph('umbrella', { size: 18 })}<b>${e(s.head)}</b></p>
+    <p class="wx-radar-sub">${e(`${s.span} · ${s.tip}`)}</p>
+    <div class="wx-radar-bars" style="--n:${n}" aria-hidden="true">${bars}</div>
+    <p class="wx-radar-axis" aria-hidden="true">${ticks.join('')}</p>
+    <p class="wx-radar-note">${e(W('雷達追蹤雨雲 · 約 1.5 公里內 · 時間為估計', 'Radar-tracked · within ~1.5 km · times are estimates'))}</p>
   </div>`;
 }
 

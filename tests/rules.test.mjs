@@ -2,7 +2,7 @@
 // across devices; the rules each said once (format.mjs).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { realpathSync, existsSync } from 'node:fs';
+import { realpathSync, existsSync, readFileSync } from 'node:fs';
 import { H, tpe, NOW, forecast } from './fixture.mjs';
 import { daysCols, dayPop, dayTips, daySheet, infoCard, soonLine } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
@@ -266,7 +266,10 @@ test('rain in the next two hours: the radar’s tracked shower, then the hours',
   assert.equal(r.peak, 2.5);
   assert.equal(rainWord(r.peak).zh, '小雨');
   const html = soonLine(f([10, 10, 10], shower), now, 'Asia/Taipei');
-  assert.match(html, /class="wx-rain wx-rain-start lv-2"/);
+  assert.match(html, /class="wx-radar wx-radar-start lv-2"/);
+  // (Its class is its own: as 「wx-rain」 the 降雨 sheet's card, wx-card wx-rain, took its grey glass box, Jay 11-20.)
+  const css = readFileSync(new URL('../public/weather.css', import.meta.url), 'utf8');
+  for (const k of ['rain', 'uv', 'air']) assert.doesNotMatch(css, new RegExp(`\\.wx-${k}(\\s*[{,]|[.:])`), `a style on wx-${k} itself reaches the ${k} card's box`);
   assert.match(html, /約 15 分鐘後下小雨/);
   assert.match(html, /14:35–15:00 · 記得帶傘/);
   assert.match(html, /約 1\.5 公里內/);
