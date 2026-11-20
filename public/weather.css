@@ -647,24 +647,6 @@ body {
   padding: 0;
   justify-content: center;
 }
-.wx-here {
-  margin-top: 12px;
-}
-.wx-list {
-  max-height: 260px;
-  margin-top: 10px;
-  overflow-y: auto;
-}
-.wx-list:empty {
-  display: none;
-}
-.wx-actions {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 1fr;
-  gap: 10px;
-  margin-top: 24px;
-}
 .q-cell > .q-cell-text:first-child:not(.wx-order-name) {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -2132,14 +2114,32 @@ button.ot-g {
 .wx-look-body .ot > .ot-hero:first-child {
   margin-top: 0;
 }
-.wx-look .q-sheet-head .wx-look-add {
+.wx-look .q-sheet-head .wx-look-add,
+.q-sheet-head .wx-head-btn {
   min-width: 64px;
+}
+/* 編輯地點: the place a row of its own (its spot over its township, ›, opens 換地點), the switches, delete apart. */
+.wx-pin-group {
+  margin-top: 20px;
+}
+
+.wx-pin-where > svg,
+.wx-here-row > svg {
+  flex: none;
+  color: var(--q-accent);
+}
+.wx-pin-where .q-cell-text > span {
+  color: var(--q-label);
+  font: var(--q-t-body);
+}
+.wx-pin-delete .q-cell-text {
+  text-align: center;
+}
+.wx-here-row .q-cell-text {
+  color: var(--q-accent);
 }
 /* 編輯: the hours only when 固定時間在這裡 is on. */
 .wx-times {
-  margin-top: 12px;
-}
-.wx-pin-q {
   margin-top: 12px;
 }
 

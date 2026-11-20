@@ -2,7 +2,7 @@
 // stretches of time, told to the family's notebook for Orbit Transit.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { wetSpans } from '../public/lib/soon.mjs';
+import { wetSpans, rainTurns } from '../public/lib/soon.mjs';
 
 const H = 3_600_000;
 const now = Date.UTC(2026, 10, 11, 0, 10);
@@ -27,4 +27,18 @@ test('the radar speaks for what it sees: a shower it tracks, and no wet hour und
   assert.equal(s.length, 1);
   assert.ok(s[0][0] === now + 10 * 60_000, `starts as the radar says: ${new Date(s[0][0]).toISOString()}`);
   assert.ok(s[0][1] === now + 30 * 60_000, 'ends as the radar says, not at the wet hour’s end');
+});
+
+test('the day track’s rain: the radar first, the hours only past it (Jay 11-20: 「21:00 雨停」 under a drizzle due in 50 minutes)', () => {
+  // (Now 00:10. The hours: 50% now and on to 02:00, dry from 03:00. The radar: nothing for 50 minutes, then drizzle on and off to its end.)
+  const rate = Array.from({ length: 25 }, (_, i) => (i === 10 || i >= 13 ? 0.8 : 0));
+  const f = { at: now, hours: hours([50, 50, 50, 20, 10, 10]), radar: { at: now, step: 5, rate } };
+  const r = rainTurns(f, now);
+  assert.equal(r.wet, false, 'not wet now: the radar sees none');
+  assert.deepEqual(r.turns.map(x => [x.kind, (x.t - now) / 60_000]), [['start', 50], ['stop', 170]], 'drizzle from 01:00, dry by 03:00');
+  assert.equal(r.turns[0].word.zh, '毛毛雨');
+  // No radar: the hours alone, as before.
+  const plain = rainTurns({ at: now, hours: hours([50, 50, 50, 20]) }, now);
+  assert.equal(plain.wet, true);
+  assert.deepEqual(plain.turns.map(x => [x.kind, x.t]), [['stop', hour0 + 3 * H]]);
 });

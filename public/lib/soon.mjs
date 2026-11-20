@@ -49,6 +49,35 @@ export function rainSoon(f, now) {
   return dry ? { kind: 'stop', at: dry.t, mins: mins(dry.t), pop: h0.pop } : null;
 }
 
+// The day track's rain (pages.mjs stopsOf): wet now or not, and when it
+// starts or stops, up to three turns in order ({ t, kind: 'start' | 'stop',
+// h: that hour, word: the radar's words for its shower }). What the radar sees
+// first, the hours only past it (Jay 2026-11-20: 「21:00 雨停」 from the hours
+// sat under the radar's 「約 50 分鐘後下毛毛雨」; rainSoon's rule).
+export function rainTurns(f, now) {
+  const hours = (f?.hours || []).filter(h => h.t + HOUR > now && h.pop != null).slice(0, 13);
+  const at = t => hours.find(h => h.t <= t && t < h.t + HOUR) || hours[0];
+  if (!hours.length || hours[0].t > now) return { wet: false, turns: [] };
+  const r = f.radar?.rate && !(f.at && now - f.at > FRESH_FOR) ? radarOf(f, now) : null;
+  const next = (from, raining) => {
+    const h = hours.find(x => x.t + HOUR > from && x.t > now && (raining ? x.pop < RAIN_MAYBE : x.pop >= RAIN_YES));
+    return h ? { t: Math.max(h.t, from), kind: raining ? 'stop' : 'start', h } : null;
+  };
+  if (!r) {
+    const wet = hours[0].pop >= RAIN_YES;
+    const turn = next(now + 1, wet);
+    return { wet, turns: turn ? [turn] : [] };
+  }
+  const turns = [];
+  const word = r.kind === 'dry' ? null : rainWord(r.peak);
+  if (r.kind === 'start') turns.push({ t: r.from, kind: 'start', h: at(r.from), word });
+  if (word && r.to) turns.push({ t: r.to, kind: 'stop', h: at(r.to) });
+  // (Past what the radar sees, the hours: raining at its end, when they say it stops; else when it starts.)
+  const after = next(r.until, Boolean(word) && r.to == null);
+  if (after) turns.push(after);
+  return { wet: r.kind === 'now', turns };
+}
+
 // The radar's rain by hour (the hour's start → the most it rains in it, mm
 // an hour), so the hours say what the radar says (pages.mjs hourTrack).
 export function radarHours(f, now) {

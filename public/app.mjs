@@ -637,6 +637,33 @@ const noSpot = () => kitUI.toast(W('找不到這個地點的位置，請換個�
 // A spot already kept: a place within ~150 m.
 const pinnedNear = (lat, lon) => state.data.pins.find(p => Math.abs(p.lat - lat) < 0.0014 && Math.abs(p.lon - lon) < 0.0015) || null;
 const pinnedFor = page => (page.name ? pinnedNear(page.lat, page.lon) : pinnedAt(page.place.county, page.place.town));
+// What's typed, as rows (搜尋地點 and 換地點 alike): the townships at once, the
+// addresses and landmarks under them once typing pauses. `still()`: the
+// same typing still; `put(html)` draws.
+async function listPlaces(text, session, still, put) {
+  const rows = await findPlaces(text);
+  if (!still()) return;
+  const towns = rows.map(r => placeRowHtml(r)).join('');
+  const none = () => kitUI.emptyHtml({ title: townships ? W('找不到這個地方', 'Nothing found') : W('暫時無法搜尋，請稍後再試。', 'Can’t search right now. Try again shortly.') });
+  if (text.trim().length < 2) return put(towns || none());
+  put(towns);
+  await new Promise(r => setTimeout(r, SPOT_WAIT_MS));
+  if (!still()) return;
+  const spots = await findSpots(text, session);
+  if (still()) put(towns + spots.map(s => spotRowHtml(s, 'data-find-spot')).join('') || none());
+}
+// A tapped row's place: { county, town, lat, lon, name } (a spot's position asked first), or null.
+async function placeOfRow(row, session) {
+  if (row.dataset.findPlace) {
+    const [county, town, la, lo] = row.dataset.findPlace.split('|');
+    return { county, town, lat: Number(la), lon: Number(lo), name: '' };
+  }
+  row.setAttribute('aria-busy', 'true');
+  const p = await spotOf(row.dataset.findSpot, session);
+  row.removeAttribute('aria-busy');
+  if (!p) noSpot();
+  return p;
+}
 
 // 問天氣 (Jay 11-10, code first): a question typed in the search (明天竹北會下雨嗎,
 // 週六合歡山會下雪嗎) read by code (lib/ask.mjs) and answered from the forecast
@@ -682,12 +709,10 @@ function findSheet() {
   const start = () => (here?.lat != null && here.place?.town ? `${placeRowHtml([here.place.county || '', here.place.town, here.lat, here.lon], W('目前位置', 'Current location'))}` : '');
   let asked = 0;
   let lastAsk = null;
-  let spotTimer = 0;
   const session = spotSession();
   const fill = async () => {
     const text = input.value;
     const n = ++asked;
-    clearTimeout(spotTimer);
     if (!text.trim()) return void (list.innerHTML = start());
     townships ||= await fetchPlaces().catch(() => null);
     const ask = readAsk(text, townships, { today: dateOf(Date.now()), here });
@@ -708,16 +733,7 @@ function findSheet() {
       if (n === asked) list.innerHTML = html;
       return;
     }
-    const rows = await findPlaces(text);
-    if (n !== asked) return;
-    const towns = rows.map(r => placeRowHtml(r)).join('');
-    const none = () => kitUI.emptyHtml({ title: townships ? W('找不到這個地方', 'Nothing found') : W('暫時無法搜尋，請稍後再試。', 'Can’t search right now. Try again shortly.') });
-    if (text.trim().length < 2) return void (list.innerHTML = towns || none());
-    list.innerHTML = towns;
-    spotTimer = setTimeout(async () => {
-      const spots = await findSpots(text, session);
-      if (n === asked) list.innerHTML = towns + spots.map(s => spotRowHtml(s, 'data-find-spot')).join('') || none();
-    }, SPOT_WAIT_MS);
+    await listPlaces(text, session, () => n === asked, html => (list.innerHTML = html));
   };
   fill();
   input.addEventListener('input', fill);
@@ -732,21 +748,10 @@ function findSheet() {
     if (ev.target.closest('[data-ask-ai]') && lastAsk) return void askAi(lastAsk, list, () => asked, ++asked);
     const option = ev.target.closest('[data-ask-option]')?.dataset.askOption;
     if (option && lastAsk) return void askAi({ ...lastAsk, ask: { ...lastAsk.ask, unknown: option } }, list, () => asked, ++asked);
-    const spot = ev.target.closest('[data-find-spot]');
-    if (spot) {
-      input.blur();
-      spot.setAttribute('aria-busy', 'true');
-      return void spotOf(spot.dataset.findSpot, session).then(p => {
-        spot.removeAttribute('aria-busy');
-        if (!p) return noSpot();
-        if (d.isConnected) lookAt(p, d);
-      });
-    }
-    const row = ev.target.closest('[data-find-place]');
+    const row = ev.target.closest('[data-find-place], [data-find-spot]');
     if (!row) return;
-    const [county, town, la, lo] = row.dataset.findPlace.split('|');
     input.blur();
-    lookAt({ county, town, lat: Number(la), lon: Number(lo) }, d);
+    placeOfRow(row, session).then(p => p && d.isConnected && lookAt(p, d));
   });
 }
 
@@ -816,7 +821,7 @@ async function addLook(page) {
   };
   if (had) return void (leave(), choose(had.id));
   if (state.data.pins.length >= MAX_PINS) return tell({ title: W(`最多 ${MAX_PINS} 個地點`, `Up to ${MAX_PINS} places`), body: W('先刪掉一個再加入。', 'Delete one first.') });
-  const pin = cleanPin({ id: newPinId(), name: page.name || placeIn(town) || placeIn(county), lat: page.lat, lon: page.lon, county, town, days: [], home: false, t: Date.now() });
+  const pin = cleanPin({ id: newPinId(), name: page.name || placeIn(town) || placeIn(county), spot: page.name || '', lat: page.lat, lon: page.lon, county, town, days: [], home: false, t: Date.now() });
   // (A place abroad, as the AI can find: looked at, never kept.)
   if (!pin) return tell({ title: W('只能加入臺灣的地點', 'Only places in Taiwan can be added'), body: W('國外的地點可以查看天氣，但不能加入。', 'You can look at a place abroad, but not add it.') });
   // (Its forecast kept as any place's: 天氣 opens on it.)
@@ -831,22 +836,69 @@ async function addLook(page) {
   await saveData();
 }
 
-// 編輯: a place's name, where it is, home or not, and (only if wanted) the hours you're there.
+// 換地點: where a place is, by the phone's position or a search (搜尋地點's), in a sheet of its own.
+function placePicker(onPick) {
+  const here = state.local.here;
+  const session = spotSession();
+  const d = sheet(`
+    <div class="q-sheet-head"><h2>${W('換地點', 'Change place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
+    <label class="q-search wx-find-field"><input id="pick-q" type="search" placeholder="${W('地址、地標或鄉鎮', 'An address, a place or a district')}" autocomplete="off" enterkeyhint="search" aria-label="${W('換地點', 'Change place')}"><button class="q-search-clear" type="button" data-pick="clear" aria-label="${W('清除', 'Clear')}">✕</button></label>
+    <div id="pick-list" class="q-list wx-find-list"></div>`, 'wx-find-sheet');
+  kitUI.setSheetDetent(d, 'large');
+  const input = d.querySelector('#pick-q');
+  const list = d.querySelector('#pick-list');
+  const start = () =>
+    here?.lat != null
+      ? `<button class="q-cell wx-find-row wx-here-row" type="button" data-find-place="${e(here.place?.county || '')}|${e(here.place?.town || '')}|${here.lat}|${here.lon}">${glyph('locate', { size: 18 })}<span class="q-cell-text">${W('用目前位置', 'Use current location')}</span><span class="q-cell-value">${e(placeIn(here.place?.town || ''))}</span></button>`
+      : '';
+  let asked = 0;
+  const fill = () => {
+    const n = ++asked;
+    if (!input.value.trim()) return void (list.innerHTML = start());
+    listPlaces(input.value, session, () => n === asked, html => (list.innerHTML = html));
+  };
+  fill();
+  input.addEventListener('input', fill);
+  d.classList.add('q-risen');
+  input.focus();
+  d.addEventListener('click', async ev => {
+    if (ev.target.closest('[data-pick="clear"]')) return void ((input.value = ''), fill(), input.focus());
+    const row = ev.target.closest('[data-find-place], [data-find-spot]');
+    if (!row) return;
+    input.blur();
+    const p = await placeOfRow(row, session);
+    if (!p || !d.isConnected) return;
+    onPick(p);
+    shut(d);
+  });
+}
+
+// 編輯: a place's name and where it is (換地點 in a sheet of its own), home or
+// not, and (only if wanted) the hours you're there; 儲存 in the head, as 加入.
+// (Jay 11-20: the search inside it left an empty band once a place was picked.)
 const WEEK = en ? ['S', 'M', 'T', 'W', 'T', 'F', 'S'] : ['日', '一', '二', '三', '四', '五', '六'];
 function pinSheet(pin) {
   if (!pin) return;
-  const here = state.local.here;
   const draft = { ...pin, days: pin.days.length ? [...pin.days] : [1, 2, 3, 4, 5] };
   let timed = pin.days.length > 0;
-  const where = () => [draft.county, draft.town].filter(Boolean).map(placeIn).join(' ') || W('尚未選擇', 'Not chosen');
-  const d = sheet(`
-    <div class="q-sheet-head"><h2>${W('編輯地點', 'Edit place')}</h2><button class="q-close" type="button" data-act="close" aria-label="${W('關閉', 'Close')}">×</button></div>
+  // The place: the spot's own name over its township, or the township over its county.
+  const whereHtml = () => {
+    const town = placeIn(draft.town);
+    const main = draft.spot || town || placeIn(draft.county) || W('尚未選擇', 'Not chosen');
+    const sub = draft.spot ? [draft.county, draft.town].filter(Boolean).map(placeIn).join(en ? ', ' : '') : town ? placeIn(draft.county) : '';
+    return `<span>${e(main)}</span>${sub ? `<small>${e(sub)}</small>` : ''}`;
+  };
+  const sw = (act, on, label) => `<button class="q-switch" type="button" role="switch" data-pin-act="${act}" aria-checked="${on}" aria-label="${label}"></button>`;
+  const box = document.createElement('template');
+  box.innerHTML = `
     <div class="q-list">
       <label class="q-cell"><span class="q-cell-text">${W('名稱', 'Name')}</span><input id="pin-name" class="wx-cell-input" maxlength="20" placeholder="${e(placeIn(draft.town) || W('例如：學校、家', 'e.g. School, Home'))}" value="${e(draft.name)}"></label>
-      <div class="q-cell"><span class="q-cell-text">${W('地點', 'Place')}</span><span class="q-cell-value" id="pin-where">${e(where())}</span></div>
-      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span><button class="q-switch" type="button" role="switch" data-pin-act="home" aria-checked="${draft.home === true}" aria-label="${W('這是我的家', 'This is home')}"></button></div>
-      <div class="q-cell"><span class="q-cell-text">${W('固定時間在這裡', 'I’m here at set times')}</span><button class="q-switch" type="button" role="switch" data-pin-act="timed" aria-checked="${timed}" aria-label="${W('固定時間在這裡', 'I’m here at set times')}"></button></div>
-      ${classDays() || pin.cls ? `<div class="q-cell"><span class="q-cell-text">${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}</span><button class="q-switch" type="button" role="switch" data-pin-act="cls" aria-checked="${draft.cls === true}" aria-label="${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}"></button></div>` : ''}
+      <button class="q-cell chevron wx-pin-where" type="button" data-pin-act="where" aria-label="${W('換地點', 'Change place')}">${glyph('pin', { size: 18 })}<span class="q-cell-text" id="pin-where">${whereHtml()}</span></button>
+    </div>
+    <div class="q-list wx-pin-group">
+      <div class="q-cell"><span class="q-cell-text"><span>${glyph('home', { size: 16 })} ${W('這是我的家', 'This is home')}</span></span>${sw('home', draft.home === true, W('這是我的家', 'This is home'))}</div>
+      <div class="q-cell"><span class="q-cell-text">${W('固定時間在這裡', 'I’m here at set times')}</span>${sw('timed', timed, W('固定時間在這裡', 'I’m here at set times'))}</div>
+      ${classDays() || pin.cls ? `<div class="q-cell"><span class="q-cell-text">${W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable')}</span>${sw('cls', draft.cls === true, W('跟著 Orbit Class 的課表', 'Follow my Orbit Class timetable'))}</div>` : ''}
     </div>
     <p class="q-list-foot" id="pin-cls-foot"${draft.cls ? '' : ' hidden'}>${W('上學日從第一節前 40 分鐘到最後一節後 20 分鐘在這裡；放假、停課的日子不算。體育課碰到雨或炎熱，我的行程會提醒。', 'On school days you’re here from 40 minutes before the first class to 20 after the last; days off don’t count. My day warns when PE meets rain or heat.')}</p>
     <div id="pin-times"${timed ? '' : ' hidden'}>
@@ -857,43 +909,23 @@ function pinSheet(pin) {
       </div>
       <p class="q-list-foot">${W('這段時間打開，會先看到這裡。', 'At these times the app opens here.')}</p>
     </div>
-    <h3 class="q-list-head">${W('換地點', 'Change place')}</h3>
-    ${here?.lat != null ? `<button class="q-btn tinted block wx-here" type="button" data-pin-act="here">${glyph('locate', { size: 16 })}${W('用目前位置', 'Use current location')}${here.place?.town ? W(`（${e(here.place.town)}）`, ` (${e(placeIn(here.place.town))})`) : ''}</button>` : ''}
-    <label class="q-search wx-pin-q"><input id="pin-q" type="search" placeholder="${W('搜尋地址、地標或鄉鎮', 'Search an address, a place or a district')}" autocomplete="off" enterkeyhint="search"><button class="q-search-clear" type="button" data-pin-act="clear-q" aria-label="${W('清除', 'Clear')}">✕</button></label>
-    <div id="pin-list" class="q-list wx-list"></div>
-    <div class="wx-actions">
-      <button class="q-btn danger tinted large" type="button" data-pin-act="delete">${W('刪除', 'Delete')}</button>
-      <button class="q-btn primary large" type="button" data-pin-act="save">${W('儲存', 'Save')}</button>
-    </div>`);
-  const list = d.querySelector('#pin-list');
-  const qInput = d.querySelector('#pin-q');
-  let asked = 0;
-  let spotTimer = 0;
-  const session = spotSession();
-  qInput.addEventListener('input', async () => {
-    const n = ++asked;
-    const text = qInput.value;
-    clearTimeout(spotTimer);
-    if (!text.trim()) return void (list.innerHTML = '');
-    const rows = await findPlaces(text);
-    if (n !== asked) return;
-    const towns = rows.map(([c, t, la, lo]) => `<button class="q-cell" type="button" data-place="${e(c)}|${e(t)}|${la}|${lo}"><span class="q-cell-text">${e(placeIn(t))}</span><span class="q-cell-value">${e(placeIn(c))}</span></button>`).join('');
-    const none = () => kitUI.emptyHtml({ title: W('找不到這個地方', 'Nothing found') });
-    if (text.trim().length < 2) return void (list.innerHTML = towns || none());
-    list.innerHTML = towns;
-    spotTimer = setTimeout(async () => {
-      const spots = await findSpots(text, session);
-      if (n === asked) list.innerHTML = towns + spots.map(s => spotRowHtml(s, 'data-place-spot')).join('') || none();
-    }, SPOT_WAIT_MS);
-  });
-  // (Named after its town, or the spot picked: a new one renames it, a name of its own stays.)
-  // (The name this sheet gave it last; a name typed over it stays.)
-  let auto = pin.name === (placeIn(pin.town) || placeIn(pin.county)) ? pin.name : null;
+    <div class="q-list wx-pin-group"><button class="q-cell danger wx-pin-delete" type="button" data-pin-act="delete"><span class="q-cell-text">${W('刪除地點', 'Delete place')}</span></button></div>`;
+  const close = document.createElement('button');
+  Object.assign(close, { className: 'q-close', type: 'button', textContent: '✕' });
+  close.setAttribute('data-q-close', '');
+  close.setAttribute('aria-label', W('關閉', 'Close'));
+  const save = document.createElement('button');
+  Object.assign(save, { className: 'q-btn primary small wx-head-btn', type: 'button', textContent: W('儲存', 'Save') });
+  save.dataset.pinAct = 'save';
+  const k = kitUI.sheet({ title: W('編輯地點', 'Edit place'), lead: close, trailing: save, cls: 'wx-sheet wx-pin-sheet', body: [...box.content.childNodes], closeLabel: W('關閉', 'Close') });
+  const d = k.el;
+  // (Named after its town, or the spot picked: a new one renames it, a name typed stays.)
+  let auto = pin.name === (pin.spot || placeIn(pin.town) || placeIn(pin.county)) ? pin.name : null;
   const renamed = (name = '') => {
-    const box = d.querySelector('#pin-name');
+    const nameBox = d.querySelector('#pin-name');
     const next = (name || placeIn(draft.town) || placeIn(draft.county)).slice(0, 20);
-    if (auto != null && box.value === auto) box.value = auto = next;
-    box.placeholder = next || box.placeholder;
+    if (auto != null && nameBox.value === auto) nameBox.value = auto = next;
+    nameBox.placeholder = next || nameBox.placeholder;
   };
   d.addEventListener('click', async ev => {
     const day = ev.target.closest('[data-day]');
@@ -903,66 +935,34 @@ function pinSheet(pin) {
       day.setAttribute('aria-pressed', String(draft.days.includes(i)));
       return;
     }
-    const spot = ev.target.closest('[data-place-spot]');
-    if (spot) {
-      spot.setAttribute('aria-busy', 'true');
-      const p = await spotOf(spot.dataset.placeSpot, session);
-      spot.removeAttribute('aria-busy');
-      if (!p) return noSpot();
-      Object.assign(draft, { county: p.county, town: p.town, lat: p.lat, lon: p.lon });
-      d.querySelector('#pin-where').textContent = `${p.name}（${where()}）`;
-      renamed(p.name);
-      list.innerHTML = '';
-      qInput.value = '';
-      return;
-    }
-    const place = ev.target.closest('[data-place]');
-    if (place) {
-      const [c, t, la, lo] = place.dataset.place.split('|');
-      Object.assign(draft, { county: c, town: t, lat: Number(la), lon: Number(lo) });
-      d.querySelector('#pin-where').textContent = where();
-      renamed();
-      list.innerHTML = '';
-      qInput.value = '';
-      return;
-    }
-    const act = ev.target.closest('[data-pin-act]')?.dataset.pinAct;
-    if (act === 'clear-q') {
-      qInput.value = '';
-      list.innerHTML = '';
-      return qInput.focus();
-    }
-    if (act === 'home') {
-      draft.home = !draft.home;
-      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.home));
-      return;
-    }
+    const el = ev.target.closest('[data-pin-act]');
+    const act = el?.dataset.pinAct;
+    if (act === 'where')
+      return placePicker(p => {
+        Object.assign(draft, { county: p.county, town: p.town, lat: p.lat, lon: p.lon, spot: p.name || '' });
+        d.querySelector('#pin-where').innerHTML = whereHtml();
+        renamed(p.name);
+      });
+    if (act === 'home') return void el.setAttribute('aria-checked', String((draft.home = !draft.home)));
     if (act === 'cls') {
-      draft.cls = !draft.cls;
-      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(draft.cls));
+      el.setAttribute('aria-checked', String((draft.cls = !draft.cls)));
       d.querySelector('#pin-cls-foot').hidden = !draft.cls;
       return;
     }
     if (act === 'timed') {
-      timed = !timed;
-      ev.target.closest('[data-pin-act]').setAttribute('aria-checked', String(timed));
+      el.setAttribute('aria-checked', String((timed = !timed)));
       d.querySelector('#pin-times').hidden = !timed;
       return;
-    }
-    if (act === 'here' && here) {
-      Object.assign(draft, { lat: here.lat, lon: here.lon, county: here.place?.county || '', town: here.place?.town || '' });
-      d.querySelector('#pin-where').textContent = where();
-      renamed();
     }
     if (act === 'delete') {
       if (!(await ask({ title: W(`刪除「${pin.name}」？`, `Delete “${pin.name}”?`), ok: W('刪除', 'Delete'), cancel: W('取消', 'Cancel'), danger: true }))) return;
       state.data.pins = state.data.pins.filter(p => p.id !== pin.id);
       state.data.gone[pin.id] = Date.now();
-      d.close();
+      shut(d);
       await saveData();
     }
     if (act === 'save') {
-      draft.name = d.querySelector('#pin-name').value.trim() || placeIn(draft.town) || placeIn(draft.county);
+      draft.name = d.querySelector('#pin-name').value.trim() || draft.spot || placeIn(draft.town) || placeIn(draft.county);
       draft.from = d.querySelector('#pin-from').value || '07:00';
       draft.to = d.querySelector('#pin-to').value || '17:00';
       if (timed && draft.from === draft.to) return tell({ title: W('開始和結束不能是同一個時間', 'From and to can’t be the same time'), body: W('換一個結束時間。', 'Pick another end time.') });
@@ -976,7 +976,7 @@ function pinSheet(pin) {
       const at = state.data.pins.findIndex(p => p.id === clean.id);
       if (at >= 0) state.data.pins[at] = clean;
       else state.data.pins.push(clean);
-      d.close();
+      shut(d);
       await saveData();
     }
   });

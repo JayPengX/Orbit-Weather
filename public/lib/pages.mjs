@@ -18,7 +18,7 @@ import * as kitUI from '#kit/ui.mjs';
 import { clock, hourOf, dateOf, dayLabel, shortDate, weekday, deg, uvLevel, aqiLevel, windDir, beaufort, conditionText, staleText, RAIN_YES, RAIN_MAYBE } from './format.mjs';
 import { conditionArt, glyph, placeGlyph, sunArt, ADVICE_GLYPH } from './icons.mjs';
 import { placeName, skyOf, fxHtml, soonLine, radarSay, dayOffSec, hoursFrom, dayPop, rainSummary, uvDays, adviceList, LIFE, KIND_COLOR, LEVEL_TAG, todayOf } from './cards.mjs';
-import { rainSoon, radarHours, rainWord } from './soon.mjs';
+import { rainSoon, radarHours, rainWord, rainTurns } from './soon.mjs';
 import { OLD_MS } from './api.mjs';
 
 const HOUR = 3_600_000;
@@ -67,11 +67,10 @@ function stopsOf(f, page, now) {
   if (out.length >= 3) return out;
   // The day's turns, in time order, after any places.
   const turns = [];
-  const pops = list.filter(h => h.pop != null);
-  const wetNow = (pops[0]?.pop ?? 0) >= RAIN_YES;
-  const change = pops.slice(1, 13).find(h => (wetNow ? h.pop < RAIN_MAYBE : h.pop >= RAIN_YES));
-  // (Rain coming: that hour's sky and temperature, the chance under it once: 「70%」 and 「☂ 70%」 both said it, 11-12.)
-  if (change) turns.push(wetNow ? { t: change.t, label: when(change.t), v: W('雨停', 'Dry'), name: '', icon: 'umbrella' } : { t: change.t, label: when(change.t), v: deg(change.temp), name: W('下雨', 'Rain'), wet: change.pop, sky: change });
+  // (Rain coming: that hour's sky and temperature, the chance under it once: 「70%」 and 「☂ 70%」 both said it, 11-12;
+  // the radar's shower by its word, not an hour's chance: soon.mjs rainTurns.)
+  for (const c of rainTurns(f, now).turns.slice(0, 2))
+    turns.push(c.kind === 'stop' ? { t: c.t, label: when(c.t), v: W('雨停', 'Dry'), name: '', icon: 'umbrella' } : { t: c.t, label: when(c.t), v: deg(c.h?.temp), name: c.word ? W(c.word.zh, c.word.en) : W('下雨', 'Rain'), wet: c.word ? null : c.h?.pop, sky: c.h });
   const day = list.filter(h => sameDay(h.t) && hourOf(h.t, tz) <= 17 && h.temp != null);
   const peak = day.slice(1).reduce((a, h) => (h.temp > (a?.temp ?? -99) ? h : a), null);
   const nowT = n.temp ?? list[0].temp;

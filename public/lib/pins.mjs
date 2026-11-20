@@ -36,6 +36,8 @@ export function cleanPin(p) {
     // (A place abroad is a country and a city: longer than Taiwan's names.)
     county: String(p.county || '').slice(0, 40),
     town: String(p.town || '').slice(0, 40),
+    // An exact spot's own name (成功九街90號, 竹北高中), picked by address or landmark; a township's or the phone's own position has none.
+    ...(p.spot ? { spot: String(p.spot).trim().slice(0, 40) } : {}),
     days,
     from: clockOk(p.from) ? p.from : '07:00',
     to: clockOk(p.to) ? p.to : '17:00',
