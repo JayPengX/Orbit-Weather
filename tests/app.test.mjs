@@ -2,7 +2,7 @@
 // the notices' plan, the graphs, the page, the proxy calls.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId } from '../public/lib/pins.mjs';
+import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId, atAPlace } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec, placeName } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
@@ -770,4 +770,14 @@ test('an exact spot by address or landmark: the family place search, near the ph
   assert.equal(p.searchParams.get('id'), 'b2');
   assert.equal(p.searchParams.get('s'), 'sess1234');
   assert.deepEqual(await searchSpots('x', null, 's', 'T', async () => new Response('{"code":"CAP_REACHED"}')), []);
+});
+
+test('目前位置 is a page only away from your places (Jay 11-20: at home or school it said what 我的行程 says)', () => {
+  const home = { lat: 24.8270, lon: 121.0123 };
+  const school = { lat: 24.8335, lon: 121.0119 };
+  assert.equal(atAPlace({ lat: 24.8281, lon: 121.0131 }, [home, school]), true, 'at home');
+  assert.equal(atAPlace({ lat: 24.8335 + 0.015, lon: 121.0119 }, [home, school]), true, '1.7 km from school: still 我的行程\'s');
+  assert.equal(atAPlace({ lat: 25.0330, lon: 121.5654 }, [home, school]), false, 'in Taipei: 目前位置 has its page');
+  assert.equal(atAPlace(null, [home]), false, 'no position: it stays (定位 is asked there)');
+  assert.equal(atAPlace({ lat: 24.8281, lon: 121.0131 }, []), false);
 });

@@ -11,7 +11,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, getPosition, fetchForecast, fetchWhere, fetchPlaces, searchSpots, spotAt, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours, kmBetween, atAPlace, OFF_PLAN_KM } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
@@ -161,13 +161,6 @@ const pageOf = key => state.pages.find(p => p.key === key) || (state.look?.key =
 // The device off the plan: its place is fresh (half an hour) and over 2 km
 // from the pin the plan has you at now. Then the plan takes here for this
 // hour and the next (where you actually are), its pins after that.
-const OFF_PLAN_KM = 2;
-const kmBetween = (a, b) => {
-  const rad = Math.PI / 180;
-  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
-  const y = (b.lat - a.lat) * rad;
-  return 6371 * Math.hypot(x, y);
-};
 function liveRoute(now = Date.now()) {
   const here = state.local.here;
   const pin = placeAt(state.data.pins, now);
@@ -188,7 +181,16 @@ const forecastFor = key => {
   return page && !page.plan ? forecastOf(page) : null;
 };
 
-const current = () => pageOf(state.key) || state.pages[0];
+// The pages shown (the swipe, 地點's rows): 目前位置 only away from your places
+// once 我的行程 has you (Jay 11-20: at home or school it said what 我的行程
+// says). Within OFF_PLAN_KM of a place, 我的行程's own line, it isn't a page;
+// it stays in state.pages, where locating and 我的行程's now read it.
+const hereAtPlace = () => state.pages.some(p => p.plan) && atAPlace(state.local.here, state.data.pins);
+const shownPages = () => (hereAtPlace() ? state.pages.filter(p => p.key !== 'here') : state.pages);
+const current = () => {
+  const p = pageOf(state.key);
+  return p && shownPages().includes(p) ? p : shownPages()[0];
+};
 
 // 我的行程 says where the route has you now (the head, the sky, its row in 地點).
 function notePlan(now) {
@@ -241,7 +243,7 @@ const pageSig = page =>
     : `${forecastOf(page)?.at || page.error || 0}${forecastOf(page)?.more ? '+' : ''}|${page.lat ?? ''},${page.lon ?? ''}|${page.place?.town || ''}|${page.note || ''}|${page.askable ? 1 : 0}|${page.error || ''}`;
 const viewSig = page => {
   const base = `${state.tab}|${page.key}|${Math.floor(Date.now() / 3_600_000)}|${state.data.t}`;
-  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${state.pages.map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}|${state.pages.map(p => p.key).join()}`;
+  return state.tab === 'places' ? `${base}|${state.data.brief}|${state.editing}|${shownPages().map(p => `${p.key}:${p.plan ? '' : pageSig(p)}`).join(';')}` : `${base}|${pageSig(page)}|${shownPages().map(p => p.key).join()}`;
 };
 // (A typhoon day off announced where a pin is: where you'll be moves on.)
 onDayOff(() => {
@@ -268,7 +270,7 @@ function render() {
   const sig = viewSig(page);
   if (panel.dataset.sig === sig) return;
   panel.dataset.sig = sig;
-  if (state.tab === 'places') return void ((panel.innerHTML = placesPage(placeRows(page).map((r, i) => ({ ...r, page: state.pages[i], f: forecastOf(state.pages[i]) })), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0, now })), kitUI.wireNavTitles(panel));
+  if (state.tab === 'places') return void ((panel.innerHTML = placesPage(placeRows(page).map((r, i) => ({ ...r, page: shownPages()[i], f: forecastOf(shownPages()[i]) })), { brief: state.data.brief, editing: state.editing && state.data.pins.length > 0, now })), kitUI.wireNavTitles(panel));
   if (page.key !== shownKey) ((shownKey = page.key), visit++);
   panel.innerHTML = skyPage(forecastOf(page), page, { now, visit, cards: state.data.cards, hidden: state.data.hidden, home: state.data.pins.find(p => p.home)?.name || '' });
   // (The owner's cards in columns on a wide screen, in the phone's order.)
@@ -281,7 +283,8 @@ kitCore.onScreen(() => {
 
 // A swipe across 天氣 goes to the place beside, from its top (the title says which).
 kitUI.daySwipe($('panel-now'), dir => {
-  const next = state.pages[state.pages.indexOf(current()) + dir];
+  const shown = shownPages();
+  const next = shown[shown.indexOf(current()) + dir];
   if (!next) return false;
   state.key = next.key;
   showTab('now', { top: true });
@@ -294,7 +297,7 @@ kitUI.daySwipe($('panel-now'), dir => {
 // 地點's rows: each place's picture and colour, what it is, its temperature now.
 const PLACE_COLOR = page => (page.plan ? 'indigo' : page.pin?.home ? 'orange' : page.pin ? 'pink' : 'blue');
 function placeRows(shown) {
-  return state.pages.map(p => {
+  return shownPages().map(p => {
     const n = forecastOf(p)?.now;
     const name = placeName(p);
     return {

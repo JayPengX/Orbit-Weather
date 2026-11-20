@@ -90,6 +90,19 @@ export function pinActiveAt(pin, t) {
   return (pinDay(pin, day, date) && min >= from) || (pinDay(pin, (day + 6) % 7, dayBefore(date)) && min < to);
 }
 
+// Kilometres between two points (near enough for a town's distances).
+export const kmBetween = (a, b) => {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return 6371 * Math.hypot(x, y);
+};
+// Farther than this from where 我的行程 has you, the phone's own position is taken instead.
+export const OFF_PLAN_KM = 2;
+// At one of your places (within OFF_PLAN_KM of it): 目前位置 then says what
+// 我的行程 says, so it isn't a page of its own (Jay 2026-11-20).
+export const atAPlace = (here, pins) => here?.lat != null && here?.lon != null && (pins || []).some(p => kmBetween(here, p) <= OFF_PLAN_KM);
+
 // The pin to open on now, or null (the current location).
 // What a place is to the family's other apps: 'home', 'school' (Class's 停課
 // is read there), 'work' or null. One rule for the kit's dayoff place and the
