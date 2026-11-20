@@ -17,6 +17,7 @@ Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RUL
 - 11-05 The temperature's pop fires only when it changes while that place is on screen, never on arriving.
 - 11-06 搜尋地點 opens any township's whole 天氣 in a sheet, kept only on 加入 (one tap).
 - 11-10 Rain coming is said so anyone gets it: how hard in words (毛毛雨 … 豪大雨, kit `rain-now.mjs`), never millimetres; when it starts and stops as clock times; what to do; how far it reaches (~1.5 km). Only rain the radar really sees, tracked as it moves, never CWA's hour-sum alone. The sky card, the hours, 降雨 and the notice say the same (`radarSay`, `radarHours`).
+- 11-20 The rain notice reads at a glance (Jay: "too long and hard to read"): the title is the place (學校 快下雨了), the line under it only when it starts, how hard, when it stops and what to do (16:35 起小雨，約 17:00 停，記得帶傘); no minutes-from-now, no length, no radar line (the sky card keeps ~1.5 km).
 - 11-10 問天氣 is code first: a question is read and answered by code from the forecast as one drawn row; only a place the townships don't have goes to AI, on a tap.
 - 11-10 With Orbit Class: a place can follow Class's timetable (40 minutes before the first class to 20 after the last on school days); nothing is sent, the two apps share the phone's notebook.
 - One number means one thing everywhere: the line, the graph and the 10 days read the same hours; today's rain chance and advice count only the hours ahead (`dayPop`).
