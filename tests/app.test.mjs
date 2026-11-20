@@ -2,7 +2,7 @@
 // the notices' plan, the graphs, the page, the proxy calls.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId, atAPlace } from '../public/lib/pins.mjs';
+import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData, mergeData, emptyData, planNotices, taipeiClock, newPinId, offPlan } from '../public/lib/pins.mjs';
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec, placeName } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
@@ -772,14 +772,22 @@ test('an exact spot by address or landmark: the family place search, near the ph
   assert.deepEqual(await searchSpots('x', null, 's', 'T', async () => new Response('{"code":"CAP_REACHED"}')), []);
 });
 
-test('目前位置 is a page only away from your places (Jay 11-20: at home or school it said what 我的行程 says)', () => {
-  const home = { lat: 24.8270, lon: 121.0123 };
-  const school = { lat: 24.8335, lon: 121.0119 };
-  assert.equal(atAPlace({ lat: 24.8281, lon: 121.0131 }, [home, school]), true, 'at home');
-  assert.equal(atAPlace({ lat: 24.8335 + 0.015, lon: 121.0119 }, [home, school]), true, '1.7 km from school: still 我的行程\'s');
-  assert.equal(atAPlace({ lat: 25.0330, lon: 121.5654 }, [home, school]), false, 'in Taipei: 目前位置 has its page');
-  assert.equal(atAPlace(null, [home]), false, 'no position: it stays (定位 is asked there)');
-  assert.equal(atAPlace({ lat: 24.8281, lon: 121.0131 }, []), false);
+test('目前位置 or 我的行程: where 我的行程 has you now, within 1 km (Jay 11-20: off the plan\'s tile open on 目前位置, else on 我的行程)', () => {
+  const home = { id: 'ph', lat: 24.8270, lon: 121.0123, home: true, days: [] };
+  // School ~3 km off, weekdays 07:00–17:00; a Monday at 10:00 and at 20:00 (Taiwan).
+  const school = { id: 'ps', lat: 24.8540, lon: 121.0123, days: [1, 2, 3, 4, 5], from: '07:00', to: '17:00' };
+  const pins = [home, school];
+  const mon10 = Date.parse('2026-11-23T10:00:00+08:00');
+  const mon20 = Date.parse('2026-11-23T20:00:00+08:00');
+  const atSchool = { lat: 24.8545, lon: 121.0128 };
+  const atHome = { lat: 24.8275, lon: 121.0120 };
+  assert.equal(offPlan(atSchool, pins, mon10), false, 'at school in school hours: 我的行程');
+  assert.equal(offPlan(atHome, pins, mon10), true, 'home in school hours: 目前位置');
+  assert.equal(offPlan(atHome, pins, mon20), false, 'home in the evening: 我的行程');
+  assert.equal(offPlan({ lat: 24.8270 + 0.0135, lon: 121.0123 }, pins, mon20), true, '1.5 km from home: off the tile');
+  assert.equal(offPlan({ lat: 24.8270 + 0.007, lon: 121.0123 }, pins, mon20), false, '0.8 km: still home\'s');
+  assert.equal(offPlan(null, pins, mon20), false, 'no position yet: 我的行程');
+  assert.equal(offPlan(atHome, [school], mon20), true, 'no place has you then: 目前位置');
 });
 
 test('an exact spot says its county and township under its name (Jay 11-20: 台北101購物中心 said only 臺北市)', () => {

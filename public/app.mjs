@@ -11,7 +11,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, getPosition, fetchForecast, fetchWhere, fetchPlaces, searchSpots, spotAt, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours, kmBetween, atAPlace, OFF_PLAN_KM } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours, kmBetween, offPlan, OFF_PLAN_KM } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
@@ -181,12 +181,27 @@ const forecastFor = key => {
   return page && !page.plan ? forecastOf(page) : null;
 };
 
-// The pages shown (the swipe, 地點's rows): 目前位置 only away from your places
-// once 我的行程 has you (Jay 11-20: at home or school it said what 我的行程
-// says). Within OFF_PLAN_KM of a place, 我的行程's own line, it isn't a page;
-// it stays in state.pages, where locating and 我的行程's now read it.
-const hereAtPlace = () => state.pages.some(p => p.plan) && atAPlace(state.local.here, state.data.pins);
+// The pages shown (the swipe, 地點's rows): 目前位置 only when you aren't
+// where 我的行程 has you now (Jay 11-20: at home or school it said what
+// 我的行程 says; offPlan, the same line 我的行程 takes your own position by).
+// It stays in state.pages, where locating and 我的行程's now read it.
+const hasPlan = () => state.pages.some(p => p.plan);
+const hereAtPlace = () => hasPlan() && state.local.here?.lat != null && !offPlan(state.local.here, state.data.pins);
 const shownPages = () => (hereAtPlace() ? state.pages.filter(p => p.key !== 'here') : state.pages);
+// The page Weather opens on (Jay 11-20): 我的行程 where it has you (within
+// OFF_PLAN_KM), else 目前位置; a notice's pin when the address names one.
+// Picked again once the phone's fix is in and on coming back after AWAY_MS,
+// until a place is chosen by hand.
+const AWAY_MS = 5 * 60_000;
+let autoOpen = true;
+const openKey = () => hashPin() ?? (hasPlan() && offPlan(state.local.here, state.data.pins) ? 'here' : state.pages[0].key);
+function openDefault() {
+  if (!autoOpen || hashPin()) return;
+  const key = openKey();
+  if (key === state.key) return;
+  state.key = key;
+  if (state.started && state.tab === 'now') showTab('now', { top: true });
+}
 const current = () => {
   const p = pageOf(state.key);
   return p && shownPages().includes(p) ? p : shownPages()[0];
@@ -225,6 +240,7 @@ function showTab(id, { top = false, load = true } = {}) {
 // A place chosen (地點, a notice's tap): its 今天, from the top.
 function choose(key) {
   if (!pageOf(key)) return;
+  autoOpen = false;
   state.key = key;
   showTab('now', { top: true });
 }
@@ -286,6 +302,7 @@ kitUI.daySwipe($('panel-now'), dir => {
   const shown = shownPages();
   const next = shown[shown.indexOf(current()) + dir];
   if (!next) return false;
+  autoOpen = false;
   state.key = next.key;
   showTab('now', { top: true });
   // (From its top every time, as 地點's choice does: the tab doesn't change,
@@ -443,7 +460,10 @@ async function locate({ force = false } = {}) {
   }
   // One at a time (an open, a return and the tick can ask together).
   if (state.locating) return state.locating;
-  state.locating = locateNow(here).finally(() => (state.locating = null));
+  state.locating = locateNow(here).finally(() => {
+    state.locating = null;
+    openDefault();
+  });
   return state.locating;
 }
 const EARLY_MS = 700;
@@ -1325,8 +1345,16 @@ document.addEventListener('pointerout', ev => {
 });
 
 // Back on screen: fresh again, where the device is now.
+let hiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState !== 'visible' || !state.started) return;
+  if (document.visibilityState !== 'visible') return void (hiddenAt = Date.now());
+  if (!state.started) return;
+  // (Away a while: opened again, on the page for where the phone is.)
+  // (A notice's #pin= from before is spent: a new notice's tap names its own.)
+  if (hiddenAt && Date.now() - hiddenAt > AWAY_MS) {
+    autoOpen = true;
+    if (/pin=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + location.hash.replace(/[#&]?pin=p[a-z0-9]+/, '').replace(/^&/, '#'));
+  }
   locate();
   loadShown();
 });
@@ -1371,7 +1399,7 @@ async function boot() {
   buildPages();
   // 我的行程 when there are pins (it shows where you are now), else here; a
   // notice's pin; the tab the address names.
-  state.key = hashPin() ?? state.pages[0].key;
+  state.key = openKey();
   if (!hashPin()) waitingPin = askedPin();
   state.tab = hashTab() ?? 'now';
   // A phone that has opened Weather before: its last forecast up at once and
@@ -1396,7 +1424,7 @@ async function boot() {
   keepData();
   buildPages();
   // (The pass's pins in: a notice's pin, or 我的行程, can be named now.)
-  if (!state.started) state.key = hashPin() ?? state.pages[0].key;
+  if (!state.started) state.key = openKey();
   render();
   openWaitingPin();
   // A first opening: the loading screen lifts when the first place's forecast

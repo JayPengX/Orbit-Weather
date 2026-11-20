@@ -49,7 +49,9 @@ test('a school pin is told by its name or by following Class: its 停課 counts,
 
 test("a notice's pin added on another device opens once the pass brings it (the phone was up on its own copy and opened 我的行程)", () => {
   // Asked at boot and on a hash change when this device doesn't have it yet...
-  assert.match(app, /state\.key = hashPin\(\) \?\? state\.pages\[0\]\.key;\n\s*if \(!hashPin\(\)\) waitingPin = askedPin\(\);/);
+  assert.match(app, /state\.key = openKey\(\);\n\s*if \(!hashPin\(\)\) waitingPin = askedPin\(\);/);
+  // (The page it opens on: a notice's pin first, before 我的行程 or 目前位置.)
+  assert.match(app, /const openKey = \(\) => hashPin\(\) \?\?/);
   assert.match(app, /if \(key\) return choose\(key\);\n\s*waitingPin = askedPin\(\);/);
   // ...opened after the pass's first copy and after any copy it brings later.
   const boot = app.slice(app.indexOf('async function boot('));

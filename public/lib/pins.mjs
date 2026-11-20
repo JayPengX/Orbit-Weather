@@ -97,11 +97,10 @@ export const kmBetween = (a, b) => {
   const y = (b.lat - a.lat) * rad;
   return 6371 * Math.hypot(x, y);
 };
-// Farther than this from where 我的行程 has you, the phone's own position is taken instead.
-export const OFF_PLAN_KM = 2;
-// At one of your places (within OFF_PLAN_KM of it): 目前位置 then says what
-// 我的行程 says, so it isn't a page of its own (Jay 2026-11-20).
-export const atAPlace = (here, pins) => here?.lat != null && here?.lon != null && (pins || []).some(p => kmBetween(here, p) <= OFF_PLAN_KM);
+// Farther than this from where 我的行程 has you (about a forecast's own cell,
+// Jay 2026-11-20: 「the 1x1 km tile」), you're somewhere else: 我的行程 takes
+// the phone's own position, 目前位置 is a page of its own and the app opens on it.
+export const OFF_PLAN_KM = 1;
 
 // The pin to open on now, or null (the current location).
 // What a place is to the family's other apps: 'home', 'school' (Class's 停課
@@ -115,6 +114,13 @@ export function pinRole(pin, isClass = false) {
   return pin.cls || (weekday && isClass) ? 'school' : weekday ? 'work' : null;
 }
 export const activePin = (pins, t = Date.now()) => (pins || []).find(p => !p.home && pinActiveAt(p, t)) || (pins || []).find(p => p.home && pinActiveAt(p, t)) || null;
+// Not where 我的行程 has you at t: the phone's position known and over
+// OFF_PLAN_KM from that place, or no place has you then. (No position: on plan.)
+export function offPlan(here, pins, t = Date.now()) {
+  if (here?.lat == null || here?.lon == null) return false;
+  const at = placeAt(pins, t);
+  return !at || kmBetween(here, at) > OFF_PLAN_KM;
+}
 // Where you are at t by the schedule: a pin inside its hours, else home,
 // else null (wherever the device is).
 export const placeAt = (pins, t) => activePin(pins, t) || (pins || []).find(p => p.home) || null;
