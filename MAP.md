@@ -16,6 +16,7 @@ Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RUL
 - 11-03 Weather draws its own flat pictures (`lib/icons.mjs`): no emoji, gradient, shadow or fixed colour in a drawing (tests check).
 - 11-05 The temperature's pop fires only when it changes while that place is on screen, never on arriving.
 - 11-06 搜尋地點 opens any township's whole 天氣 in a sheet, kept only on 加入 (one tap).
+- 11-20 A place can be an exact spot (Jay chose: type an address or a landmark, no map): 搜尋地點 and 編輯地點 find them under the townships through the family's place search (Orbit-Core `/transit/search`, Google's within its free month). Only the radar's rain, the nearest station's now and the gauge are finer than a township; the hours and ten days are CWA's one point a township and Google's ~5 km grid. A township's own point is CWA's (`weather-towns.js`).
 - 11-10 Rain coming is said so anyone gets it: how hard in words (毛毛雨 … 豪大雨, kit `rain-now.mjs`), never millimetres; when it starts and stops as clock times; what to do; how far it reaches (~1.5 km). Only rain the radar really sees, tracked as it moves, never CWA's hour-sum alone. The sky card, the hours, 降雨 and the notice say the same (`radarSay`, `radarHours`).
 - 11-20 The rain notice reads at a glance (Jay: "too long and hard to read"): the title is the place (學校 快下雨了), the line under it only when it starts, how hard, when it stops and what to do (16:35 起小雨，約 17:00 停，記得帶傘); no minutes-from-now, no length, no radar line (the sky card keeps ~1.5 km).
 - 11-10 問天氣 is code first: a question is read and answered by code from the forecast as one drawn row; only a place the townships don't have goes to AI, on a tap.
@@ -26,7 +27,7 @@ Jay's, dated (Taiwan day), newest wins; the family's are in Orbit-Core `docs/RUL
 
 ## How it works
 
-- **One answer.** The proxy (Orbit-Core `weather.js`, `/weather?lat=&lon=`) blends Google Weather, CWA, MOENV and real stations for a ~1 km cell, learning whom to trust (`weather-skill.js`); the app gets one value per thing. `/weather/where` names the township, `/weather/places` lists them all.
+- **One answer.** The proxy (Orbit-Core `weather.js`, `/weather?lat=&lon=`) blends Google Weather, CWA, MOENV and real stations for a ~1 km cell, learning whom to trust (`weather-skill.js`); the app gets one value per thing. `/weather/where` names the township, `/weather/places` lists them all; an address or landmark is the family's `/transit/search` (`searchSpots`, `spotAt`).
 - **Opens at once** on the last forecast kept and refreshes behind it, asked again once 15 minutes old (opening, coming back, a change of place or tab, each minute on screen). A stalled request is dropped and asked again; the forecast is drawn before the place's name. Location: a quick fix first, GPS after; asked again only if GPS lands in another cell.
 - **Rain soon:** the radar first (the proxy's `radar`, Orbit-Core `weather-radar.js`, read by the kit's `rain-now.mjs`) as a panel on the sky card (`cards.mjs radarPanel`); without it, `lib/soon.mjs` (a wet hour within 2 hours of a dry one). The notice is Orbit-Core `weather.js radarNotice`.
 - **颱風:** only while CWA has a warning out: the county's 停班停課 once listed, else a fitted chance (the proxy's `dayOff`, Orbit-Core `typhoon.js`).

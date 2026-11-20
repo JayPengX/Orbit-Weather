@@ -170,6 +170,13 @@ export async function fetchForecast(where, token, fetchFn = fetch, { firstMs = F
 // The place: { county, town }.
 // (Abroad the name is OpenStreetMap's, in the page's language: `lang`.)
 export const fetchWhere = (lat, lon, token, fetchFn = fetch) => get(`/weather/where?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}${kitLang.en ? '&lang=en' : ''}`, token, fetchFn);
+// Addresses and landmarks (竹北高中, 光復路二段101號): the family's place search
+// (Orbit-Core transit.js, Google's under its free month), near the phone (to ~1 km)
+// when known; `s` one search's session (Google bills a search and its pick as one).
+// → [{ id, name, sub, lat?, lon? }]; a spot without its position asks spotAt.
+export const searchSpots = (text, near, s, token, fetchFn = fetch) =>
+  get(`/transit/search?q=${encodeURIComponent(text)}${near ? `&lat=${near.lat.toFixed(2)}&lon=${near.lon.toFixed(2)}` : ''}&s=${s}`, token, fetchFn).then(r => (Array.isArray(r?.items) ? r.items : []).filter(i => i?.id && i.name).slice(0, 8));
+export const spotAt = (id, s, token, fetchFn = fetch) => get(`/transit/place?id=${encodeURIComponent(id)}&s=${s}`, token, fetchFn);
 // Taiwan's townships [[county, town, lat, lon]…] for the pin picker.
 export async function fetchPlaces(fetchFn = fetch) {
   const res = await fetchFn(`${PROXY}/weather/places`);

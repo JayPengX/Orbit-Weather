@@ -6,7 +6,7 @@ import { cleanPin, pinActiveAt, activePin, scheduleText, encodeData, decodeData,
 import { uvGraph, rainGraph, airGraph, dayCharts, readout, CHART_W } from '../public/lib/graph.mjs';
 import { adviceSheet, airCols, airCard, rainCard, rainSummary, daySheet, sheetHours, keepPast, dayTips, hoursFrom, colsFor, uvCols, uvDays, daysCols, metricSheet, offGroups, dayOffSec, placeName } from '../public/lib/cards.mjs';
 import { nowHtml as skyPage } from '../public/lib/pages.mjs';
-import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, placeLines, getPosition, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
+import { cellOf, loadLocal, saveLocal, isFresh, fetchForecast, fetchWhere, searchSpots, spotAt, placeLines, getPosition, FRESH_MS, RECHECK_MS, dataAge } from '../public/lib/api.mjs';
 import { clock, dateOf, dayLabel, weekday, uvLevel, windDir, conditionKind } from '../public/lib/format.mjs';
 import { sunTimes } from '../public/lib/sun.mjs';
 
@@ -748,4 +748,26 @@ test('測試工具: no switch draws the forecast as kept; each switch only a cop
   } finally {
     delete globalThis.ORBIT_TEST;
   }
+});
+
+test('an exact spot by address or landmark: the family place search, near the phone to ~1 km, one session', async () => {
+  // (Jay 11-20: a place could only be a township's point or where the phone stood.)
+  const urls = [];
+  const fetchFn = async url => (urls.push(url), new Response(JSON.stringify({ items: [{ id: 'a1', name: '竹北高中', sub: '新竹縣竹北市', lat: 24.83, lon: 121.01 }, { id: 'b2', name: '光復路二段101號', sub: '新竹市東區' }, { id: '', name: 'x' }, { id: 'c3' }] })));
+  const got = await searchSpots('竹北高中', { lat: 24.83891, lon: 121.00712 }, 'sess1234', 'T', fetchFn);
+  assert.deepEqual(got.map(s => s.id), ['a1', 'b2']);
+  const u = new URL(urls[0]);
+  assert.equal(u.pathname.endsWith('/transit/search'), true);
+  assert.equal(u.searchParams.get('q'), '竹北高中');
+  assert.equal(u.searchParams.get('lat'), '24.84');
+  assert.equal(u.searchParams.get('lon'), '121.01');
+  assert.equal(u.searchParams.get('s'), 'sess1234');
+  assert.equal(u.searchParams.get('qt'), 'T');
+  assert.equal(new URL((await searchSpots('光復路', null, 's', 'T', fetchFn), urls[1])).searchParams.has('lat'), false, 'no position: none sent');
+  await spotAt('b2', 'sess1234', 'T', async url => (urls.push(url), new Response('{"lat":24.79,"lon":120.99}')));
+  const p = new URL(urls[2]);
+  assert.equal(p.pathname.endsWith('/transit/place'), true);
+  assert.equal(p.searchParams.get('id'), 'b2');
+  assert.equal(p.searchParams.get('s'), 'sess1234');
+  assert.deepEqual(await searchSpots('x', null, 's', 'T', async () => new Response('{"code":"CAP_REACHED"}')), []);
 });
