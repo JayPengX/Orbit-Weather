@@ -11,7 +11,7 @@ import { passSync } from '#kit/pass-sync.mjs';
 import { twHoliday } from '#kit/holidays.mjs';
 import { dayOffOn, onDayOff, setPlace } from '#kit/dayoff.mjs';
 import { loadLocal, saveLocal, cellOf, cachedForecast, isFresh, getPosition, fetchForecast, fetchWhere, fetchPlaces, searchSpots, spotAt, placeIn, HIDE_MS, MORE_FIRST_MS, MORE_MS, MORE_TRIES } from './lib/api.mjs';
-import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours, kmBetween, offPlan, OFF_PLAN_KM } from './lib/pins.mjs';
+import { emptyData, encodeData, decodeData, mergeData, cleanPin, newPinId, planNotices, placeAt, pinRole, scheduleText, MAX_PINS, DEFAULT_LAYOUT, useHolidays, useClassHours, kmBetween, offPlan, sameSquare } from './lib/pins.mjs';
 // Taiwan's holidays (the kit's), before anything is drawn, so a school pin
 // is off on a holiday from the first screen.
 // And a typhoon day off where a weekday pin is (the kit's dayoff.mjs): 停課
@@ -165,7 +165,7 @@ function liveRoute(now = Date.now()) {
   const here = state.local.here;
   const pin = placeAt(state.data.pins, now);
   if (!here || here.lat == null || now - (here.at || 0) > 30 * 60_000 || !pin) return null;
-  return kmBetween(here, pin) > OFF_PLAN_KM ? { until: Math.floor(now / 3_600_000) * 3_600_000 + 2 * 3_600_000 } : null;
+  return sameSquare(here, pin) ? null : { until: Math.floor(now / 3_600_000) * 3_600_000 + 2 * 3_600_000 };
 }
 // (A copy hours old isn't shown while the new one is on its way: it read
 // as today's. Kept for when the read fails, marked old.)
@@ -189,7 +189,7 @@ const hasPlan = () => state.pages.some(p => p.plan);
 const hereAtPlace = () => hasPlan() && state.local.here?.lat != null && !offPlan(state.local.here, state.data.pins);
 const shownPages = () => (hereAtPlace() ? state.pages.filter(p => p.key !== 'here') : state.pages);
 // The page Weather opens on (Jay 11-20): 我的行程 where it has you (within
-// OFF_PLAN_KM), else 目前位置; a notice's pin when the address names one.
+// its radar square, pins.mjs sameSquare), else 目前位置; a notice's pin when the address names one.
 // Picked again once the phone's fix is in and on coming back after AWAY_MS,
 // until a place is chosen by hand.
 const AWAY_MS = 5 * 60_000;

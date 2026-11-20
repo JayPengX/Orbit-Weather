@@ -4,6 +4,7 @@
 // Saved on the Orbit Pass (the app's payload), newest wins.
 
 import { W, en } from '#kit/lang.mjs';
+import * as rainKit from '#kit/rain-now.mjs';
 
 export const MAX_PINS = 8;
 const DAY_MS = 86_400_000;
@@ -97,10 +98,13 @@ export const kmBetween = (a, b) => {
   const y = (b.lat - a.lat) * rad;
   return 6371 * Math.hypot(x, y);
 };
-// Farther than this from where 我的行程 has you (about a forecast's own cell,
-// Jay 2026-11-20: 「the 1x1 km tile」), you're somewhere else: 我的行程 takes
-// the phone's own position, 目前位置 is a page of its own and the app opens on it.
+// Where 我的行程 has you is a radar square (Jay 2026-11-20: 「whether it's in
+// the same rain radar tile」, ~1.25 × 1.4 km, kit rain-now.mjs radarSquare):
+// out of it you're somewhere else, so 我的行程 takes the phone's own
+// position, 目前位置 is a page of its own and the app opens on it.
+// (A phone on a kit from before radarSquare: within OFF_PLAN_KM.)
 export const OFF_PLAN_KM = 1;
+export const sameSquare = (a, b) => (rainKit.radarSquare ? rainKit.radarSquare(a.lat, a.lon) === rainKit.radarSquare(b.lat, b.lon) : kmBetween(a, b) <= OFF_PLAN_KM);
 
 // The pin to open on now, or null (the current location).
 // What a place is to the family's other apps: 'home', 'school' (Class's 停課
@@ -114,12 +118,12 @@ export function pinRole(pin, isClass = false) {
   return pin.cls || (weekday && isClass) ? 'school' : weekday ? 'work' : null;
 }
 export const activePin = (pins, t = Date.now()) => (pins || []).find(p => !p.home && pinActiveAt(p, t)) || (pins || []).find(p => p.home && pinActiveAt(p, t)) || null;
-// Not where 我的行程 has you at t: the phone's position known and over
-// OFF_PLAN_KM from that place, or no place has you then. (No position: on plan.)
+// Not where 我的行程 has you at t: the phone's position known and in another
+// radar square than that place's, or no place has you then. (No position: on plan.)
 export function offPlan(here, pins, t = Date.now()) {
   if (here?.lat == null || here?.lon == null) return false;
   const at = placeAt(pins, t);
-  return !at || kmBetween(here, at) > OFF_PLAN_KM;
+  return !at || !sameSquare(here, at);
 }
 // Where you are at t by the schedule: a pin inside its hours, else home,
 // else null (wherever the device is).
